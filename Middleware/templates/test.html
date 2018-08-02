@@ -1,37 +1,61 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
-    <head>
-        <meta charset="utf-8">
-        <title>test</title>
-        <script src="/media/Storage/Ubuntu/Default/Desktop/GLOBAL/highcharts/code/js/highcharts.js"></script>
-        <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
-        <script src="https://code.highcharts.com/stock/highstock.js"></script>
-        <script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
-        <script src="https://code.highcharts.com/stock/modules/export-data.js"></script>
-    </head>
-    <body>
-        {{ data }}
-        <div id="container" style="height: 400px"></div>
-        <script type="text/javascript">
 
-            Highcharts.chart('container', {
-                title: {
-                    text: 'Chart reflow is set to true'
-                },
+<head>
+  <meta charset="utf-8">
+  <title>test</title>
 
-                subtitle: {
-                    text: 'When resizing the window or the frame, the chart should resize'
-                },
+  <script src="https://code.jquery.com/jquery-3.1.1.js"></script>
+  <script src="https://code.highcharts.com/stock/highstock.js"></script>
+  <script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
+  <script src="https://code.highcharts.com/stock/modules/export-data.js"></script>
+</head>
 
-                series: [
-                    {
-                        data: {
-                            table: 'datatable'
-                        }
+<body>
 
-                    }
-                ]
-            });
-        </script>
-    </body>
+  <div id="container" style="height: 400px"></div>
+  <!-- <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+
+      var options = {
+        chart: {
+          type: 'spline'
+        },
+        series: [{}]
+      };
+
+      Highcharts.ajax({
+        url: 'charts',
+        success: function(data) {
+          options.series[0].data = data;
+          Highcharts.Chart('container', options);
+        }
+      });
+
+    });
+  </script> -->
+  <script type="text/javascript">
+    $.ajax({
+      url: "charts",
+      context: document.body
+    }).done(function(data) {
+      data = data.map(d => [new Date(d[0]).getTime(), parseFloat(d[1]), parseFloat(d[2]), parseFloat(d[3]), parseFloat(d[4]), parseFloat(d[5]), parseFloat(d[6])])
+      console.info(data)
+      Highcharts.chart('container', {
+        title: {
+          text: 'Chart reflow is set to true'
+        },
+
+        subtitle: {
+          text: 'When resizing the window or the frame, the chart should resize'
+        },
+
+        series: [{
+          data: data
+        }]
+      });
+    });
+  </script>
+</body>
+
 </html>

@@ -1,28 +1,22 @@
 from flask import Flask, render_template
 import pandas as pd
-from flask import template_rendered
+from flask import jsonify
 from contextlib import contextmanager
+import os
+
 
 app = Flask(__name__)
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-df = pd.read_csv("/media/Storage/Ubuntu/Default/Desktop/bt_plat/Data/AAPL.csv", index_col="Date")
+csvpath = os.path
+df = pd.read_csv(r"C:\Users\Biarys\Desktop\bt_plat\Data\AAPL.csv")
 
 @app.route('/')
 def hello_world():
-    return 'Hello, World!'
+    return render_template('test.html')
+
 
 @app.route('/charts')
 def chart():
-    data=df.to_html()
-    return render_template('test.html', data=data)
-
-@contextmanager
-def captured_templates(app):
-    recorded = []
-    def record(sender, template, context, **extra):
-        recorded.append((template, context))
-    template_rendered.connect(record, app)
-    try:
-        yield recorded
-    finally:
-        template_rendered.disconnect(record, app)
+    data=df.values.tolist()
+    return jsonify(data)
