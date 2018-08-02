@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8">
+        <title>test</title>
+        <script src="/media/Storage/Ubuntu/Default/Desktop/GLOBAL/highcharts/code/js/highcharts.js"></script>
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+        <script src="https://code.highcharts.com/stock/highstock.js"></script>
+        <script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
+        <script src="https://code.highcharts.com/stock/modules/export-data.js"></script>
+    </head>
+    <body>
+        {{ data }}
+        <div id="container" style="height: 400px"></div>
+        <script type="text/javascript">
+
+            Highcharts.chart('container', {
+                title: {
+                    text: 'Chart reflow is set to true'
+                },
+
+                subtitle: {
+                    text: 'When resizing the window or the frame, the chart should resize'
+                },
+
+                series: [
+                    {
+                        data: {
+                            table: 'datatable'
+                        }
+
+                    }
+                ]
+            });
+        </script>
+    </body>
+</html>
