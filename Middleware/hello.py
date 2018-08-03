@@ -8,8 +8,8 @@ import os
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-csvpath = os.path
-df = pd.read_csv(r"C:\Users\Biarys\Desktop\bt_plat\Data\AAPL.csv")
+csvpath = os.path.abspath(os.path.join(os.getcwd(), "../Data/AAPL.csv"))
+df = pd.read_csv(csvpath)
 
 @app.route('/')
 def hello_world():

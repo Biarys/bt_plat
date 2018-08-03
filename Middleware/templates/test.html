@@ -41,7 +41,7 @@
     }).done(function(data) {
       data = data.map(d => [new Date(d[0]).getTime(), parseFloat(d[1]), parseFloat(d[2]), parseFloat(d[3]), parseFloat(d[4]), parseFloat(d[5]), parseFloat(d[6])])
       console.info(data)
-      Highcharts.chart('container', {
+      Highcharts.stockChart('container', {
         title: {
           text: 'Chart reflow is set to true'
         },
@@ -51,7 +51,8 @@
         },
 
         series: [{
-          data: data
+          type: "candlestick",
+          data: data,
         }]
       });
     });
