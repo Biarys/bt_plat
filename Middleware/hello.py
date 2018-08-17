@@ -3,6 +3,7 @@ import pandas as pd
 from flask import jsonify
 from contextlib import contextmanager
 import os
+import numpy as np
 
 
 app = Flask(__name__)
@@ -10,11 +11,11 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 csvpath = os.path.abspath(os.path.join(os.getcwd(), "../stock_data/AAPL.csv"))
 df = pd.read_csv(csvpath)
+df["Date"] = pd.to_datetime(df["Date"]).astype(np.int64)/1000000
 
 @app.route('/')
 def hello_world():
-    return render_template('test.html')
-
+    return render_template('chart.html')
 
 @app.route('/charts')
 def chart():
