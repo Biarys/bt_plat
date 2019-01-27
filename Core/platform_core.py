@@ -119,7 +119,7 @@ def run():
         ts = TradeSignal(buyCond, sellCond)
         tp = TransPrice(d, buyCond, sellCond)
         print(tp)
-#         ret = Returns()
-#         stats = Stats()
+        # ret = Returns()
+        # stats = Stats()
 
 run()
