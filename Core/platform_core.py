@@ -20,16 +20,6 @@ data = DataReader()
 
 data.readFiles("D:/AmiBackupeSignal/")
 
-data.data
-
-# read data
-# data = pd.read_excel("D:/Windows/Default/Desktop/test.xlsx", index_col="Date", nrows=100,
-#                    names=["Open", "High", "Low", "Close", "Volume"])
-# data1 = pd.read_csv("D:/AmiBackupeSignal/AABA.txt", index_col="Date/Time")
-# data2 = pd.read_csv("D:/AmiBackupeSignal/AAL.txt", index_col="Date/Time")
-
-data.head()
-
 class Indicator(metaclass=abc.ABCMeta):
     """Abstract class for an indicator.
     Requires cols (of data) to be used for calculations"""
@@ -42,8 +32,8 @@ class Indicator(metaclass=abc.ABCMeta):
 
 class SMA(Indicator):
     """Implementation of Simple Moving Average"""
-    def __init__(self, cols, period):
-        self.data = data[cols]
+    def __init__(self, ts, cols, period):
+        self.data = ts[cols]
         self.period = period
 
     def __call__(self):
@@ -53,12 +43,8 @@ class SMA(Indicator):
         # need to convert dataframe to series for comparison with series
         return pd.Series(self.result["Close"], self.result.index)
 
-sma5 = SMA(["Close"], 5)
-
-sma25 = SMA(["Close"], 25)
-
-buyCond = sma5() > sma25()
-sellCond = sma5() < sma25()
+#buyCond = sma5() > sma25()
+#sellCond = sma5() < sma25()
 # generates trade signal
 # compares current cond signal with itself shifted to see the change from true to false
 # .shift(1) in the end to avoid premature buy
@@ -79,19 +65,15 @@ class TradeSignal:
         # self.tradeSignals = cond.where(cond != cond.shift(1).fillna(cond[0])).shift(1)
         pass
 
-ts = TradeSignal(buyCond, sellCond)
-
-# ts.sellCond[ts.sellCond == 1] = "Sell"
-
 class TransPrice(TradeSignal):
     """
-    Raw transaction price meaning only initial buy and sellf prices are recorded without forward fill.
+    Raw transaction price meaning only initial buy and sell prices are recorded without forward fill.
     """
-    def __init__(self, buyOn="Close", sellOn="Close"):
+    def __init__(self, ts, buyCond, sellCond, buyOn="Close", sellOn="Close"):
         # buy price & sell price
         super().__init__(buyCond, sellCond)
-        self.buyPrice = data[buyOn][self.buyCond == 1]
-        self.sellPrice = data[sellOn][self.sellCond == 1]
+        self.buyPrice = ts[buyOn][self.buyCond == 1]
+        self.sellPrice = ts[sellOn][self.sellCond == 1]
         cond = [
             (self.buyCond == 1),
             (self.sellCond == 1)
@@ -101,18 +83,12 @@ class TransPrice(TradeSignal):
         self.test = pd.DataFrame(self.test, index=data.index)
         #self.test.fill("0", np.NAN)
 
-tp = TransPrice()
-
-
-tp.test[tp.test != "0"].dropna()
-
-
 class Returns(TransPrice):
     def __init__(self):
         tp = TransPrice()
         self.index = data.index
         self.returns = pd.DataFrame(index=self.index, columns=["Returns"])
-        # might result in errors tradesignal/execution is shifted is shifted
+        # might result in errors tradesignal/execution is shifted
         self.returns["Returns"].loc[tp.buyPrice.index] = tp.buyPrice
         self.returns["Returns"].loc[tp.sellPrice.index] = tp.sellPrice
         self.returns = self.returns.dropna().pct_change()
@@ -121,13 +97,6 @@ class Returns(TransPrice):
             if tp.test.loc[i][0] == "Buy":
                 self.returns.loc[i] = -self.returns.loc[i]
         #self.returns.ffill(inplace=True)
-
-
-
-ret = Returns()
-
-
-ret.returns
 
 class Stats():
     def __init__(self):
@@ -140,6 +109,17 @@ class Stats():
         self.hitRatio = self.posTrades/(self.posTrades+self.negTrades)
         self.totalTrades = self.posTrades+self.negTrades
 
-stats = Stats()
+def run():
+    for i in data.data:
+        d = data.data[i]
+        sma5 = SMA(d, ["Close"], 5)
+        sma25 = SMA(d, ["Close"], 25)
+        buyCond = sma5() > sma25()
+        sellCond = sma5() < sma25()
+        ts = TradeSignal(buyCond, sellCond)
+        tp = TransPrice(d, buyCond, sellCond)
+        print(tp)
+#         ret = Returns()
+#         stats = Stats()
 
-stats.negReturns
+run()
