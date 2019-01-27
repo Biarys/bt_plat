@@ -4,13 +4,29 @@ import abc
 import os
 
 class DataReader:
+    """
+    Reads data from files and stores them in a dict.
+    Need to add support for databases.
+    Need to add buffer.
+    """
     def __init__(self):
+        """
+        Initialize out dict.
+        """
         self.data = {}
+
     def csvFile(self, path):
+        """
+        Read single file
+        """
         assert os.path.isfile(path), "You need to specify a file."
         self.data = pd.read_excel(path, index_col="Date", nrows=100,
                    names=["Open", "High", "Low", "Close", "Volume"])
+
     def readFiles(self, path):
+        """
+        Read multiple files form a folder
+        """
         assert os.path.isdir(path), "You need to specify a folder."
         for file in os.listdir(path)[:2]:
             self._fileName = file.split(".txt")[0]
@@ -21,8 +37,10 @@ data = DataReader()
 data.readFiles("D:/AmiBackupeSignal/")
 
 class Indicator(metaclass=abc.ABCMeta):
-    """Abstract class for an indicator.
-    Requires cols (of data) to be used for calculations"""
+    """
+    Abstract class for an indicator.
+    Requires cols (of data) to be used for calculations
+    """
     def __init__(self, cols):
         pass
 
@@ -31,7 +49,9 @@ class Indicator(metaclass=abc.ABCMeta):
         pass
 
 class SMA(Indicator):
-    """Implementation of Simple Moving Average"""
+    """
+    Implementation of Simple Moving Average
+    """
     def __init__(self, ts, cols, period):
         self.data = ts[cols]
         self.period = period
@@ -56,14 +76,13 @@ class TradeSignal:
     Possibly add signal shift - added for now to match excel results
     """
     # not using self because the need to pass buy and sell cond
-    #buyCond = buyCond.where(buyCond != buyCond.shift(1).fillna(buyCond[0])).shift(1)
-    #sellCond = sellCond.where(sellCond != sellCond.shift(1).fillna(sellCond[0])).shift(1)
+    # buyCond = buyCond.where(buyCond != buyCond.shift(1).fillna(buyCond[0])).shift(1)
+    # sellCond = sellCond.where(sellCond != sellCond.shift(1).fillna(sellCond[0])).shift(1)
     def __init__(self, buyCond, sellCond):
         # buy/sell/all signals
         self.buyCond = buyCond.where(buyCond != buyCond.shift(1).fillna(buyCond[0])).shift(1)
         self.sellCond = sellCond.where(sellCond != sellCond.shift(1).fillna(sellCond[0])).shift(1)
         # self.tradeSignals = cond.where(cond != cond.shift(1).fillna(cond[0])).shift(1)
-        pass
 
 class TransPrice(TradeSignal):
     """
@@ -80,13 +99,16 @@ class TransPrice(TradeSignal):
         ]
         out = ["Buy", "Sell"]
         self.test = np.select(cond, out)
-        self.test = pd.DataFrame(self.test, index=data.index)
+        self.test = pd.DataFrame(self.test, index=ts.index)
         #self.test.fill("0", np.NAN)
 
 class Returns(TransPrice):
-    def __init__(self):
-        tp = TransPrice()
-        self.index = data.index
+    """
+    Class that calculates returns for the strategy
+    """
+    def __init__(self, d, buyCond, sellCond):
+        tp = TransPrice(d, buyCond, sellCond)
+        self.index = d.index
         self.returns = pd.DataFrame(index=self.index, columns=["Returns"])
         # might result in errors tradesignal/execution is shifted
         self.returns["Returns"].loc[tp.buyPrice.index] = tp.buyPrice
@@ -98,9 +120,9 @@ class Returns(TransPrice):
                 self.returns.loc[i] = -self.returns.loc[i]
         #self.returns.ffill(inplace=True)
 
-class Stats():
-    def __init__(self):
-        r = Returns()
+class Stats:
+    def __init__(self, d, buyCond, sellCond):
+        r = Returns(d, buyCond, sellCond)
         self.posReturns = r.returns[r.returns > 0].dropna()
         self.negReturns = r.returns[r.returns < 0].dropna()
         self.posTrades = len(self.posReturns)
@@ -118,8 +140,8 @@ def run():
         sellCond = sma5() < sma25()
         ts = TradeSignal(buyCond, sellCond)
         tp = TransPrice(d, buyCond, sellCond)
-        print(tp)
-        # ret = Returns()
-        # stats = Stats()
+
+        ret = Returns(d, buyCond, sellCond)
+        stats = Stats(d, buyCond, sellCond)
 
 run()
