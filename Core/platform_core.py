@@ -145,3 +145,4 @@ def run():
         stats = Stats(d, buyCond, sellCond)
 
 run()
+test
