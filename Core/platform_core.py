@@ -78,37 +78,41 @@ class TradeSignal:
     # not using self because the need to pass buy and sell cond
     # buyCond = buyCond.where(buyCond != buyCond.shift(1).fillna(buyCond[0])).shift(1)
     # sellCond = sellCond.where(sellCond != sellCond.shift(1).fillna(sellCond[0])).shift(1)
-    def __init__(self, buyCond, sellCond):
+    def __init__(self, rep):
+        rep = rep
         # buy/sell/all signals
-        self.buyCond = buyCond.where(buyCond != buyCond.shift(1).fillna(buyCond[0])).shift(1)
-        self.sellCond = sellCond.where(sellCond != sellCond.shift(1).fillna(sellCond[0])).shift(1)
+        self.buyCond = rep.buyCond.where(rep.buyCond != rep.buyCond.shift(1).fillna(rep.buyCond[0])).shift(1)
+        self.sellCond = rep.sellCond.where(rep.sellCond != rep.sellCond.shift(1).fillna(rep.sellCond[0])).shift(1)
         # self.tradeSignals = cond.where(cond != cond.shift(1).fillna(cond[0])).shift(1)
+
 
 class TransPrice(TradeSignal):
     """
     Raw transaction price meaning only initial buy and sell prices are recorded without forward fill
     """
-    def __init__(self, ts, buyCond, sellCond, buyOn="Close", sellOn="Close"):
+    def __init__(self, rep, buyOn="Close", sellOn="Close"):
         # buy price & sell price
-        super().__init__(buyCond, sellCond)
-        self.buyPrice = ts[buyOn][self.buyCond == 1]
-        self.sellPrice = ts[sellOn][self.sellCond == 1]
+        rep = rep
+        super().__init__(rep)
+        self.buyPrice = rep.d[buyOn][self.buyCond == 1]
+        self.sellPrice = rep.d[sellOn][self.sellCond == 1]
         cond = [
             (self.buyCond == 1),
             (self.sellCond == 1)
         ]
         out = ["Buy", "Sell"]
         self.test = np.select(cond, out)
-        self.test = pd.DataFrame(self.test, index=ts.index)
+        self.test = pd.DataFrame(self.test, index=rep.d.index)
         #self.test.fill("0", np.NAN)
 
 class Returns(TransPrice):
     """
     Calculates returns for the strategy
     """
-    def __init__(self, d, buyCond, sellCond):
-        tp = TransPrice(d, buyCond, sellCond)
-        self.index = d.index
+    def __init__(self, rep):
+        rep = rep
+        tp = TransPrice(rep)
+        self.index = rep.d.index
         self.returns = pd.DataFrame(index=self.index, columns=["Returns"])
         # might result in errors tradesignal/execution is shifted
         self.returns["Returns"].loc[tp.buyPrice.index] = tp.buyPrice
@@ -120,12 +124,14 @@ class Returns(TransPrice):
                 self.returns.loc[i] = -self.returns.loc[i]
         #self.returns.ffill(inplace=True)
 
+
 class Stats:
     """
     Calculats various trade statistics based on returns
     """
-    def __init__(self, d, buyCond, sellCond):
-        r = Returns(d, buyCond, sellCond)
+    def __init__(self, rep):
+        rep = rep
+        r = Returns(rep)
         self.posReturns = r.returns[r.returns > 0].dropna()
         self.negReturns = r.returns[r.returns < 0].dropna()
         self.posTrades = len(self.posReturns)
@@ -134,19 +140,27 @@ class Stats:
         self.hitRatio = self.posTrades/(self.posTrades+self.negTrades)
         self.totalTrades = self.posTrades+self.negTrades
 
+
+class Repeater:
+    def __init__(self, d, buyCond, sellCond):
+        self.d = d
+        self.buyCond = buyCond
+        self.sellCond = sellCond
+
 def run():
     for i in data.data:
         d = data.data[i]
         sma5 = SMA(d, ["Close"], 5)
         sma25 = SMA(d, ["Close"], 25)
+
         buyCond = sma5() > sma25()
         sellCond = sma5() < sma25()
-        ts = TradeSignal(buyCond, sellCond)
-        print(ts.buyCond)
-        tp = TransPrice(d, buyCond, sellCond)
-        print(tp.buyPrice)
-        ret = Returns(d, buyCond, sellCond)
-        print(ret.returns)
-        stats = Stats(d, buyCond, sellCond)
+
+        rep = Repeater(d, buyCond, sellCond)
+
+        ts = TradeSignal(rep)
+        tp = TransPrice(rep)
+        ret = Returns(rep)
+        stats = Stats(rep)
 
 run()
