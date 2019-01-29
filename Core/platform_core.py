@@ -86,7 +86,7 @@ class TradeSignal:
 
 class TransPrice(TradeSignal):
     """
-    Raw transaction price meaning only initial buy and sell prices are recorded without forward fill.
+    Raw transaction price meaning only initial buy and sell prices are recorded without forward fill
     """
     def __init__(self, ts, buyCond, sellCond, buyOn="Close", sellOn="Close"):
         # buy price & sell price
@@ -104,7 +104,7 @@ class TransPrice(TradeSignal):
 
 class Returns(TransPrice):
     """
-    Class that calculates returns for the strategy
+    Calculates returns for the strategy
     """
     def __init__(self, d, buyCond, sellCond):
         tp = TransPrice(d, buyCond, sellCond)
@@ -121,6 +121,9 @@ class Returns(TransPrice):
         #self.returns.ffill(inplace=True)
 
 class Stats:
+    """
+    Calculats various trade statistics based on returns
+    """
     def __init__(self, d, buyCond, sellCond):
         r = Returns(d, buyCond, sellCond)
         self.posReturns = r.returns[r.returns > 0].dropna()
@@ -139,10 +142,11 @@ def run():
         buyCond = sma5() > sma25()
         sellCond = sma5() < sma25()
         ts = TradeSignal(buyCond, sellCond)
+        print(ts.buyCond)
         tp = TransPrice(d, buyCond, sellCond)
-
+        print(tp.buyPrice)
         ret = Returns(d, buyCond, sellCond)
+        print(ret.returns)
         stats = Stats(d, buyCond, sellCond)
 
 run()
-test
