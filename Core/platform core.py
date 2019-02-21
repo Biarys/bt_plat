@@ -1,18 +1,7 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import pandas as pd
 import numpy as np
-import abc
 import os
-get_ipython().run_line_magic('matplotlib', 'inline')
-
-
-# In[2]:
-
+import abc
 
 class DataReader:
     def __init__(self):
@@ -30,26 +19,11 @@ class DataReader:
             self.data[self._fileName] = _temp
 
 
-# In[3]:
-
-
 data = DataReader()
-
-
-# In[4]:
-
 
 data.readFiles("D:/AmiBackupeSignal/")
 
-
-# In[5]:
-
-
 data.data["AAAP"].index
-
-
-# In[6]:
-
 
 class Benchmark:
     def __init__(self, data):
@@ -58,29 +32,7 @@ class Benchmark:
         self.ror = self.dailyRet.cumsum()        
 
 
-# In[73]:
-
-
-bench = Benchmark(data.data["AAAP"])
-
-
-# In[6]:
-
-
-# read data
-# data = pd.read_excel("D:/Windows/Default/Desktop/test.xlsx", index_col="Date", nrows=100, 
-#                    names=["Open", "High", "Low", "Close", "Volume"])
-# data1 = pd.read_csv("D:/AmiBackupeSignal/AABA.txt", index_col="Date/Time")
-# data2 = pd.read_csv("D:/AmiBackupeSignal/AAL.txt", index_col="Date/Time")
-
-
-# In[7]:
-
-
-# data.head()
-
-
-# In[6]:
+# bench = Benchmark(data.data["AAAP"])
 
 
 class Indicator(metaclass=abc.ABCMeta):
@@ -92,10 +44,6 @@ class Indicator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __call__(self):
         pass
-
-
-# In[7]:
-
 
 class SMA(Indicator):
     """Implementation of Simple Moving Average"""
@@ -109,32 +57,6 @@ class SMA(Indicator):
         self.result.fillna(np.NaN, inplace=True)
         # need to convert dataframe to series for comparison with series
         return pd.Series(self.result["Close"], self.result.index)
-
-
-# In[10]:
-
-
-#sma5 = SMA(data.data["AAAP"], ["Close"], 5)
-
-
-# In[11]:
-
-
-#sma25 = SMA(data.data["AAAP"], ["Close"], 25)
-
-
-# In[12]:
-
-
-#buyCond = sma5() > sma25()
-#sellCond = sma5() < sma25()
-# generates trade signal
-# compares current cond signal with itself shifted to see the change from true to false
-# .shift(1) in the end to avoid premature buy
-#tradeSignal = cond.where(cond != cond.shift(1).fillna(cond[0])).shift(1)
-
-
-# In[8]:
 
 
 class TradeSignal:
