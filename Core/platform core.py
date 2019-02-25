@@ -30,7 +30,7 @@ data = DataReader()
 
 data.readFiles("D:/AmiBackupeSignal/")
 
-data.data["AAAP"].index
+# data.data["AAAP"].index
 
 #############################################
 # Other
@@ -49,8 +49,10 @@ data.data["AAAP"].index
 #############################################
 
 class Indicator(metaclass=abc.ABCMeta):
-    """Abstract class for an indicator. 
-    Requires cols (of data) to be used for calculations"""
+    """
+    Abstract class for an indicator. 
+    Requires cols (of data) to be used for calculations
+    """
 
     def __init__(self, cols):
         pass
@@ -75,7 +77,7 @@ class SMA(Indicator):
         return pd.Series(self.result["Close"], self.result.index)
 
 #############################################
-#
+# Core starts
 #############################################
 
 
@@ -279,14 +281,6 @@ class Stats:
         self.totalTrades = self.posTrades+self.negTrades
 
 
-class Repeater:
-    def __init__(self, d, buyCond, sellCond, name):
-        self.d = d
-        self.buyCond = buyCond
-        self.sellCond = sellCond
-        self.name = name
-
-
 class Portfolio:
     def __init__(self):
         self.startAmount = 10000
@@ -308,6 +302,18 @@ t = Trades()
 #############################################
 # Generate signals part
 #############################################
+
+
+class Repeater:
+    """
+    Common class to avoid repetition
+    """
+
+    def __init__(self, d, buyCond, sellCond, name):
+        self.d = d
+        self.buyCond = buyCond
+        self.sellCond = sellCond
+        self.name = name
 
 
 def run():
@@ -362,18 +368,19 @@ def runPortfolio():
     t.weights = pd.DataFrame(index=t.inTradePrice.index,
                              columns=t.inTradePrice.columns)
     t.priceChange = t.inTradePrice - t.inTradePrice.shift()
+
     # calc portfolio change
     port.value = pd.DataFrame(index=t.inTradePrice.index,
                               columns=["Portfolio value"])
     port.value.iloc[0] = port.startAmount
 
-    port.availAmount = pd.DataFrame(
-        index=t.inTradePrice.index, columns=["Available amount"])
+    port.availAmount = pd.DataFrame(index=t.inTradePrice.index,
+                                    columns=["Available amount"])
     port.availAmount.iloc[0] = port.startAmount
     # port.availAmount.ffill(inplace=True)
 
-    port.invested = pd.DataFrame(
-        index=t.inTradePrice.index, columns=t.weights.columns)
+    port.invested = pd.DataFrame(index=t.inTradePrice.index,
+                                 columns=t.weights.columns)
     port.invested.iloc[0] = 0
     # put trades in chronological order
     # t.trades.sort_values("Date/Time_entry", inplace=True)
