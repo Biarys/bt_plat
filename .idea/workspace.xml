@@ -15,8 +15,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/Core/platform core.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="5070">
-              <caret line="225" column="29" lean-forward="true" selection-start-line="225" selection-start-column="29" selection-end-line="225" selection-end-column="29" />
+            <state relative-caret-position="5772">
+              <caret line="225" column="29" selection-start-line="225" selection-start-column="29" selection-end-line="225" selection-end-column="29" />
               <folding>
                 <element signature="e#50#69#0" expanded="true" />
               </folding>
@@ -204,6 +204,16 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/Core/platform core.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="5772">
+          <caret line="225" column="29" selection-start-line="225" selection-start-column="29" selection-end-line="225" selection-end-column="29" />
+          <folding>
+            <element signature="e#50#69#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/../bt/bt/backtest.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="5668">
@@ -215,16 +225,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="34008">
           <caret line="1314" selection-start-line="1314" selection-end-line="1314" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/Core/platform core.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5070">
-          <caret line="225" column="29" lean-forward="true" selection-start-line="225" selection-start-column="29" selection-end-line="225" selection-end-column="29" />
-          <folding>
-            <element signature="e#50#69#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
