@@ -3,6 +3,8 @@ import numpy as np
 import os
 import abc
 
+import data_reader
+
 #############################################
 # Read data
 

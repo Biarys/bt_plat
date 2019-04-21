@@ -1,3 +1,6 @@
+import os
+import pandas as pd
+
 class DataReader:
     def __init__(self):
         self.data = {}
@@ -22,8 +25,8 @@ class DataReader:
             _temp.index = pd.to_datetime(_temp.index)
             self.data[self._fileName] = _temp
 
-data = DataReader()
+# data = DataReader()
 
-data.readFiles(r"D:\AmiBackupeSignal")
+# data.readFiles(r"D:\AmiBackupeSignal")
 
 # data.data["AAAP"].index
