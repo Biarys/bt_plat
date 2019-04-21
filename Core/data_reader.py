@@ -20,7 +20,7 @@ class DataReader:
             path), "You need to specify a folder or the path doesnt exist."
         for file in os.listdir(path)[:2]:
             self._fileName = file.split(".txt")[0]
-            _temp = pd.read_csv(path + file, nrows=100, index_col="Date")
+            _temp = pd.read_csv(path + "\\" + file, nrows=100, index_col="Date/Time")
             _temp.index.name = "Date/Time"
             _temp.index = pd.to_datetime(_temp.index)
             self.data[self._fileName] = _temp

@@ -3,7 +3,9 @@ import numpy as np
 import os
 import abc
 
+# own files
 import data_reader
+
 
 #############################################
 # Read data
@@ -45,27 +47,15 @@ import data_reader
 #             self.data[self._fileName] = _temp
 
 
-# data = DataReader()
+data = data_reader.DataReader()
 
-# data.readFiles(r"D:\AmiBackupeSignal")
+data.readFiles(r"D:\AmiBackupeSignal")
 
-# # data.data["AAAP"].index
-
-#############################################
-# Other
-#############################################
-# class Benchmark:
-#     def __init__(self, data):
-#         self.data = data
-#         self.dailyRet = data["Close"].pct_change()
-#         self.ror = self.dailyRet.cumsum()
-
-# bench = Benchmark(data.data["AAAP"])
+# data.data["AAAP"].index
 
 #############################################
 # Indicators
 #############################################
-
 
 class Indicator(metaclass=abc.ABCMeta):
     """
