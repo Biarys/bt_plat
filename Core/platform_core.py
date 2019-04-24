@@ -7,7 +7,6 @@ import abc
 import data_reader
 from indicators import *
 
-
 #############################################
 # Data reading
 # Construct indicator
@@ -24,6 +23,7 @@ from indicators import *
 data = data_reader.DataReader()
 
 data.readFiles(r"D:\AmiBackupeSignal")
+
 
 #############################################
 # Core starts
@@ -88,6 +88,7 @@ class TransPrice:
     """
     Find transaction price
     """
+
     def __init__(self, rep, ts, buyOn="Close", sellOn="Close"):
         rep = rep
         self.all = ts.all
