@@ -5,12 +5,8 @@ import abc
 
 # own files
 import data_reader
+from indicators import *
 
-
-#############################################
-# Read data
-
-#############################################
 
 #############################################
 # Data reading
@@ -21,76 +17,17 @@ import data_reader
 # Generate portfolio statistics
 #############################################
 
-
-# class DataReader:
-#     def __init__(self):
-#         self.data = {}
-
-#     def csvFile(self, path):
-#         assert os.path.isfile(
-#             path), "You need to specify a file or the path doesnt exist."
-#         self.data = pd.read_excel(
-#             path,
-#             index_col="Date",
-#             nrows=100,
-#             names=["Open", "High", "Low", "Close", "Volume"],
-#         )
-
-#     def readFiles(self, path):
-#         assert os.path.isdir(
-#             path), "You need to specify a folder or the path doesnt exist."
-#         for file in os.listdir(path)[:2]:
-#             self._fileName = file.split(".txt")[0]
-#             _temp = pd.read_csv(path + file, nrows=100, index_col="Date")
-#             _temp.index.name = "Date/Time"
-#             _temp.index = pd.to_datetime(_temp.index)
-#             self.data[self._fileName] = _temp
-
+#############################################
+# Read data
+#############################################
 
 data = data_reader.DataReader()
 
 data.readFiles(r"D:\AmiBackupeSignal")
 
-# data.data["AAAP"].index
-
-#############################################
-# Indicators
-#############################################
-
-class Indicator(metaclass=abc.ABCMeta):
-    """
-    Abstract class for an indicator. 
-    Requires cols (of data) to be used for calculations
-    """
-
-    def __init__(self, cols):
-        pass
-
-    @abc.abstractmethod
-    def __call__(self):
-        pass
-
-
-class SMA(Indicator):
-    """Implementation of Simple Moving Average"""
-
-    def __init__(self, ts, cols, period):
-        self.data = ts[cols]
-        self.period = period
-
-    def __call__(self):
-        self.result = self.data.rolling(self.period).mean()
-        # fillna cuz NaNs result from mean() are strings
-        self.result.fillna(np.NaN, inplace=True)
-        # need to convert dataframe to series for comparison with series
-        return pd.Series(self.result["Close"], self.result.index)
-
-
 #############################################
 # Core starts
 #############################################
-
-
 class TradeSignal:
     """
     For now, long only. 1 where buy, 0 where sell
@@ -148,6 +85,9 @@ class Agg_TradeSingal:
 
 
 class TransPrice:
+    """
+    Find transaction price
+    """
     def __init__(self, rep, ts, buyOn="Close", sellOn="Close"):
         rep = rep
         self.all = ts.all
@@ -233,7 +173,7 @@ class TransPrice:
 
 class Agg_TransPrice:
     """
-    Aggregate version of TransPrice that keeps trans price for all stocks
+    Aggregate version of TransPrice that keeps transaction price for all stocks
     """
 
     def __init__(self):
@@ -337,14 +277,14 @@ def run():
     Save them into common classes aggregate*
     """
     for name in data.data:
-        d = data.data[name]
-        sma5 = SMA(d, ["Close"], 5)
-        sma25 = SMA(d, ["Close"], 25)
+        current_asset = data.data[name]
+        sma5 = SMA(current_asset, ["Close"], 5)
+        sma25 = SMA(current_asset, ["Close"], 25)
 
         buyCond = sma5() > sma25()
         sellCond = sma5() < sma25()
 
-        rep = Repeater(d, buyCond, sellCond, name)
+        rep = Repeater(current_asset, buyCond, sellCond, name)
 
         ts = TradeSignal(rep)
         tp = TransPrice(rep, ts)
@@ -418,7 +358,7 @@ def runPortfolio():
     for ix, row in t.weights.iterrows():
         # weight = port value / entry
         prev_bar = port.availAmount.index.get_loc(ix) - 1
-
+        breakpoint()
         # not -1 cuz it will replace last value
         if prev_bar != -1:
             # update avail amount
