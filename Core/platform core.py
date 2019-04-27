@@ -359,7 +359,7 @@ def runPortfolio():
     for ix, row in t.weights.iterrows():
         # weight = port value / entry
         prev_bar = port.availAmount.index.get_loc(ix) - 1
-        breakpoint()
+
         # not -1 cuz it will replace last value
         if prev_bar != -1:
             # update avail amount

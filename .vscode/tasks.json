@@ -8,5 +8,5 @@
             "type": "shell",
             "command": "echo Hello"
         }
-    ]
+    ],
 }
