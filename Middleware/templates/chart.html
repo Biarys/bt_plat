@@ -1,7 +1,16 @@
 {% extends "base.html" %} {% block meta %}
 <title>test</title>
 
+<!-- Bootstrap -->
+<link
+    rel="stylesheet"
+    href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+    crossorigin="anonymous"
+/>
+<!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.1.1.js"></script>
+<!-- High charts -->
 <script src="https://code.highcharts.com/stock/highstock.js"></script>
 <script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
 <script src="https://code.highcharts.com/stock/modules/export-data.js"></script>
@@ -12,11 +21,38 @@
 <div id="container" style="height: 100vh"></div>
 <!-- <script type="text/javascript"> document.addEventListener('DOMContentLoaded', function() { var options = { chart: { type: 'spline' }, series: [{}] }; Highcharts.ajax({ url: 'charts', success: function(data) { options.series[0].data = data;
         Highcharts.Chart('container', options); } }); }); </script> -->
+<h1>Backtest info</h1>
+<div class="container">
+    <div class="row">
+        <div class="col-md-3">
+            <ul>
+                <li>Backtest ID:</li>
+                <li>CAGR</li>
+                <li>Max DD</li>
+            </ul>
+        </div>
+        <div class="col-md-3">
+            <ul>
+                <li>Backtest ID:</li>
+                <li>CAGR</li>
+                <li>Max DD</li>
+            </ul>
+        </div>
+        <div class="col-md-3">
+            <ul>
+                <li>Backtest ID:</li>
+                <li>CAGR</li>
+                <li>Max DD</li>
+            </ul>
+        </div>
+    </div>
+</div>
 <script type="text/javascript">
     $(document).ready(function() {
         $.ajax({ url: "chart", context: document.body }).done(function(data) {
-            // console.log("Before; -------------------");
-            // console.log(data[0]);
+            var myData = "{{df}}";
+            console.log("Before; -------------------");
+            console.log(myData);
             // console.log("After: --------------------");
             // Client side of changing date column to unix epoch time
             // data = data.map(d => [

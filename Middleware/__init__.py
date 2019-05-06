@@ -43,10 +43,12 @@ def create_app(test_config=None):
 
     @app.route('/chart', endpoint='chart')
     def chart():
-        return render_template('chart.html')
+        df = pd.read_csv("stock_data\AA.csv")
+        # df = df.to_json()
+        return render_template('chart.html', data=df)
 
     @app.route('/debug', endpoint='debug')
-    def chart():
+    def debug():
         return render_template('debug.html')
 
     return app
