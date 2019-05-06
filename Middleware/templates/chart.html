@@ -1,84 +1,85 @@
-<!DOCTYPE html>
-<html lang="en" dir="ltr">
+{% extends "base.html" %} {% block meta %}
+<title>test</title>
 
-<head>
-    <meta charset="utf-8">
-    <title>test</title>
-
-    <script src="https://code.jquery.com/jquery-3.1.1.js"></script>
-    <script src="https://code.highcharts.com/stock/highstock.js"></script>
-    <script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
-    <script src="https://code.highcharts.com/stock/modules/export-data.js"></script>
-    <script src="https://code.highcharts.com/stock/indicators/indicators.js"></script>
-    <script src="https://code.highcharts.com/stock/indicators/momentum.js"></script>
-</head>
-
-<body>
-    <h1>Charts</h1>
-    <div id="container" style="height: 100vh"></div>
-    <!-- <script type="text/javascript"> document.addEventListener('DOMContentLoaded', function() { var options = { chart: { type: 'spline' }, series: [{}] }; Highcharts.ajax({ url: 'charts', success: function(data) { options.series[0].data = data;
+<script src="https://code.jquery.com/jquery-3.1.1.js"></script>
+<script src="https://code.highcharts.com/stock/highstock.js"></script>
+<script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/stock/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/stock/indicators/indicators.js"></script>
+<script src="https://code.highcharts.com/stock/indicators/momentum.js"></script>
+{% endblock %} {% block content %}
+<h1>Charts</h1>
+<div id="container" style="height: 100vh"></div>
+<!-- <script type="text/javascript"> document.addEventListener('DOMContentLoaded', function() { var options = { chart: { type: 'spline' }, series: [{}] }; Highcharts.ajax({ url: 'charts', success: function(data) { options.series[0].data = data;
         Highcharts.Chart('container', options); } }); }); </script> -->
-    <script type="text/javascript">
-        $(document).ready(function () {
+<script type="text/javascript">
+    $(document).ready(function() {
+        $.ajax({ url: "charts", context: document.body }).done(function(data) {
+            // console.log("Before; -------------------");
+            // console.log(data[0]);
+            // console.log("After: --------------------");
+            // Client side of changing date column to unix epoch time
+            // data = data.map(d => [
+            //     new Date(d[0]).getTime(),
+            //     parseFloat(d[1]),
+            //     parseFloat(d[2]),
+            //     parseFloat(d[3]),
+            //     parseFloat(d[4]),
+            //     parseFloat(d[5]),
+            // ])
+            // console.log(data[0]);
+            Highcharts.stockChart("container", {
+                title: {
+                    text: "Chart reflow is set to true"
+                },
 
-            $.ajax({ url: "charts", context: document.body }).done(function (data) {
-                // console.log("Before; -------------------");
-                // console.log(data[0]);
-                // console.log("After: --------------------");
-                // Client side of changing date column to unix epoch time
-                // data = data.map(d => [
-                //     new Date(d[0]).getTime(),
-                //     parseFloat(d[1]),
-                //     parseFloat(d[2]),
-                //     parseFloat(d[3]),
-                //     parseFloat(d[4]),
-                //     parseFloat(d[5]),
-                // ])
-                // console.log(data[0]);
-                Highcharts.stockChart('container', {
-                    title: {
-                        text: 'Chart reflow is set to true'
+                subtitle: {
+                    text:
+                        "When resizing the window or the frame, the chart should resize"
+                },
+
+                plotOptions: {
+                    series: {
+                        showInLegend: true
+                    }
+                },
+                legend: {
+                    enabled: true
+                },
+                series: [
+                    {
+                        name: "Jane",
+                        data: [1, 0, 4]
                     },
-
-                    subtitle: {
-                        text: 'When resizing the window or the frame, the chart should resize'
-                    },
-
-                    plotOptions: {
-
-
-                        series: {
-                            showInLegend: true
-                        }
-                    },
-                    legend: {
-                        enabled: true
-                    },
-
-                    series: [
-                        {
-                            type: "candlestick",
-                            id: "aapl",
-                            data: data
-                        }, {
-                            type: 'momentum',
-                            linkedTo: 'aapl'
-                        }, {
-                            type: 'momentum',
-                            linkedTo: 'aapl',
-                            params: {
-                                period: 50
-                            }
-                        },
-                        {
-                            upColor: "green",
-                            color: "red"
-                        },
-                    ]
-                });
+                    {
+                        name: "John",
+                        data: [5, 7, 3]
+                    }
+                ]
+                // series: [
+                //     {
+                //         type: "candlestick",
+                //         id: "aapl",
+                //         data: data
+                //     },
+                //     {
+                //         type: "momentum",
+                //         linkedTo: "aapl"
+                //     },
+                //     {
+                //         type: "momentum",
+                //         linkedTo: "aapl",
+                //         params: {
+                //             period: 50
+                //         }
+                //     },
+                //     {
+                //         upColor: "green",
+                //         color: "red"
+                //     }
+                // ]
             });
         });
-    </script>
-</body>
-
-</html>
+    });
+</script>
+{% endblock %}
