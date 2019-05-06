@@ -14,7 +14,7 @@
         Highcharts.Chart('container', options); } }); }); </script> -->
 <script type="text/javascript">
     $(document).ready(function() {
-        $.ajax({ url: "charts", context: document.body }).done(function(data) {
+        $.ajax({ url: "chart", context: document.body }).done(function(data) {
             // console.log("Before; -------------------");
             // console.log(data[0]);
             // console.log("After: --------------------");
@@ -46,38 +46,29 @@
                 legend: {
                     enabled: true
                 },
+
                 series: [
                     {
-                        name: "Jane",
-                        data: [1, 0, 4]
+                        type: "candlestick",
+                        id: "aapl",
+                        data: data
                     },
                     {
-                        name: "John",
-                        data: [5, 7, 3]
+                        type: "momentum",
+                        linkedTo: "aapl"
+                    },
+                    {
+                        type: "momentum",
+                        linkedTo: "aapl",
+                        params: {
+                            period: 50
+                        }
+                    },
+                    {
+                        upColor: "green",
+                        color: "red"
                     }
                 ]
-                // series: [
-                //     {
-                //         type: "candlestick",
-                //         id: "aapl",
-                //         data: data
-                //     },
-                //     {
-                //         type: "momentum",
-                //         linkedTo: "aapl"
-                //     },
-                //     {
-                //         type: "momentum",
-                //         linkedTo: "aapl",
-                //         params: {
-                //             period: 50
-                //         }
-                //     },
-                //     {
-                //         upColor: "green",
-                //         color: "red"
-                //     }
-                // ]
             });
         });
     });
