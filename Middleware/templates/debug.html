@@ -1,11 +1,9 @@
 {% extends "chart.html" %} {% block extra_info %}
 <h1>Debug</h1>
-<table>
-    <tr>
-        {{
-            df
-        }}
-    </tr>
-</table>
-
+<div>
+    {{ df | safe }}
+</div>
+<script>
+    $.getJSON();
+</script>
 {% endblock %}
