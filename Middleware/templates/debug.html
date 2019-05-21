@@ -1,9 +1,27 @@
 {% extends "chart.html" %} {% block extra_info %}
 <h1>Debug</h1>
 <div>
-    {{ df | tojson }}
+    <table>
+        <tr>
+            <th>Date</th>
+            <th>Open</th>
+            <th>High</th>
+            <th>Low</th>
+            <th>Close</th>
+            <th>Volume</th>
+        </tr>
+        {% for row in df %}
+        <tr>
+            <td>{{ row['Date'] }}</td>
+            <td>{{ row['Open'] }}</td>
+            <td>{{ row['High'] }}</td>
+            <td>{{ row['Low'] }}</td>
+            <td>{{ row['Close'] }}</td>
+            <td>{{ row['Volume'] }}</td>
+        </tr>
+
+        {% endfor %}
+    </table>
 </div>
-<script>
-    $.getJSON();
-</script>
+
 {% endblock %}

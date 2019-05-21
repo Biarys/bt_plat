@@ -51,8 +51,8 @@ def create_app(test_config=None):
     @app.route('/debug', endpoint='debug')
     def debug():
         df = pd.read_csv("stock_data\AA.csv")
-        # df = df.to_html(header="true")
-        return render_template('debug.html', df=df.to_dict(orient="records"))
+        df = df.to_dict(orient="records")
+        return render_template('debug.html', df=df)
 
     return app
 
