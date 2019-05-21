@@ -45,14 +45,14 @@ def create_app(test_config=None):
     def chart():
         df = pd.read_csv("stock_data\AA.csv")
         df = df.to_json(orient="records")
-        df = df.replace('"', '')
+        # df = df.replace('"', '')
         return render_template('chart.html', df=df)
 
     @app.route('/debug', endpoint='debug')
     def debug():
         df = pd.read_csv("stock_data\AA.csv")
-        df = df.to_html(header="true")
-        return render_template('debug.html', df=df)
+        # df = df.to_html(header="true")
+        return render_template('debug.html', df=df.to_dict(orient="records"))
 
     return app
 

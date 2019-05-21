@@ -47,10 +47,35 @@
 </div>
 <script type="text/javascript">
     $(document).ready(function() {
-        $.ajax({ url: "chart", context: document.body }).done(function(data) {
-            var myData = "{{df}}";
-            console.log("Before; -------------------");
-            console.log(myData);
+        $.ajax({ url: 'chart', context: document.body }).done(function(data) {
+            var myData = '{{df|tojson}}';
+            var data = JSON.parse(myData);
+
+            var ohlc = [];
+            var volume = [];
+            var dataLength = data.length;
+            var i = 0;
+
+            for (i; i < dataLength; i += 1) {
+                var date = Date.parse(data[i]['Date']);
+                ohlc.push([
+                    date, // the date
+                    data[i]['Open'], // open
+                    data[i]['High'], // high
+                    data[i]['Low'], // low
+                    data[i]['Close'] // close
+                ]);
+
+                volume.push([
+                    data[i]['Date'], // the date
+                    data[i]['Volume'] // the volume
+                ]);
+            }
+
+            // console.log("Before; -------------------");
+            // console.log(myData);
+            // console.log(data);
+            // console.log(ohlc);
             // console.log("After: --------------------");
             // Client side of changing date column to unix epoch time
             // data = data.map(d => [
@@ -62,19 +87,20 @@
             //     parseFloat(d[5]),
             // ])
             // console.log(data[0]);
-            Highcharts.stockChart("container", {
+            Highcharts.stockChart('container', {
                 title: {
-                    text: "Chart reflow is set to true"
+                    text: 'Chart reflow is set to true'
                 },
 
                 subtitle: {
                     text:
-                        "When resizing the window or the frame, the chart should resize"
+                        'When resizing the window or the frame, the chart should resize'
                 },
 
                 plotOptions: {
                     series: {
-                        showInLegend: true
+                        showInLegend: true,
+                        turboThreshold: 1000000
                     }
                 },
                 legend: {
@@ -83,28 +109,28 @@
 
                 series: [
                     {
-                        type: "candlestick",
-                        id: "aapl",
-                        data: data
+                        type: 'candlestick',
+                        id: 'aapl',
+                        data: ohlc
                     },
                     {
-                        type: "momentum",
-                        linkedTo: "aapl"
+                        type: 'momentum',
+                        linkedTo: 'aapl'
                     },
                     {
-                        type: "momentum",
-                        linkedTo: "aapl",
+                        type: 'momentum',
+                        linkedTo: 'aapl',
                         params: {
                             period: 50
                         }
                     },
                     {
-                        upColor: "green",
-                        color: "red"
+                        upColor: 'green',
+                        color: 'red'
                     }
                 ]
             });
         });
     });
 </script>
-{% endblock %} 
+{% endblock %}
