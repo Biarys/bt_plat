@@ -18,7 +18,9 @@ def connect(user, password, db, host='localhost', port=5432):
 
     if sqlu.database_exists(url):
         # We then bind the connection to MetaData()
-        meta = MetaData(bind=con, reflect=True)
+        meta = MetaData()
+        # meta.reflect(bind=con)
+        # print(in meta.tables)
         create_tables(con, meta)
 
         return con, meta
@@ -33,7 +35,7 @@ def connect(user, password, db, host='localhost', port=5432):
 
 
 def create_tables(con, meta):
-    '''Create tables'''
+    '''Create default tables'''
     backtest = Table("backtest", meta,
                      Column("backtest_id", Integer, primary_key=True),
                      Column("name", String(200)))
@@ -66,10 +68,11 @@ def create_tables(con, meta):
     # Column()
     # Column()
 
-    meta.create_all(con)
+    meta.create_all(con, checkfirst=True)
 
 
-con, meta = connect('postgres', 'undead2018', 'tennis2')
+if __name__ == "__main__":
+    con, meta = connect('postgres', 'undead2018', 'tennis2')
 
-print(con)
-print(meta)
+    print(con)
+    print(meta)
