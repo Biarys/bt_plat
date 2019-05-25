@@ -6,6 +6,8 @@ import abc
 # own files
 import data_reader
 from indicators import *
+import database_stuff as db
+import config
 
 #############################################
 # Data reading
@@ -20,9 +22,11 @@ from indicators import *
 # Read data
 #############################################
 
-data = data_reader.DataReader()
+# data = data_reader.DataReader()
 
-data.readFiles(r"D:\AmiBackupeSignal")
+# data.readFiles(r"D:\AmiBackupeSignal")
+
+con, meta, session = db.connect("postgres", "undead2018", "tennis2")
 
 
 #############################################
