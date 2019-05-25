@@ -3,27 +3,34 @@
 # engine = create_engine('postgresql://postgres:undead2018@localhost:5432/postgres')
 
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 import sqlalchemy_utils as sqlu
 
 
 def connect(user, password, db, host='localhost', port=5432):
-    '''Returns a connection and a metadata object'''
+    '''Returns connection, metadata, and session objects'''
     # We connect with the help of the PostgreSQL URL
     # postgresql://federer:grandestslam@localhost:5432/tennis
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password, host, port, db)
 
     # The return value of create_engine() is our connection object
-    con = create_engine(url, client_encoding='utf8')
+    engine = create_engine(url, client_encoding='utf8')
+
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    con = engine.connect()
 
     if sqlu.database_exists(url):
         # We then bind the connection to MetaData()
         meta = MetaData()
         # meta.reflect(bind=con)
         # print(in meta.tables)
-        create_tables(con, meta)
+        create_tables(engine, meta)
 
-        return con, meta
+        return con, meta, session
 
     else:
         print("============================================")
@@ -71,8 +78,22 @@ def create_tables(con, meta):
     meta.create_all(con, checkfirst=True)
 
 
+# Base = declarative_base()
+
+# class StockData(Base):
+#     def __init__(self, table_name, d, o, h, l, c, v, **kwargs):
+#         print(table_name)
+#         super().__init____(**kwargs)
+#         __tablename__ = "table_name"
+#         d = Column("Date", DateTime, primary_key=True)  # Date
+#         o = Column("Open", Float)  # Open
+#         h = Column("High", Float)  # High
+#         l = Column("Low", Float)  # Low
+#         c = Column("Close", Float)  # Close
+#         v = Column("Volume", Integer)  # Volume
+
 if __name__ == "__main__":
     con, meta = connect('postgres', 'undead2018', 'tennis2')
 
-    print(con)
+    print(dir(con))
     print(meta)
