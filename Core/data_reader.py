@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 
+
 class DataReader:
     def __init__(self):
         self.data = {}
@@ -20,10 +21,25 @@ class DataReader:
             path), "You need to specify a folder or the path doesnt exist."
         for file in os.listdir(path)[:2]:
             self._fileName = file.split(".txt")[0]
-            _temp = pd.read_csv(path + "\\" + file, nrows=100, index_col="Date/Time")
-            _temp.index.name = "Date/Time"
+            _temp = pd.read_csv(
+                path + "\\" + file, nrows=100, index_col="Date/Time")
+            _temp.index.name = "Date"
             _temp.index = pd.to_datetime(_temp.index)
             self.data[self._fileName] = _temp
+
+    def readDB(self, con, meta, index_col):
+        """
+        Reads tables from database that start with data_.
+        If index_col is not provided, default name "Date" is used for index.
+        Index is converted to pd.to_datetime(), so it's important to provide one.
+        """
+        for table in meta.tables.keys():
+            if table.startswith("data_"):
+                _temp = pd.read_sql_table(table, con, index_col=index_col)
+                _temp.index.name = "Date"
+                _temp.index = pd.to_datetime(_temp.index)
+                self.data[table] = _temp
+
 
 # data = DataReader()
 

@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import sqlalchemy_utils as sqlu
+import config
 
 
 def connect(user, password, db, host='localhost', port=5432):
@@ -93,7 +94,7 @@ def create_tables(con, meta):
 #         v = Column("Volume", Integer)  # Volume
 
 if __name__ == "__main__":
-    con, meta = connect('postgres', 'undead2018', 'tennis2')
+    con, meta, session = connect('postgres', 'undead2018', 'tennis2')
 
     print(dir(con))
     print(meta)

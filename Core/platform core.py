@@ -23,10 +23,13 @@ import config
 #############################################
 
 # data = data_reader.DataReader()
-
 # data.readFiles(r"D:\AmiBackupeSignal")
 
-con, meta, session = db.connect("postgres", "undead2018", "tennis2")
+con, meta, session = db.connect(config.user, config.password, config.db)
+meta.reflect(bind=con)
+
+data = data_reader.DataReader()
+data.readDB(con, meta, index_col="Date")
 
 
 #############################################
@@ -127,8 +130,8 @@ class TransPrice:
             df2, how="outer", lsuffix="_entry", rsuffix="_exit")
 
         # self.trades
-        # replace hardcoded "Date/Time_exit"
-        self.trades["Date/Time_exit"].fillna(rep.d.iloc[-1].name, inplace=True)
+        # replace hardcoded "Date_exit"
+        self.trades["Date_exit"].fillna(rep.d.iloc[-1].name, inplace=True)
         self.trades[self.sellPrice.name].fillna(
             rep.d.iloc[1][sellOn], inplace=True)
         # alternative way
@@ -345,7 +348,7 @@ def runPortfolio():
         index=t.inTradePrice.index, columns=t.weights.columns)
     port.invested.iloc[0] = 0
     # put trades in chronological order
-    # t.trades.sort_values("Date/Time_entry", inplace=True)
+    # t.trades.sort_values("Date_entry", inplace=True)
     # t.trades.reset_index(drop=True, inplace=True)
 
     # set weights to 0 when exit
