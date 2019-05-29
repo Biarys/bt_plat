@@ -35,6 +35,19 @@ data.readDB(con, meta, index_col="Date")
 #############################################
 # Core starts
 #############################################
+class Backtest:
+    def __init__(self, name):
+        self.name = name
+        self.id = con.execute(
+            'INSERT INTO "backtest" (name) VALUES (\'{}\') RETURNING backtest_id'
+            .format(self.name)).fetchall()[0][0]  #fetchall() to get the tuple
+
+        print(f"Backtest #{self.id} is running")
+
+
+b = Backtest("test")
+
+
 class TradeSignal:
     """
     For now, long only. 1 where buy, 0 where sell

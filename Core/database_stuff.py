@@ -94,7 +94,7 @@ def create_tables(con, meta):
 #         v = Column("Volume", Integer)  # Volume
 
 if __name__ == "__main__":
-    con, meta, session = connect('postgres', 'undead2018', 'tennis2')
+    con, meta, session = db.connect(config.user, config.password, config.db)
 
     print(dir(con))
     print(meta)
