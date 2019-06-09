@@ -330,8 +330,6 @@ def run():
 #         print(port.accRet)
 # stats = Stats(rep)
 
-run()
-
 #############################################
 # Calculate portfolio part
 #############################################
@@ -341,12 +339,14 @@ def runPortfolio():
     """
     Calculate profit and loss for the stretegy
     """
+    run()
     t.weights = pd.DataFrame(
         index=t.inTradePrice.index, columns=t.inTradePrice.columns)
     t.priceChange = t.inTradePrice - t.inTradePrice.shift()
 
     # Fill with 0s, otherwise results in NaN for port.availAmount
     t.priceChange.fillna(0, inplace=True)
+    
     # calc portfolio change
     port.value = pd.DataFrame(
         index=t.inTradePrice.index, columns=["Portfolio value"])
