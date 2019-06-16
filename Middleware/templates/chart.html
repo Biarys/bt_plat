@@ -101,6 +101,11 @@
                     series: {
                         showInLegend: true,
                         turboThreshold: 1000000
+                    },
+                    candlestick: {
+                        color: 'red',
+                        upColor: 'green'
+                        // downColor: 'red'
                     }
                 },
                 legend: {
@@ -114,19 +119,18 @@
                         data: ohlc
                     },
                     {
-                        type: 'momentum',
-                        linkedTo: 'aapl'
-                    },
-                    {
-                        type: 'momentum',
+                        type: 'sma',
                         linkedTo: 'aapl',
                         params: {
-                            period: 50
+                            period: 5
                         }
                     },
                     {
-                        upColor: 'green',
-                        color: 'red'
+                        type: 'sma',
+                        linkedTo: 'aapl',
+                        params: {
+                            period: 25
+                        }
                     }
                 ]
             });
