@@ -31,6 +31,8 @@ meta.reflect(bind=con)
 data = data_reader.DataReader()
 data.readDB(con, meta, index_col="Date")
 
+print(data.data["data_AAPL"].head())
+
 
 #############################################
 # Core starts
@@ -39,7 +41,7 @@ class Backtest:
     def __init__(self, name):
         self.name = name
         self.id = con.execute(
-            'INSERT INTO "backtest" (name) VALUES (\'{}\') RETURNING backtest_id'
+            'INSERT INTO "backtests" (name) VALUES (\'{}\') RETURNING backtest_id'
             .format(self.name)).fetchall()[0][0]  #fetchall() to get the tuple
 
         print(f"Backtest #{self.id} is running")
@@ -50,6 +52,7 @@ b = Backtest("test")
 
 class TradeSignal:
     """
+    Find trade signals for current asset
     For now, long only. 1 where buy, 0 where sell
     Possibly add signal shift - added for now to match excel results
     """
@@ -59,7 +62,7 @@ class TradeSignal:
     # sellCond = sellCond.where(sellCond != sellCond.shift(1).fillna(sellCond[0])).shift(1)
 
     def __init__(self, rep):
-        rep = rep
+        # rep = rep
         # buy/sell/all signals
         self.buyCond = rep.buyCond.where(
             rep.buyCond != rep.buyCond.shift(1).fillna(rep.buyCond[0])).shift(
@@ -106,11 +109,11 @@ class Agg_TradeSingal:
 
 class TransPrice:
     """
-    Find transaction price
+    Find transaction price for current asset
     """
 
     def __init__(self, rep, ts, buyOn="Close", sellOn="Close"):
-        rep = rep
+        # rep = rep
         self.all = ts.all
         self.buyCond = ts.buyCond
         self.sellCond = ts.sellCond
@@ -220,7 +223,7 @@ class Returns(TransPrice):
     """
 
     def __init__(self, rep):
-        rep = rep
+        # rep = rep
         tp = TransPrice(rep)
         self.index = rep.d.index
         self.returns = pd.DataFrame(index=self.index, columns=[rep.name])
@@ -241,7 +244,7 @@ class Stats:
     """
 
     def __init__(self, rep):
-        rep = rep
+        # rep = rep
         r = Returns(rep)
         self.posReturns = r.returns[r.returns > 0].dropna()
         self.negReturns = r.returns[r.returns < 0].dropna()
@@ -269,7 +272,7 @@ class Portfolio:
         self.capUsed = pd.DataFrame()
 
 
-port = Portfolio()
+Port = Portfolio()
 ats = Agg_TradeSingal()
 atp = Agg_TransPrice()
 t = Trades()
@@ -291,25 +294,31 @@ class Repeater:
         self.name = name
 
 
-def run():
+def prepricing():
     """
     Loop through files
     Generate signals
     Save them into common classes aggregate*
     """
+
     for name in data.data:
         current_asset = data.data[name]
+        # separate strategy logic
         sma5 = SMA(current_asset, ["Close"], 5)
         sma25 = SMA(current_asset, ["Close"], 25)
 
         buyCond = sma5() > sma25()
         sellCond = sma5() < sma25()
+        ################################
 
         rep = Repeater(current_asset, buyCond, sellCond, name)
 
+        # find ts and tp for an asset
         ts = TradeSignal(rep)
         tp = TransPrice(rep, ts)
         #         ret = Returns(rep)
+
+        # save ts and tp for portfolio level
         ats.buys = pd.concat([ats.buys, ts.buyCond], axis=1)
         ats.sells = pd.concat([ats.sells, ts.sellCond], axis=1)
         ats.all = pd.concat([ats.all, ts.all], axis=1)
@@ -320,6 +329,15 @@ def run():
         #         atp.trades = pd.concat([atp.trades, tp.trades], axis=0)
         t.trades = pd.concat([t.trades, tp.trades], axis=0)
         t.inTradePrice = pd.concat([t.inTradePrice, tp.inTradePrice], axis=1)
+
+        # for testing
+        # ats.all["Date"].dt.tz_localize(None)
+        ats.all.to_sql("ats_all", con, if_exists="replace")
+        ats.buys.to_sql("ats_buys", con, if_exists="replace")
+        ats.sells.to_sql("ats_sells", con, if_exists="replace")
+
+        atp.buyPrice.to_sql("atp_buy_price", con, if_exists="replace")
+        atp.sellPrice.to_sql("atp_sell_price", con, if_exists="replace")
 
 
 #         t.inTradePrice = pd.concat([t.inTradePrice, tp.inTradePrice], axis=1)
@@ -335,18 +353,19 @@ def run():
 #############################################
 
 
-def runPortfolio():
+def run_portfolio():
     """
     Calculate profit and loss for the stretegy
     """
-    run()
+    prepricing()
+
     t.weights = pd.DataFrame(
         index=t.inTradePrice.index, columns=t.inTradePrice.columns)
     t.priceChange = t.inTradePrice - t.inTradePrice.shift()
 
     # Fill with 0s, otherwise results in NaN for port.availAmount
     t.priceChange.fillna(0, inplace=True)
-    
+
     # calc portfolio change
     port.value = pd.DataFrame(
         index=t.inTradePrice.index, columns=["Portfolio value"])
@@ -433,4 +452,4 @@ def runPortfolio():
         # portfolio value += profit
 
 
-runPortfolio()
+run_portfolio()
