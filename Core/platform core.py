@@ -9,6 +9,8 @@ from indicators import *
 import database_stuff as db
 import config
 
+# for testing
+from datetime import datetime
 #############################################
 # Data reading
 # Construct indicator
@@ -430,6 +432,7 @@ def run_portfolio():
         # update avail amount (subtract)
         if current_bar in atp.buyPrice.index:
             # find amount to be invested
+
             to_invest = port.availAmount.loc[current_bar,
                                              "Available amount"] * 0.1
             # find assets that need allocation
@@ -448,7 +451,7 @@ def run_portfolio():
 
             # update portfolio avail amount -= sum of all invested money that day
             port.availAmount.loc[current_bar] -= port.invested.loc[
-                current_bar].sum()
+                current_bar, affected_assets].sum()
 
         # if there was an exit on that date
         # set weight to 0
