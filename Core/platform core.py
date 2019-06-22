@@ -31,7 +31,7 @@ meta.reflect(bind=con)
 data = data_reader.DataReader()
 data.readDB(con, meta, index_col="Date")
 
-print(data.data["data_AAPL"].head())
+# print(data.data["data_AAPL"].head())
 
 
 #############################################
@@ -41,8 +41,8 @@ class Backtest:
     def __init__(self, name):
         self.name = name
         self.id = con.execute(
-            'INSERT INTO "backtests" (name) VALUES (\'{}\') RETURNING backtest_id'
-            .format(self.name)).fetchall()[0][0]  #fetchall() to get the tuple
+            "INSERT INTO \"backtests\" (name) VALUES ('{}') RETURNING backtest_id"
+            .format(self.name)).fetchall()[0][0]  # fetchall() to get the tuple
 
         print(f"Backtest #{self.id} is running")
 
@@ -348,17 +348,22 @@ def prepricing():
 #         print(port.accRet)
 # stats = Stats(rep)
 
+
 #############################################
 # Calculate portfolio part
 #############################################
+def roll_prev_value(df, current_bar, prev_bar):
+    df.loc[current_bar] = df.iloc[prev_bar]
 
 
 def run_portfolio():
     """
     Calculate profit and loss for the stretegy
     """
+    # prepare data for portfolio
     prepricing()
 
+    # prepare portfolio level
     # copy index and column names for weights
     t.weights = pd.DataFrame(
         index=t.inTradePrice.index, columns=t.inTradePrice.columns)
@@ -399,63 +404,92 @@ def run_portfolio():
     # atp.buyPrice2 = pd.concat([atp.buyPrice2, atp.buyPrice], axis=1)
     # atp.buyPrice2.ffill(inplace=True)
 
+    # run portfolio level
     # allocate weights
-    for ix, row in t.weights.iterrows():
+    for current_bar, row in port.availAmount.iterrows():
         # weight = port value / entry
         # return_prev_bar()
-        prev_bar = port.availAmount.index.get_loc(ix) - 1
+        prev_bar = port.availAmount.index.get_loc(current_bar) - 1
 
         # not -1 cuz it will replace last value
         if prev_bar != -1:
             # update avail amount (roll)
-            port.availAmount.loc[ix] = port.availAmount.iloc[prev_bar]
+            # port.availAmount.loc[current_bar] = port.availAmount.iloc[prev_bar]
+            roll_prev_value(port.availAmount, current_bar, prev_bar)
 
             # update invested amount (roll)
-            port.invested.loc[ix] = port.invested.iloc[prev_bar]
+            # port.invested.loc[current_bar] = port.invested.iloc[prev_bar]
+            roll_prev_value(port.invested, current_bar, prev_bar)
 
             # update weight anyway cuz if buy, the wont roll for other stocks (roll)
-            t.weights.loc[ix] = t.weights.iloc[prev_bar]
+            # t.weights.loc[current_bar] = t.weights.iloc[prev_bar]
+            roll_prev_value(t.weights, current_bar, prev_bar)
 
         # if there was an entry on that date
         # allocate weight
         # update avail amount (subtract)
-        if ix in atp.buyPrice.index:
-            toInvest = port.availAmount.loc[ix, "Available amount"] * 0.1
-            stocksAffected = atp.buyPrice.loc[ix].dropna().index.values
-            t.weights.loc[ix, stocksAffected] = (
-                toInvest / atp.buyPrice.loc[ix, stocksAffected])
-            port.invested.loc[ix, stocksAffected] = toInvest
-            port.availAmount.loc[ix] -= port.invested.loc[ix].sum()
+        if current_bar in atp.buyPrice.index:
+            # find amount to be invested
+            to_invest = port.availAmount.loc[current_bar,
+                                             "Available amount"] * 0.1
+            # find assets that need allocation
+            # those that dont have buyPrice for that day wil have NaN
+            # drop them, keep those that have values
+            affected_assets = atp.buyPrice.loc[current_bar].dropna(
+            ).index.values
+
+            # find current bar, affected assets
+            # allocate shares to all assets = invested amount/buy price
+            t.weights.loc[current_bar, affected_assets] = (
+                to_invest / atp.buyPrice.loc[current_bar, affected_assets])
+
+            # update portfolio invested amount
+            port.invested.loc[current_bar, affected_assets] = to_invest
+
+            # update portfolio avail amount -= sum of all invested money that day
+            port.availAmount.loc[current_bar] -= port.invested.loc[
+                current_bar].sum()
 
         # if there was an exit on that date
         # set weight to 0
         # update avail amount
-        if ix in atp.sellPrice.index:
+        if current_bar in atp.sellPrice.index:
             # prob need to change this part for scaling implementation
-            stocksAffected = atp.sellPrice.iloc[0].dropna().index.values
-            # amountRecovered = t.weights.loc[ix, stocksAffected] * atp.buyPrice2.loc[ix, stocksAffected]
-            port.availAmount.loc[ix] += port.invested.loc[
-                ix, stocksAffected].sum()
-            port.invested.loc[ix, stocksAffected] = 0
-            t.weights.loc[ix, stocksAffected] = 0
+            affected_assets = atp.sellPrice.loc[current_bar].dropna().index.values
+            # amountRecovered = t.weights.loc[current_bar, affected_assets] * atp.buyPrice2.loc[current_bar, affected_assets]
+            port.availAmount.loc[current_bar] += port.invested.loc[
+                current_bar, affected_assets].sum()
 
-        # # if no new trades/exits
-        # # update weight
-        # else:
-        #     t.weights.loc[ix] = t.weights.iloc[prev_bar]
-        #     pass
-        #         prev_bar = port.availAmount.index.get_loc(ix) - 1
-        #         if prev_bar != -1:
-        #             port.availAmount.loc[ix] = port.availAmount.iloc[prev_bar]
-        # update avail amount for gains/losses that day
-        # done in the end to avoid factroing it in before buy
-        # if != -1 to skip first row
-        # if prev_bar != -1:
-        #     port.availAmount.loc[ix] += (
-        #         t.priceChange.loc[ix] * t.weights.loc[ix]).sum()
+            # set invested amount of the assets to 0
+            port.invested.loc[current_bar, affected_assets] = 0
 
-        # profit = weight * chg
-        # portfolio value += profit
+            # set weight to 0
+            t.weights.loc[current_bar, affected_assets] = 0
+
+    # testing
+    df_all = pd.concat([port.availAmount, port.invested], axis=1)
+    df_all.to_sql("df_all", con, if_exists="replace")
+    t.weights.to_sql("t_weights", con, if_exists="replace")
+    port.availAmount.to_sql("port_avail_amount", con, if_exists="replace")
+    port.invested.to_sql("port_invested", con, if_exists="replace")
+
+    # # if no new trades/exits
+    # # update weight
+    # else:
+    #     t.weights.loc[current_bar] = t.weights.iloc[prev_bar]
+    #     pass
+    #         prev_bar = port.availAmount.index.get_loc(current_bar) - 1
+    #         if prev_bar != -1:
+    #             port.availAmount.loc[current_bar] = port.availAmount.iloc[prev_bar]
+    # update avail amount for gains/losses that day
+    # done in the end to avoid factroing it in before buy
+    # if != -1 to skip first row
+    # if prev_bar != -1:
+    #     port.availAmount.loc[current_bar] += (
+    #         t.priceChange.loc[current_bar] * t.weights.loc[current_bar]).sum()
+
+    # profit = weight * chg
+    # portfolio value += profit
 
 
 run_portfolio()
