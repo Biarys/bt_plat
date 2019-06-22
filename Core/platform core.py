@@ -455,7 +455,8 @@ def run_portfolio():
         # update avail amount
         if current_bar in atp.sellPrice.index:
             # prob need to change this part for scaling implementation
-            affected_assets = atp.sellPrice.loc[current_bar].dropna().index.values
+            affected_assets = atp.sellPrice.loc[current_bar].dropna(
+            ).index.values
             # amountRecovered = t.weights.loc[current_bar, affected_assets] * atp.buyPrice2.loc[current_bar, affected_assets]
             port.availAmount.loc[current_bar] += port.invested.loc[
                 current_bar, affected_assets].sum()
