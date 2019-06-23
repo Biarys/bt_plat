@@ -44,12 +44,12 @@ def connect(user, password, db, host='localhost', port=5432):
 
 def create_tables(con, meta):
     '''Create default tables'''
-    backtest = Table("backtest", meta,
-                     Column("backtest_id", Integer, primary_key=True),
-                     Column("name", String(200)))
-    backtest_trades = Table(
-        "backtest_trades", meta,
-        Column("backtest_id", Integer, ForeignKey("backtest.backtest_id")),
+    backtests = Table("backtests", meta,
+                      Column("backtest_id", Integer, primary_key=True),
+                      Column("name", String(200)))
+    trades = Table(
+        "trades", meta,
+        Column("backtest_id", Integer, ForeignKey("backtests.backtest_id")),
         Column("trade_id", Integer, primary_key=True),
         Column("ticker", String(20)), Column("direction", String(20)),
         Column("entry", DateTime), Column("exit", DateTime),
@@ -57,6 +57,13 @@ def create_tables(con, meta):
         Column("lot_size", Float(precision=8)),
         Column("position_value", Float(precision=2)),
         Column("cum_profit", Float(precision=2)), Column("bars_held", Integer))
+    # agg_trade_signals = Table(
+    #     "trade_signals", meta,
+    #     Column("backtest_id", Integer, ForeignKey("backtests.backtest_id")),
+    #     Column("asset", String(20)),
+    #     Column()
+    # )
+    # agg_trans_price =
 
     # Column("CAGR", Float(precision=2)),
     # Column("maxDD", Float(precision=2)),
