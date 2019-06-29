@@ -499,7 +499,7 @@ def run_portfolio():
     # set starting amount
     port.equity_curve.iloc[0] = port.start_amount
     # apply fluctuation to equity curve
-    port.equity_curve.cumsum(inPlace=True)
+    port.equity_curve = port.equity_curve.cumsum()
 
     # port.value = port.equity_curve.sum()
     t.weights.columns = ["w_" + col for col in t.weights.columns]
