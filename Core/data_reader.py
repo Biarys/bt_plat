@@ -1,5 +1,7 @@
 import os
 import pandas as pd
+import database_stuff as db
+import config
 
 
 class DataReader:
@@ -33,6 +35,9 @@ class DataReader:
         If index_col is not provided, default name "Date" is used for index.
         Index is converted to pd.to_datetime(), so it's important to provide one.
         """
+        con, meta = db.connect(config.user, config.password, config.db)
+        meta.reflect(bind=con)
+
         for table in meta.tables.keys():
             if table.startswith("data_"):
                 _temp = pd.read_sql_table(table, con, index_col=index_col)
@@ -40,8 +45,15 @@ class DataReader:
                 _temp.index = pd.to_datetime(_temp.index)
                 self.data[table] = _temp
 
+        con.close()
+
     def execQuery(self, query, con):
-        return pd.read_sql(query, con)
+        con, meta = db.connect(config.user, config.password, config.db)
+        meta.reflect(bind=con)
+
+        result = pd.read_sql(query, con)
+        con.close()
+        return result
 
 
 # data = DataReader()
