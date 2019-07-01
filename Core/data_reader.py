@@ -40,9 +40,10 @@ class DataReader:
                 _temp.index = pd.to_datetime(_temp.index)
                 self.data[table] = _temp
 
+    def execQuery(self, query, con):
+        return pd.read_sql(query, con)
+
 
 # data = DataReader()
-
 # data.readFiles(r"D:\AmiBackupeSignal")
-
 # data.data["AAAP"].index
