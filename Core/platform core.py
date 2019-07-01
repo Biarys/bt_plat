@@ -500,11 +500,14 @@ def run_portfolio():
     port.equity_curve.iloc[0] = port.start_amount
     # apply fluctuation to equity curve
     port.equity_curve = port.equity_curve.cumsum()
+    # port.equity_curve.columns
+    port.equity_curve.name = "Equity"
 
     # port.value = port.equity_curve.sum()
     t.weights.columns = ["w_" + col for col in t.weights.columns]
-    df_all = pd.concat([port.avail_amount, port.equity_curve], axis=1)
-    df_all.to_sql("df_all", con, if_exists="replace")
+    port.equity_curve.to_sql("equity_curve", con, if_exists="replace")
+    # df_all = pd.concat([port.avail_amount, port.equity_curve], axis=1)
+    # df_all.to_sql("df_all", con, if_exists="replace")
     t.weights.to_sql("t_weights", con, if_exists="replace")
     port.avail_amount.to_sql("port_avail_amount", con, if_exists="replace")
     port.invested.to_sql("port_invested", con, if_exists="replace")
@@ -529,3 +532,4 @@ def run_portfolio():
 
 
 run_portfolio()
+session.close()
