@@ -1,3 +1,7 @@
+#########################################
+# Creates connection, database and tables
+#########################################
+
 # from sqlalchemy import create_engine
 
 # engine = create_engine('postgresql://postgres:undead2018@localhost:5432/postgres')
@@ -19,8 +23,8 @@ def connect(user, password, db, host='localhost', port=5432):
     # The return value of create_engine() is our connection object
     engine = create_engine(url, client_encoding='utf8')
 
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    # Session = sessionmaker(bind=engine)
+    # session = Session()
 
     con = engine.connect()
 
@@ -31,7 +35,7 @@ def connect(user, password, db, host='localhost', port=5432):
         # print(in meta.tables)
         create_tables(engine, meta)
 
-        return con, meta, session
+        return con, meta  #, session
 
     else:
         print("============================================")
