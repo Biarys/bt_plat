@@ -37,11 +37,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "console": "integratedTerminal",
-            "args": [
-                "runserver",
-                "--noreload",
-                "--nothreading"
-            ],
+            "args": ["runserver", "--noreload", "--nothreading"],
             "django": true
         },
         {
@@ -50,13 +46,9 @@
             "request": "launch",
             "module": "flask",
             "env": {
-                "FLASK_APP": "app.py"
+                "FLASK_APP": "__init__.py"
             },
-            "args": [
-                "run",
-                "--no-debugger",
-                "--no-reload"
-            ],
+            "args": ["run", "--no-debugger", "--no-reload"],
             "jinja": true
         },
         {
