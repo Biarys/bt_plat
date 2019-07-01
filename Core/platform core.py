@@ -11,6 +11,7 @@ import config
 
 # for testing
 from datetime import datetime
+
 #############################################
 # Data reading
 # Construct indicator
@@ -32,11 +33,11 @@ from datetime import datetime
 # data = data_reader.DataReader()
 # data.readFiles(r"D:\AmiBackupeSignal")
 
-con, meta, session = db.connect(config.user, config.password, config.db)
-meta.reflect(bind=con)
+# con, meta, session = db.connect(config.user, config.password, config.db)
+# meta.reflect(bind=con)
 
-data = data_reader.DataReader()
-data.readDB(con, meta, index_col="Date")
+# data = data_reader.DataReader()
+# data.readDB(con, meta, index_col="Date")
 
 # print(data.data["data_AAPL"].head())
 
@@ -54,7 +55,7 @@ class Backtest:
         print(f"Backtest #{self.id} is running")
 
 
-b = Backtest("test")
+# b = Backtest("test")
 
 
 class TradeSignal:
@@ -175,39 +176,6 @@ class TransPrice:
         self.priceFluctuation_dollar.name = rep.name
 
 
-# # old version
-# class TransPrice_1(TradeSignal):
-#     # inheriting from tradeSingal cuz of inTrade
-#     """
-#     Raw transaction price meaning only initial buy and sell prices are recorded without forward fill
-#     """
-
-#     def __init__(self, rep, buyOn="Close", sellOn="Close"):
-#         # buy price & sell price
-#         rep = rep
-#         super().__init__(rep)
-#         self.buyPrice = rep.data[buyOn][self.buyCond == 1]
-#         self.sellPrice = rep.data[sellOn][self.sellCond == 1]
-
-#         self.buyPrice.name = rep.name
-#         self.sellPrice.name = rep.name
-
-#         cond = [
-#             (self.buyCond == 1),
-#             (self.sellCond == 1)
-#         ]
-#         out = ["Buy", "Sell"]
-#         self.inTrade = np.select(cond, out, default=0)
-#         self.inTrade = pd.DataFrame(
-#             self.inTrade, index=rep.data.index, columns=[rep.name])
-#         self.inTrade = self.inTrade.replace("0", np.NAN)
-#         self.inTrade = self.inTrade.ffill().dropna()
-#         self.inTrade = self.inTrade[self.inTrade == "Buy"]
-
-#         self.inTradePrice = rep.data["Close"].loc[self.inTrade.index]
-#         self.inTradePrice.name = rep.name
-
-
 class Agg_TransPrice:
     """
     Aggregate version of TransPrice that keeps transaction price for all stocks
@@ -287,10 +255,10 @@ class Portfolio:
         self.equity_curve = pd.DataFrame()
 
 
-port = Portfolio()
-ats = Agg_TradeSingal()
-atp = Agg_TransPrice()
-t = Trades()
+# port = Portfolio()
+# ats = Agg_TradeSingal()
+# atp = Agg_TransPrice()
+# t = Trades()
 
 #############################################
 # Generate signals part
@@ -309,7 +277,7 @@ class Repeater:
         self.name = name
 
 
-def prepricing():
+def prepricing(ats, atp, t):
     """
     Loop through files
     Generate signals
@@ -373,12 +341,16 @@ def roll_prev_value(df, current_bar, prev_bar):
     df.loc[current_bar] = df.iloc[prev_bar]
 
 
-def run_portfolio():
+def run_portfolio(data):
     """
     Calculate profit and loss for the stretegy
     """
+    port = Portfolio()
+    ats = Agg_TradeSingal()
+    atp = Agg_TransPrice()
+    t = Trades()
     # prepare data for portfolio
-    prepricing()
+    prepricing(ats, atp, t)
 
     # prepare portfolio level
     # copy index and column names for weights
@@ -506,8 +478,8 @@ def run_portfolio():
     # port.value = port.equity_curve.sum()
     t.weights.columns = ["w_" + col for col in t.weights.columns]
     port.equity_curve.to_sql("equity_curve", con, if_exists="replace")
-    # df_all = pd.concat([port.avail_amount, port.equity_curve], axis=1)
-    # df_all.to_sql("df_all", con, if_exists="replace")
+    df_all = pd.concat([port.avail_amount, port.equity_curve], axis=1)
+    df_all.to_sql("df_all", con, if_exists="replace")
     t.weights.to_sql("t_weights", con, if_exists="replace")
     port.avail_amount.to_sql("port_avail_amount", con, if_exists="replace")
     port.invested.to_sql("port_invested", con, if_exists="replace")
@@ -531,5 +503,14 @@ def run_portfolio():
     # portfolio value += profit
 
 
-run_portfolio()
-session.close()
+if __name__ == "__main__":
+    con, meta = db.connect(config.user, config.password, config.db)
+    meta.reflect(bind=con)
+    b = Backtest("test")
+
+    data = data_reader.DataReader()
+    data.readDB(con, meta, index_col="Date")
+
+    run_portfolio(data)
+
+    # session.close()
