@@ -47,15 +47,20 @@ class DataReader:
 
         con.close()
 
-    def execQuery(self, query, con):
+    def execQuery(self, query):
         con, meta = db.connect(config.user, config.password, config.db)
         meta.reflect(bind=con)
 
         result = pd.read_sql(query, con)
+
         con.close()
         return result
 
 
+if __name__ == "__main__":
+    test = DataReader()
+    df = test.execQuery("Select * from backtest limit 10")
+    print(df)
 # data = DataReader()
 # data.readFiles(r"D:\AmiBackupeSignal")
 # data.data["AAAP"].index
