@@ -121,7 +121,6 @@ class TransPrice:
     """
 
     def __init__(self, rep, ts, buyOn="Close", sellOn="Close"):
-        # rep = rep
         self.all = ts.all
         self.buyCond = ts.buyCond
         self.sellCond = ts.sellCond
@@ -316,7 +315,6 @@ def prepricing(ats, atp, t):
         t.inTradePrice = pd.concat([t.inTradePrice, tp.inTradePrice], axis=1)
 
         # for testing
-        # ats.all["Date"].dt.tz_localize(None)
         ats.all.to_sql("ats_all", con, if_exists="replace")
         ats.buys.to_sql("ats_buys", con, if_exists="replace")
         ats.sells.to_sql("ats_sells", con, if_exists="replace")
@@ -337,8 +335,26 @@ def prepricing(ats, atp, t):
 #############################################
 # Calculate portfolio part
 #############################################
-def roll_prev_value(df, current_bar, prev_bar):
+def _roll_prev_value(df, current_bar, prev_bar):
     df.loc[current_bar] = df.iloc[prev_bar]
+
+
+def _generate_equity_curve(atp, port, t):
+    # Fillna cuz
+    atp.priceFluctuation_dollar.fillna(0, inplace=True)
+
+    # find daily fluc per asset
+    port.profit_daily_fluc_per_asset = t.weights * atp.priceFluctuation_dollar
+
+    # find daily fluc for that day for all assets (sum of fluc for that day)
+    port.equity_curve = port.profit_daily_fluc_per_asset.sum(1)
+
+    # set starting amount
+    port.equity_curve.iloc[0] = port.start_amount
+
+    # apply fluctuation to equity curve
+    port.equity_curve = port.equity_curve.cumsum()
+    port.equity_curve.name = "Equity"
 
 
 def run_portfolio(data):
@@ -409,15 +425,15 @@ def run_portfolio(data):
         if prev_bar != -1:
             # update avail amount (roll)
             # port.avail_amount.loc[current_bar] = port.avail_amount.iloc[prev_bar]
-            roll_prev_value(port.avail_amount, current_bar, prev_bar)
+            _roll_prev_value(port.avail_amount, current_bar, prev_bar)
 
             # update invested amount (roll)
             # port.invested.loc[current_bar] = port.invested.iloc[prev_bar]
-            roll_prev_value(port.invested, current_bar, prev_bar)
+            _roll_prev_value(port.invested, current_bar, prev_bar)
 
             # update weight anyway cuz if buy, the wont roll for other stocks (roll)
             # t.weights.loc[current_bar] = t.weights.iloc[prev_bar]
-            roll_prev_value(t.weights, current_bar, prev_bar)
+            _roll_prev_value(t.weights, current_bar, prev_bar)
 
         # if there was an entry on that date
         # allocate weight
@@ -450,6 +466,10 @@ def run_portfolio(data):
         # update avail amount
         if current_bar in atp.sellPrice.index:
             # prob need to change this part for scaling implementation
+
+            # find assets that need allocation
+            # those that dont have buyPrice for that day wil have NaN
+            # drop them, keep those that have values
             affected_assets = atp.sellPrice.loc[current_bar].dropna(
             ).index.values
             # amountRecovered = t.weights.loc[current_bar, affected_assets] * atp.buyPrice2.loc[current_bar, affected_assets]
@@ -462,19 +482,20 @@ def run_portfolio(data):
             # set weight to 0
             t.weights.loc[current_bar, affected_assets] = 0
 
-    # testing
-    atp.priceFluctuation_dollar.fillna(0, inplace=True)
-    # find daily fluc per asset
-    port.profit_daily_fluc_per_asset = t.weights * atp.priceFluctuation_dollar
-    # find daily fluc for that day for all assets (sum of fluc for that day)
-    port.equity_curve = port.profit_daily_fluc_per_asset.sum(1)
-    # set starting amount
-    port.equity_curve.iloc[0] = port.start_amount
-    # apply fluctuation to equity curve
-    port.equity_curve = port.equity_curve.cumsum()
-    # port.equity_curve.columns
-    port.equity_curve.name = "Equity"
+    # atp.priceFluctuation_dollar.fillna(0, inplace=True)
+    # # find daily fluc per asset
+    # port.profit_daily_fluc_per_asset = t.weights * atp.priceFluctuation_dollar
+    # # find daily fluc for that day for all assets (sum of fluc for that day)
+    # port.equity_curve = port.profit_daily_fluc_per_asset.sum(1)
+    # # set starting amount
+    # port.equity_curve.iloc[0] = port.start_amount
+    # # apply fluctuation to equity curve
+    # port.equity_curve = port.equity_curve.cumsum()
+    # # port.equity_curve.columns
+    # port.equity_curve.name = "Equity"
+    _generate_equity_curve(atp, port, t)
 
+    # testing
     # port.value = port.equity_curve.sum()
     t.weights.columns = ["w_" + col for col in t.weights.columns]
     port.equity_curve.to_sql("equity_curve", con, if_exists="replace")
@@ -502,8 +523,13 @@ def run_portfolio(data):
     # profit = weight * chg
     # portfolio value += profit
 
+    _generate_trade_list(t)
 
-if __name__ == "__main__":
+
+def _generate_trade_list(t):
+    pass
+
+def run():
     con, meta = db.connect(config.user, config.password, config.db)
     meta.reflect(bind=con)
     b = Backtest("test")
@@ -513,4 +539,6 @@ if __name__ == "__main__":
 
     run_portfolio(data)
 
-    # session.close()
+
+if __name__ == "__main__":
+    run()
