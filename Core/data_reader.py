@@ -50,24 +50,19 @@ class DataReader:
 
     def establish_con(func):
 
-        con, meta = db.connect(config.user, config.password, config.db)
-        meta.reflect(bind=con)
+        eng, meta = db.connect(config.user, config.password, config.db)
+        meta.reflect(bind=eng)
 
         # @wraps(func)
         def inner(self, *args, **kwargs):
-            return func(self, con, *args, **kwargs)
+            return func(self, eng, *args, **kwargs)
 
-        con.close()
+        # eng.close() # engine closes connection automatically?
         return inner
 
     @establish_con
     def execQuery(self, con, query):
-        # con, meta = db.connect(config.user, config.password, config.db)
-        # meta.reflect(bind=con)
-        # print(con)
         result = pd.read_sql(query, con)
-
-        # con.close()
         return result
 
 

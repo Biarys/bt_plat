@@ -26,7 +26,7 @@ def connect(user, password, db, host='localhost', port=5432):
     # Session = sessionmaker(bind=engine)
     # session = Session()
 
-    con = engine.connect()
+    # con = engine.connect()
 
     if sqlu.database_exists(url):
         # We then bind the connection to MetaData()
@@ -35,7 +35,8 @@ def connect(user, password, db, host='localhost', port=5432):
         # print(in meta.tables)
         create_tables(engine, meta)
 
-        return con, meta  #, session
+        # passing engine instead of connection because deal with raw SQL
+        return engine, meta  #, session
 
     else:
         print("============================================")
