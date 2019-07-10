@@ -46,18 +46,18 @@ class DataReader:
                 _temp.index = pd.to_datetime(_temp.index)
                 self.data[table] = _temp
 
-        con.close()
+        # con.close()
 
     def establish_con(func):
 
-        eng, meta = db.connect(config.user, config.password, config.db)
-        meta.reflect(bind=eng)
+        con, meta = db.connect(config.user, config.password, config.db)
+        meta.reflect(bind=con)
 
         # @wraps(func)
         def inner(self, *args, **kwargs):
-            return func(self, eng, *args, **kwargs)
+            return func(self, con, *args, **kwargs)
 
-        # eng.close() # engine closes connection automatically?
+        # con.close() # engine closes connection automatically?
         return inner
 
     @establish_con
