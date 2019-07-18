@@ -24,6 +24,7 @@ from datetime import datetime
 # TODO
 # change how port.invested is implemented. Currently invests given ammount without round downs
 # find common index for portflio. Should be a range of datetimes. Currently useing atp.priceFluctuation_dollar.index
+# date columns changes between 00 00 and 9 30 for some reason
 
 #############################################
 # Read data
@@ -60,7 +61,8 @@ class Backtest:
         print(f"Backtest #{self.id} is running")
 
         data = data_reader.DataReader()
-        data.readDB(self.con, self.meta, index_col="Date")
+        # data.readDB(self.con, self.meta, index_col="Date")
+        data.readCSVFiles(r"C:\Users\Biarys\Desktop\bt_plat\stock_data")
 
         self.run_portfolio(data)
 
@@ -292,7 +294,8 @@ class Backtest:
         self._generate_trade_list(t)
 
     def _generate_trade_list(self, t):
-        pass
+
+        print(t.weights)
 
 
 # b = Backtest("test")
@@ -365,14 +368,15 @@ class TransPrice:
         self.buyCond = ts.buyCond
         self.sellCond = ts.sellCond
 
-        buyIndex = self.all[self.all[rep.name] == "Buy"].index
-        sellIndex = self.all[self.all[rep.name] == "Sell"].index
+        # buyIndex = self.all[self.all[rep.name] == "Buy"].index
+        # sellIndex = self.all[self.all[rep.name] == "Sell"].index
 
-        self.buyPrice = rep.data[buyOn][buyIndex]
-        self.sellPrice = rep.data[sellOn][sellIndex]
+        # old way
+        # self.buyPrice = rep.data[buyOn][buyIndex]
+        # self.sellPrice = rep.data[sellOn][sellIndex]
 
-        self.buyPrice.name = rep.name
-        self.sellPrice.name = rep.name
+        # self.buyPrice.name = rep.name
+        # self.sellPrice.name = rep.name
 
         cond = [(self.buyCond == 1), (self.sellCond == 1)]
         out = ["Buy", "Sell"]
@@ -383,8 +387,22 @@ class TransPrice:
         self.inTrade = self.inTrade.ffill().dropna()
         self.inTrade = self.inTrade[self.inTrade == "Buy"]
 
-        self.buyPrice.name = "Entry"
-        self.sellPrice.name = "Exit"
+        # self.buyPrice.name = "Entry"
+        # self.sellPrice.name = "Exit"
+
+        self.all = self.all.dropna()
+        # to get rid of duplicates
+        self.all = self.all.where(self.all != self.all.shift(1))
+
+        buyIndex = self.all[self.all[rep.name] == "Buy"].index
+        sellIndex = self.all[self.all[rep.name] == "Sell"].index
+
+        
+        self.buyPrice = rep.data[buyOn][buyIndex]
+        self.sellPrice = rep.data[sellOn][sellIndex]
+
+        self.buyPrice.name = rep.name
+        self.sellPrice.name = rep.name
 
         df1 = self.buyPrice.reset_index()
         df2 = self.sellPrice.reset_index()
@@ -395,8 +413,8 @@ class TransPrice:
         # self.trades
         # replace hardcoded "Date_exit"
         self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
-        self.trades[self.sellPrice.name].fillna(
-            rep.data.iloc[1][sellOn], inplace=True)
+        self.trades[self.sellPrice.name+"_exit"].fillna(
+            rep.data.iloc[-1][sellOn], inplace=True)
         # alternative way
         #         u = self.trades.select_dtypes(exclude=['datetime'])
         #         self.trades[u.columns] = u.fillna(4)
@@ -547,3 +565,5 @@ def _generate_equity_curve(atp, port, t):
 if __name__ == "__main__":
     b = Backtest("test")
     b.run()
+
+
