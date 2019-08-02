@@ -4,7 +4,7 @@
 
 # from sqlalchemy import create_engine
 
-# engine = create_engine('postgresql://postgres:undead2018@localhost:5432/postgres')
+# engine = create_engine('postgresql://postgres:undead2018@localhost:5433/postgres')
 
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
@@ -13,7 +13,7 @@ import sqlalchemy_utils as sqlu
 import config
 
 
-def connect(user, password, db, host='localhost', port=5432):
+def connect(user, password, db, host='localhost', port=5433):
     '''Returns connection, metadata, and session objects'''
     # We connect with the help of the PostgreSQL URL
     # postgresql://federer:grandestslam@localhost:5432/tennis

@@ -24,7 +24,6 @@ from datetime import datetime
 # TODO
 # change how port.invested is implemented. Currently invests given ammount without round downs
 # find common index for portflio. Should be a range of datetimes. Currently useing atp.priceFluctuation_dollar.index
-# date columns changes between 00 00 and 9 30 for some reason
 
 #############################################
 # Read data

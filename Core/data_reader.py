@@ -9,7 +9,7 @@ class DataReader:
     def __init__(self):
         self.data = {}
 
-    def csvFile(self, path):
+    def readCSV(self, path):
         assert os.path.isfile(
             path), "You need to specify a file or the path doesnt exist."
         self.data = pd.read_excel(
@@ -19,13 +19,13 @@ class DataReader:
             names=["Open", "High", "Low", "Close", "Volume"],
         )
 
-    def readFiles(self, path):
+    def readCSVFiles(self, path):
         assert os.path.isdir(
             path), "You need to specify a folder or the path doesnt exist."
         for file in os.listdir(path)[:2]:
             self._fileName = file.split(".txt")[0]
             _temp = pd.read_csv(
-                path + "\\" + file, nrows=100, index_col="Date/Time")
+                path + "\\" + file, index_col="Date")
             _temp.index.name = "Date"
             _temp.index = pd.to_datetime(_temp.index)
             self.data[self._fileName] = _temp
@@ -68,5 +68,5 @@ class DataReader:
 
 if __name__ == "__main__":
     test = DataReader()
-    df = test.execQuery("Select * from backtest limit 10")
+    df = test.execQuery("Select * from backtests limit 10")
     print(df)
