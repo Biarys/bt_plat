@@ -25,21 +25,6 @@ from datetime import datetime
 # change how port.invested is implemented. Currently invests given ammount without round downs
 # find common index for portflio. Should be a range of datetimes. Currently useing atp.priceFluctuation_dollar.index
 
-#############################################
-# Read data
-#############################################
-
-# data = data_reader.DataReader()
-# data.readFiles(r"D:\AmiBackupeSignal")
-
-# con, meta, session = db.connect(config.user, config.password, config.db)
-# meta.reflect(bind=con)
-
-# data = data_reader.DataReader()
-# data.readDB(con, meta, index_col="Date")
-
-# print(data.data["data_AAPL"].head())
-
 
 #############################################
 # Core starts
@@ -47,6 +32,7 @@ from datetime import datetime
 class Backtest:
     def __init__(self, name):
         self.name = name
+        self.data = data_reader.DataReader()
 
     def run(self):
         self.con, self.meta = db.connect(config.user, config.password,
@@ -59,11 +45,10 @@ class Backtest:
 
         print(f"Backtest #{self.id} is running")
 
-        data = data_reader.DataReader()
-        # data.readDB(self.con, self.meta, index_col="Date")
-        data.readCSVFiles(r"C:\Users\Biarys\Desktop\bt_plat\stock_data")
+        self.data.readDB(self.con, self.meta, index_col="Date")
+        # data.readCSVFiles(r"C:\Users\Biarys\Desktop\bt_plat\stock_data")
 
-        self.run_portfolio(data)
+        self.run_portfolio(self.data)
 
     def prepricing(self, ats, atp, t, data):
         """
@@ -87,24 +72,21 @@ class Backtest:
             # find ts and tp for an asset
             ts = TradeSignal(rep)
             tp = TransPrice(rep, ts)
-            #         ret = Returns(rep)
 
             # save ts and tp for portfolio level
             ats.buys = pd.concat([ats.buys, ts.buyCond], axis=1)
             ats.sells = pd.concat([ats.sells, ts.sellCond], axis=1)
             ats.all = pd.concat([ats.all, ts.all], axis=1)
 
-            #         atp.inTrade = pd.concat([atp.inTrade, tp.inTradePrice], axis=1)
             atp.buyPrice = pd.concat([atp.buyPrice, tp.buyPrice], axis=1)
             atp.sellPrice = pd.concat([atp.sellPrice, tp.sellPrice], axis=1)
             atp.priceFluctuation_dollar = pd.concat(
                 [atp.priceFluctuation_dollar, tp.priceFluctuation_dollar],
                 axis=1)
-            #         atp.trades = pd.concat([atp.trades, tp.trades], axis=0)
             t.trades = pd.concat([t.trades, tp.trades], axis=0)
             t.inTradePrice = pd.concat([t.inTradePrice, tp.inTradePrice],
                                        axis=1)
-            #%%
+
             # for testing
             ats.all.to_sql("ats_all", self.con, if_exists="replace")
             ats.buys.to_sql("ats_buys", self.con, if_exists="replace")
@@ -113,13 +95,6 @@ class Backtest:
             atp.buyPrice.to_sql("atp_buy_price", self.con, if_exists="replace")
             atp.sellPrice.to_sql(
                 "atp_sell_price", self.con, if_exists="replace")
-
-    #         t.inTradePrice = pd.concat([t.inTradePrice, tp.inTradePrice], axis=1)
-    #         port.tp = pd.concat([port.tp, tp.inTrade], axis=1)
-    #         port.ror = pd.concat([port.ror, ret.returns], axis=1)
-    #         port.inTrade = pd.concat([port.inTrade, tp.inTradePrice], axis=1)
-    #         port.transPrice = pd.concat([port.transPrice, tp.buyPrice], axis=1)
-    #         print(port.accRet)
 
     def run_portfolio(self, data):
         """
@@ -138,7 +113,6 @@ class Backtest:
             index=atp.priceFluctuation_dollar.index,
             columns=t.inTradePrice.columns)
         t.weights.iloc[0] = 0  # set starting weight to 0
-        # t.priceChange = t.inTradePrice - t.inTradePrice.shift()
 
         # to avoid nan in the beg for
         atp.priceFluctuation_dollar.iloc[0] = 0
@@ -168,37 +142,26 @@ class Backtest:
         # t.trades.sort_values("Date_entry", inplace=True)
         # t.trades.reset_index(drop=True, inplace=True)
 
-        # set weights to 0 when exit
-        # t.weights.loc[atp.sellPrice.index] = 0
-
         # change column names to avoid error
-
         atp.buyPrice.columns = t.weights.columns
         atp.sellPrice.columns = t.weights.columns
-
-        # atp.buyPrice2 = pd.DataFrame(index=t.inTradePrice.index)
-        # atp.buyPrice2 = pd.concat([atp.buyPrice2, atp.buyPrice], axis=1)
-        # atp.buyPrice2.ffill(inplace=True)
 
         # run portfolio level
         # allocate weights
         for current_bar, row in port.avail_amount.iterrows():
             # weight = port value / entry
-            # return_prev_bar()
+
             prev_bar = port.avail_amount.index.get_loc(current_bar) - 1
 
             # not -1 cuz it will replace last value
             if prev_bar != -1:
                 # update avail amount (roll)
-                # port.avail_amount.loc[current_bar] = port.avail_amount.iloc[prev_bar]
                 _roll_prev_value(port.avail_amount, current_bar, prev_bar)
 
                 # update invested amount (roll)
-                # port.invested.loc[current_bar] = port.invested.iloc[prev_bar]
                 _roll_prev_value(port.invested, current_bar, prev_bar)
 
                 # update weight anyway cuz if buy, the wont roll for other stocks (roll)
-                # t.weights.loc[current_bar] = t.weights.iloc[prev_bar]
                 _roll_prev_value(t.weights, current_bar, prev_bar)
 
             # if there was an entry on that date
@@ -206,7 +169,6 @@ class Backtest:
             # update avail amount (subtract)
             if current_bar in atp.buyPrice.index:
                 # find amount to be invested
-
                 to_invest = port.avail_amount.loc[current_bar,
                                                   "Available amount"] * 0.1
                 # find assets that need allocation
@@ -272,21 +234,6 @@ class Backtest:
             "port_avail_amount", self.con, if_exists="replace")
         port.invested.to_sql("port_invested", self.con, if_exists="replace")
 
-        # # if no new trades/exits
-        # # update weight
-        # else:
-        #     t.weights.loc[current_bar] = t.weights.iloc[prev_bar]
-        #     pass
-        #         prev_bar = port.avail_amount.index.get_loc(current_bar) - 1
-        #         if prev_bar != -1:
-        #             port.avail_amount.loc[current_bar] = port.avail_amount.iloc[prev_bar]
-        # update avail amount for gains/losses that day
-        # done in the end to avoid factroing it in before buy
-        # if != -1 to skip first row
-        # if prev_bar != -1:
-        #     port.avail_amount.loc[current_bar] += (
-        #         t.priceChange.loc[current_bar] * t.weights.loc[current_bar]).sum()
-
         # profit = weight * chg
         # portfolio value += profit
 
@@ -295,9 +242,6 @@ class Backtest:
     def _generate_trade_list(self, t):
 
         print(t.weights)
-
-
-# b = Backtest("test")
 
 
 class TradeSignal:
@@ -396,7 +340,6 @@ class TransPrice:
         buyIndex = self.all[self.all[rep.name] == "Buy"].index
         sellIndex = self.all[self.all[rep.name] == "Sell"].index
 
-        
         self.buyPrice = rep.data[buyOn][buyIndex]
         self.sellPrice = rep.data[sellOn][sellIndex]
 
@@ -412,7 +355,7 @@ class TransPrice:
         # self.trades
         # replace hardcoded "Date_exit"
         self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
-        self.trades[self.sellPrice.name+"_exit"].fillna(
+        self.trades[self.sellPrice.name + "_exit"].fillna(
             rep.data.iloc[-1][sellOn], inplace=True)
         # alternative way
         #         u = self.trades.select_dtypes(exclude=['datetime'])
@@ -425,7 +368,6 @@ class TransPrice:
         self.inTradePrice = rep.data["Close"].loc[self.inTrade.index]
         self.inTradePrice.name = rep.name
 
-        # self.priceFluctuation_dollar = rep.data["Close"].pct_change()
         # finding dollar price change
         self.priceFluctuation_dollar = rep.data["Close"] - rep.data[
             "Close"].shift()
@@ -461,7 +403,6 @@ class Returns(TransPrice):
     """
 
     def __init__(self, rep):
-        # rep = rep
         tp = TransPrice(rep)
         self.index = rep.data.index
         self.returns = pd.DataFrame(index=self.index, columns=[rep.name])
@@ -473,7 +414,6 @@ class Returns(TransPrice):
         for i in self.returns.index:
             if tp.inTrade.loc[i][0] == "Buy":
                 self.returns.loc[i] = -self.returns.loc[i]
-        # self.returns.ffill(inplace=True)
 
 
 class Stats:
@@ -511,11 +451,6 @@ class Portfolio:
         self.equity_curve = pd.DataFrame()
 
 
-# port = Portfolio()
-# ats = Agg_TradeSingal()
-# atp = Agg_TransPrice()
-# t = Trades()
-
 #############################################
 # Generate signals part
 #############################################
@@ -531,9 +466,6 @@ class Repeater:
         self.buyCond = buyCond
         self.sellCond = sellCond
         self.name = name
-
-
-# stats = Stats(rep)
 
 
 #############################################
@@ -564,5 +496,3 @@ def _generate_equity_curve(atp, port, t):
 if __name__ == "__main__":
     b = Backtest("test")
     b.run()
-
-
