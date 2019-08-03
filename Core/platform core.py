@@ -48,9 +48,9 @@ class Backtest:
         self.data.readDB(self.con, self.meta, index_col="Date")
         # data.readCSVFiles(r"C:\Users\Biarys\Desktop\bt_plat\stock_data")
 
-        self.run_portfolio(self.data)
+        self._run_portfolio(self.data)
 
-    def prepricing(self, ats, atp, t, data):
+    def _prepricing(self, ats, atp, t, data):
         """
         Loop through files
         Generate signals
@@ -83,7 +83,7 @@ class Backtest:
             atp.priceFluctuation_dollar = pd.concat(
                 [atp.priceFluctuation_dollar, tp.priceFluctuation_dollar],
                 axis=1)
-            t.trades = pd.concat([t.trades, tp.trades], axis=0)
+            t.trades = pd.concat([t.trades, tp.trades], axis=0, sort=True)
             t.inTradePrice = pd.concat([t.inTradePrice, tp.inTradePrice],
                                        axis=1)
 
@@ -96,7 +96,7 @@ class Backtest:
             atp.sellPrice.to_sql(
                 "atp_sell_price", self.con, if_exists="replace")
 
-    def run_portfolio(self, data):
+    def _run_portfolio(self, data):
         """
         Calculate profit and loss for the stretegy
         """
@@ -105,7 +105,7 @@ class Backtest:
         atp = Agg_TransPrice()
         t = Trades()
         # prepare data for portfolio
-        self.prepricing(ats, atp, t, data)
+        self._prepricing(ats, atp, t, data)
 
         # prepare portfolio level
         # copy index and column names for weights
@@ -237,7 +237,7 @@ class Backtest:
         # profit = weight * chg
         # portfolio value += profit
 
-        self._generate_trade_list(t)
+        # self._generate_trade_list(t)
 
     def _generate_trade_list(self, t):
 
@@ -494,5 +494,5 @@ def _generate_equity_curve(atp, port, t):
 
 
 if __name__ == "__main__":
-    b = Backtest("test")
+    b = Backtest("Strategy 1")
     b.run()
