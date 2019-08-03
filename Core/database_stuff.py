@@ -13,7 +13,7 @@ import sqlalchemy_utils as sqlu
 import config
 
 
-def connect(user, password, db, host='localhost', port=5433):
+def connect(user, password, db, host='localhost', port=5432):
     '''Returns connection, metadata, and session objects'''
     # We connect with the help of the PostgreSQL URL
     # postgresql://federer:grandestslam@localhost:5432/tennis
