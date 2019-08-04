@@ -30,7 +30,7 @@ from datetime import datetime
 # Core starts
 #############################################
 class Backtest:
-    def __init__(self, name):
+    def __init__(self, name="My Backtest"):
         self.name = name
         self.data = data_reader.DataReader()
 
@@ -249,6 +249,14 @@ class TradeSignal:
     Find trade signals for current asset
     For now, long only. 1 where buy, 0 where sell
     Possibly add signal shift - added for now to match excel results
+
+    Inputs:
+        - buyCond (from repeater): raw, contains all signals
+        - sellCond (from repeater): raw, contains all signals
+    Output:
+        - buyCond: buy results where signals switch from 1 to 0, 0 to 1, etc
+        - sellCond: sell results where signals switch from 1 to 0, 0 to 1, etc
+        - all: all results with Buy and Sell
     """
 
     # not using self because the need to pass buy and sell cond
@@ -308,8 +316,8 @@ class TransPrice:
 
     def __init__(self, rep, ts, buyOn="Close", sellOn="Close"):
         self.all = ts.all
-        self.buyCond = ts.buyCond
-        self.sellCond = ts.sellCond
+        # self.buyCond = ts.buyCond
+        # self.sellCond = ts.sellCond
 
         # buyIndex = self.all[self.all[rep.name] == "Buy"].index
         # sellIndex = self.all[self.all[rep.name] == "Sell"].index
@@ -321,11 +329,14 @@ class TransPrice:
         # self.buyPrice.name = rep.name
         # self.sellPrice.name = rep.name
 
-        cond = [(self.buyCond == 1), (self.sellCond == 1)]
-        out = ["Buy", "Sell"]
-        self.inTrade = np.select(cond, out, default=0)
-        self.inTrade = pd.DataFrame(
-            self.inTrade, index=rep.data.index, columns=[rep.name])
+        # from here
+        # cond = [(self.buyCond == 1), (self.sellCond == 1)]
+        # out = ["Buy", "Sell"]
+        # self.inTrade = np.select(cond, out, default=0)
+        # self.inTrade = pd.DataFrame(
+        #     self.inTrade, index=rep.data.index, columns=[rep.name])
+        # to here is equivalent of ts.all, so we can replace that part with
+        self.inTrade = self.all
         self.inTrade = self.inTrade.replace("0", np.NAN)
         self.inTrade = self.inTrade.ffill().dropna()
         self.inTrade = self.inTrade[self.inTrade == "Buy"]
@@ -335,7 +346,8 @@ class TransPrice:
 
         self.all = self.all.dropna()
         # to get rid of duplicates
-        self.all = self.all.where(self.all != self.all.shift(1))
+        self.all = _remove_dups(self.all)
+        # self.all = self.all.where(self.all != self.all.shift(1))
 
         buyIndex = self.all[self.all[rep.name] == "Buy"].index
         sellIndex = self.all[self.all[rep.name] == "Sell"].index
@@ -352,11 +364,11 @@ class TransPrice:
         self.trades = df1.join(
             df2, how="outer", lsuffix="_entry", rsuffix="_exit")
 
-        # self.trades
         # replace hardcoded "Date_exit"
         self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
+        # hardcoded Close cuz if still in trade, needs latest quote
         self.trades[self.sellPrice.name + "_exit"].fillna(
-            rep.data.iloc[-1][sellOn], inplace=True)
+            rep.data.iloc[-1]["Close"], inplace=True)
         # alternative way
         #         u = self.trades.select_dtypes(exclude=['datetime'])
         #         self.trades[u.columns] = u.fillna(4)
@@ -392,7 +404,7 @@ class Agg_TransPrice:
 class Trades:
     def __init__(self):
         self.trades = pd.DataFrame()
-        #         self.inTrade = pd.DataFrame()
+        # self.inTrade = pd.DataFrame()
         self.weights = pd.DataFrame()
         self.inTradePrice = pd.DataFrame()
 
@@ -446,7 +458,6 @@ class Portfolio:
         self.invested = pd.DataFrame()
         self.fees = pd.DataFrame()
         self.ror = pd.DataFrame()
-        #         self.weights = pd.DataFrame()
         self.capUsed = pd.DataFrame()
         self.equity_curve = pd.DataFrame()
 
@@ -493,6 +504,14 @@ def _generate_equity_curve(atp, port, t):
     port.equity_curve.name = "Equity"
 
 
+def _remove_dups(data):
+    data = data.where(data != data.shift(1))
+    return data
+
+
 if __name__ == "__main__":
     b = Backtest("Strategy 1")
+    # b.read_from_db
+    # strategy logic
     b.run()
+    # b.show_results
