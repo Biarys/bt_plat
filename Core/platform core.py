@@ -23,7 +23,7 @@ from datetime import datetime
 
 # TODO
 # change how port.invested is implemented. Currently invests given ammount without round downs
-# find common index for portflio. Should be a range of datetimes. Currently useing atp.priceFluctuation_dollar.index
+# find common index for portflio. Should be a range of datetimes. Currently useing agg_trans_prices.priceFluctuation_dollar.index
 
 
 #############################################
@@ -50,7 +50,8 @@ class Backtest:
 
         self._run_portfolio(self.data)
 
-    def _prepricing(self, ats, atp, t, data):
+    def _prepricing(self, agg_trade_signals, agg_trans_prices, agg_trades,
+                    data):
         """
         Loop through files
         Generate signals
@@ -69,82 +70,99 @@ class Backtest:
 
             rep = Repeater(current_asset, buyCond, sellCond, name)
 
-            # find ts and tp for an asset
-            ts = TradeSignal(rep)
-            tp = TransPrice(rep, ts)
+            # find trade_signals and trans_prices for an asset
+            trade_signals = TradeSignal(rep)
+            trans_prices = TransPrice(rep, trade_signals)
+            trades_current_asset = Trades(rep, trans_prices)
 
-            # save ts and tp for portfolio level
-            ats.buys = pd.concat([ats.buys, ts.buyCond], axis=1)
-            ats.sells = pd.concat([ats.sells, ts.sellCond], axis=1)
-            ats.all = pd.concat([ats.all, ts.all], axis=1)
+            # save trade_signals and trans_prices for portfolio level
+            agg_trade_signals.buys = pd.concat(
+                [agg_trade_signals.buys, trade_signals.buyCond], axis=1)
+            agg_trade_signals.sells = pd.concat(
+                [agg_trade_signals.sells, trade_signals.sellCond], axis=1)
+            agg_trade_signals.all = pd.concat(
+                [agg_trade_signals.all, trade_signals.all], axis=1)
 
-            atp.buyPrice = pd.concat([atp.buyPrice, tp.buyPrice], axis=1)
-            atp.sellPrice = pd.concat([atp.sellPrice, tp.sellPrice], axis=1)
-            atp.priceFluctuation_dollar = pd.concat(
-                [atp.priceFluctuation_dollar, tp.priceFluctuation_dollar],
+            agg_trans_prices.buyPrice = pd.concat(
+                [agg_trans_prices.buyPrice, trans_prices.buyPrice], axis=1)
+            agg_trans_prices.sellPrice = pd.concat(
+                [agg_trans_prices.sellPrice, trans_prices.sellPrice], axis=1)
+            agg_trades.priceFluctuation_dollar = pd.concat([
+                agg_trades.priceFluctuation_dollar,
+                trades_current_asset.priceFluctuation_dollar
+            ],
+                                                           axis=1)
+            agg_trades.trades = pd.concat(
+                [agg_trades.trades, trades_current_asset.trades],
+                axis=0,
+                sort=True)
+            agg_trades.inTradePrice = pd.concat(
+                [agg_trades.inTradePrice, trades_current_asset.inTradePrice],
                 axis=1)
-            t.trades = pd.concat([t.trades, tp.trades], axis=0, sort=True)
-            t.inTradePrice = pd.concat([t.inTradePrice, tp.inTradePrice],
-                                       axis=1)
 
             # for testing
-            ats.all.to_sql("ats_all", self.con, if_exists="replace")
-            ats.buys.to_sql("ats_buys", self.con, if_exists="replace")
-            ats.sells.to_sql("ats_sells", self.con, if_exists="replace")
+            # agg_trade_signals.all.to_sql(
+            #     "agg_trade_signals_all", self.con, if_exists="replace")
+            # agg_trade_signals.buys.to_sql(
+            #     "agg_trade_signals_buys", self.con, if_exists="replace")
+            # agg_trade_signals.sells.to_sql(
+            #     "agg_trade_signals_sells", self.con, if_exists="replace")
 
-            atp.buyPrice.to_sql("atp_buy_price", self.con, if_exists="replace")
-            atp.sellPrice.to_sql(
-                "atp_sell_price", self.con, if_exists="replace")
+            # agg_trans_prices.buyPrice.to_sql(
+            #     "agg_trans_prices_buy_price", self.con, if_exists="replace")
+            # agg_trans_prices.sellPrice.to_sql(
+            #     "agg_trans_prices_sell_price", self.con, if_exists="replace")
 
     def _run_portfolio(self, data):
         """
         Calculate profit and loss for the stretegy
         """
         port = Portfolio()
-        ats = Agg_TradeSingal()
-        atp = Agg_TransPrice()
-        t = Trades()
+        agg_trade_signals = Agg_TradeSingal()
+        agg_trans_prices = Agg_TransPrice()
+        agg_trades = Agg_Trades()
         # prepare data for portfolio
-        self._prepricing(ats, atp, t, data)
+        self._prepricing(agg_trade_signals, agg_trans_prices, agg_trades, data)
 
         # prepare portfolio level
         # copy index and column names for weights
-        t.weights = pd.DataFrame(
-            index=atp.priceFluctuation_dollar.index,
-            columns=t.inTradePrice.columns)
-        t.weights.iloc[0] = 0  # set starting weight to 0
+        agg_trades.weights = pd.DataFrame(
+            index=agg_trades.priceFluctuation_dollar.index,
+            columns=agg_trades.inTradePrice.columns)
+        agg_trades.weights.iloc[0] = 0  # set starting weight to 0
 
         # to avoid nan in the beg for
-        atp.priceFluctuation_dollar.iloc[0] = 0
+        agg_trades.priceFluctuation_dollar.iloc[0] = 0
 
         # Fill with 0s, otherwise results in NaN for port.avail_amount
-        # t.priceChange.fillna(0, inplace=True)
+        # agg_trades.priceChange.fillna(0, inplace=True)
 
         # prepare value, avail amount, invested
         # copy index and column names for portfolio change
         port.value = pd.DataFrame(
-            index=atp.priceFluctuation_dollar.index,
+            index=agg_trades.priceFluctuation_dollar.index,
             columns=["Portfolio value"])
         port.value.iloc[0] = port.start_amount
 
         # copy index and set column name for avail amount
         port.avail_amount = pd.DataFrame(
-            index=atp.priceFluctuation_dollar.index,
+            index=agg_trades.priceFluctuation_dollar.index,
             columns=["Available amount"])
         port.avail_amount.iloc[0] = port.start_amount
         # port.avail_amount.ffill(inplace=True)
 
         # copy index and column names for invested amount
         port.invested = pd.DataFrame(
-            index=atp.priceFluctuation_dollar.index, columns=t.weights.columns)
+            index=agg_trades.priceFluctuation_dollar.index,
+            columns=agg_trades.weights.columns)
         port.invested.iloc[0] = 0
         # put trades in chronological order
-        # t.trades.sort_values("Date_entry", inplace=True)
-        # t.trades.reset_index(drop=True, inplace=True)
+        # trades_current_asset.trades.sort_values("Date_entry", inplace=True)
+        # trades_current_asset.trades.reset_index(drop=True, inplace=True)
 
         # change column names to avoid error
-        atp.buyPrice.columns = t.weights.columns
-        atp.sellPrice.columns = t.weights.columns
+        agg_trans_prices.buyPrice.columns = agg_trades.weights.columns
+        agg_trans_prices.sellPrice.columns = agg_trades.weights.columns
 
         # run portfolio level
         # allocate weights
@@ -162,25 +180,27 @@ class Backtest:
                 _roll_prev_value(port.invested, current_bar, prev_bar)
 
                 # update weight anyway cuz if buy, the wont roll for other stocks (roll)
-                _roll_prev_value(t.weights, current_bar, prev_bar)
+                _roll_prev_value(agg_trades.weights, current_bar, prev_bar)
 
             # if there was an entry on that date
             # allocate weight
             # update avail amount (subtract)
-            if current_bar in atp.buyPrice.index:
+            if current_bar in agg_trans_prices.buyPrice.index:
                 # find amount to be invested
                 to_invest = port.avail_amount.loc[current_bar,
                                                   "Available amount"] * 0.1
                 # find assets that need allocation
                 # those that dont have buyPrice for that day wil have NaN
                 # drop them, keep those that have values
-                affected_assets = atp.buyPrice.loc[current_bar].dropna(
-                ).index.values
+                affected_assets = agg_trans_prices.buyPrice.loc[
+                    current_bar].dropna().index.values
 
                 # find current bar, affected assets
                 # allocate shares to all assets = invested amount/buy price
-                t.weights.loc[current_bar, affected_assets] = (
-                    to_invest / atp.buyPrice.loc[current_bar, affected_assets])
+                agg_trades.weights.loc[current_bar, affected_assets] = (
+                    to_invest /
+                    agg_trans_prices.buyPrice.loc[current_bar, affected_assets]
+                )
 
                 # update portfolio invested amount
                 port.invested.loc[current_bar, affected_assets] = to_invest
@@ -192,15 +212,15 @@ class Backtest:
             # if there was an exit on that date
             # set weight to 0
             # update avail amount
-            if current_bar in atp.sellPrice.index:
+            if current_bar in agg_trans_prices.sellPrice.index:
                 # prob need to change this part for scaling implementation
 
                 # find assets that need allocation
                 # those that dont have buyPrice for that day wil have NaN
                 # drop them, keep those that have values
-                affected_assets = atp.sellPrice.loc[current_bar].dropna(
-                ).index.values
-                # amountRecovered = t.weights.loc[current_bar, affected_assets] * atp.buyPrice2.loc[current_bar, affected_assets]
+                affected_assets = agg_trans_prices.sellPrice.loc[
+                    current_bar].dropna().index.values
+                # amountRecovered = agg_trades.weights.loc[current_bar, affected_assets] * agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
                 port.avail_amount.loc[current_bar] += port.invested.loc[
                     current_bar, affected_assets].sum()
 
@@ -208,11 +228,11 @@ class Backtest:
                 port.invested.loc[current_bar, affected_assets] = 0
 
                 # set weight to 0
-                t.weights.loc[current_bar, affected_assets] = 0
+                agg_trades.weights.loc[current_bar, affected_assets] = 0
 
-        # atp.priceFluctuation_dollar.fillna(0, inplace=True)
+        # agg_trans_prices.priceFluctuation_dollar.fillna(0, inplace=True)
         # # find daily fluc per asset
-        # port.profit_daily_fluc_per_asset = t.weights * atp.priceFluctuation_dollar
+        # port.profit_daily_fluc_per_asset = agg_trades.weights * agg_trans_prices.priceFluctuation_dollar
         # # find daily fluc for that day for all assets (sum of fluc for that day)
         # port.equity_curve = port.profit_daily_fluc_per_asset.sum(1)
         # # set starting amount
@@ -221,15 +241,17 @@ class Backtest:
         # port.equity_curve = port.equity_curve.cumsum()
         # # port.equity_curve.columns
         # port.equity_curve.name = "Equity"
-        _generate_equity_curve(atp, port, t)
+        _generate_equity_curve(agg_trans_prices, port, agg_trades)
 
         # testing
         # port.value = port.equity_curve.sum()
-        t.weights.columns = ["w_" + col for col in t.weights.columns]
+        agg_trades.weights.columns = [
+            "w_" + col for col in agg_trades.weights.columns
+        ]
         port.equity_curve.to_sql("equity_curve", self.con, if_exists="replace")
         df_all = pd.concat([port.avail_amount, port.equity_curve], axis=1)
         df_all.to_sql("df_all", self.con, if_exists="replace")
-        t.weights.to_sql("t_weights", self.con, if_exists="replace")
+        agg_trades.weights.to_sql("t_weights", self.con, if_exists="replace")
         port.avail_amount.to_sql(
             "port_avail_amount", self.con, if_exists="replace")
         port.invested.to_sql("port_invested", self.con, if_exists="replace")
@@ -237,11 +259,11 @@ class Backtest:
         # profit = weight * chg
         # portfolio value += profit
 
-        # self._generate_trade_list(t)
+        # self._generate_trade_list(agg_trades)
 
-    def _generate_trade_list(self, t):
+    def _generate_trade_list(self, agg_trades):
 
-        print(t.weights)
+        print(agg_trades.weights)
 
 
 class TradeSignal:
@@ -314,35 +336,8 @@ class TransPrice:
     Find transaction price for current asset
     """
 
-    def __init__(self, rep, ts, buyOn="Close", sellOn="Close"):
-        self.all = ts.all
-        # self.buyCond = ts.buyCond
-        # self.sellCond = ts.sellCond
-
-        # buyIndex = self.all[self.all[rep.name] == "Buy"].index
-        # sellIndex = self.all[self.all[rep.name] == "Sell"].index
-
-        # old way
-        # self.buyPrice = rep.data[buyOn][buyIndex]
-        # self.sellPrice = rep.data[sellOn][sellIndex]
-
-        # self.buyPrice.name = rep.name
-        # self.sellPrice.name = rep.name
-
-        # from here
-        # cond = [(self.buyCond == 1), (self.sellCond == 1)]
-        # out = ["Buy", "Sell"]
-        # self.inTrade = np.select(cond, out, default=0)
-        # self.inTrade = pd.DataFrame(
-        #     self.inTrade, index=rep.data.index, columns=[rep.name])
-        # to here is equivalent of ts.all, so we can replace that part with
-        self.inTrade = self.all
-        self.inTrade = self.inTrade.replace("0", np.NAN)
-        self.inTrade = self.inTrade.ffill().dropna()
-        self.inTrade = self.inTrade[self.inTrade == "Buy"]
-
-        # self.buyPrice.name = "Entry"
-        # self.sellPrice.name = "Exit"
+    def __init__(self, rep, trade_signals, buyOn="Close", sellOn="Close"):
+        self.all = trade_signals.all
 
         self.all = self.all.dropna()
         # to get rid of duplicates
@@ -358,8 +353,88 @@ class TransPrice:
         self.buyPrice.name = rep.name
         self.sellPrice.name = rep.name
 
-        df1 = self.buyPrice.reset_index()
-        df2 = self.sellPrice.reset_index()
+        # # from here
+        # # cond = [(self.buyCond == 1), (self.sellCond == 1)]
+        # # out = ["Buy", "Sell"]
+        # # self.inTrade = np.select(cond, out, default=0)
+        # # self.inTrade = pd.DataFrame(
+        # #     self.inTrade, index=rep.data.index, columns=[rep.name])
+        # # to here is equivalent of trade_signals.all, so we can replace that part with
+        # self.inTrade = self.all
+        # self.inTrade = self.inTrade.replace("0", np.NAN)
+        # self.inTrade = self.inTrade.ffill().dropna()
+        # self.inTrade = self.inTrade[self.inTrade == "Buy"]
+
+        # # self.buyPrice.name = "Entry"
+        # # self.sellPrice.name = "Exit"
+
+        # df1 = self.buyPrice.reset_index()
+        # df2 = self.sellPrice.reset_index()
+
+        # self.trades = df1.join(
+        #     df2, how="outer", lsuffix="_entry", rsuffix="_exit")
+
+        # # replace hardcoded "Date_exit"
+        # self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
+        # # hardcoded Close cuz if still in trade, needs latest quote
+        # self.trades[self.sellPrice.name + "_exit"].fillna(
+        #     rep.data.iloc[-1]["Close"], inplace=True)
+        # # alternative way
+        # #         u = self.trades.select_dtypes(exclude=['datetime'])
+        # #         self.trades[u.columns] = u.fillna(4)
+        # #         u = self.trades.select_dtypes(include=['datetime'])
+        # #         self.trades[u.columns] = u.fillna(5)
+
+        # self.trades["Symbol"] = rep.name
+
+        # self.inTradePrice = rep.data["Close"].loc[self.inTrade.index]
+        # self.inTradePrice.name = rep.name
+
+        # # finding dollar price change
+        # self.priceFluctuation_dollar = rep.data["Close"] - rep.data[
+        #     "Close"].shift()
+        # self.priceFluctuation_dollar.name = rep.name
+
+
+class Agg_TransPrice:
+    """
+    Aggregate version of TransPrice that keeps transaction price for all stocks
+    """
+
+    def __init__(self):
+        self.buyPrice = pd.DataFrame()
+        self.sellPrice = pd.DataFrame()
+        # self.priceFluctuation_dollar = pd.DataFrame()
+
+
+#         self.inTrade = pd.DataFrame()
+#         self.trades = pd.DataFrame()
+
+
+class Trades:
+    def __init__(self, rep, trans_prices):
+        self.trades = pd.DataFrame()
+        # self.inTrade = pd.DataFrame()
+        self.weights = pd.DataFrame()
+        self.inTradePrice = pd.DataFrame()
+
+        # from here
+        # cond = [(self.buyCond == 1), (self.sellCond == 1)]
+        # out = ["Buy", "Sell"]
+        # self.inTrade = np.select(cond, out, default=0)
+        # self.inTrade = pd.DataFrame(
+        #     self.inTrade, index=rep.data.index, columns=[rep.name])
+        # to here is equivalent of trade_signals.all, so we can replace that part with
+        self.inTrade = trans_prices.all
+        self.inTrade = self.inTrade.replace("0", np.NAN)
+        self.inTrade = self.inTrade.ffill().dropna()
+        self.inTrade = self.inTrade[self.inTrade == "Buy"]
+
+        # self.buyPrice.name = "Entry"
+        # self.sellPrice.name = "Exit"
+
+        df1 = trans_prices.buyPrice.reset_index()
+        df2 = trans_prices.sellPrice.reset_index()
 
         self.trades = df1.join(
             df2, how="outer", lsuffix="_entry", rsuffix="_exit")
@@ -367,7 +442,7 @@ class TransPrice:
         # replace hardcoded "Date_exit"
         self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
         # hardcoded Close cuz if still in trade, needs latest quote
-        self.trades[self.sellPrice.name + "_exit"].fillna(
+        self.trades[trans_prices.sellPrice.name + "_exit"].fillna(
             rep.data.iloc[-1]["Close"], inplace=True)
         # alternative way
         #         u = self.trades.select_dtypes(exclude=['datetime'])
@@ -386,27 +461,14 @@ class TransPrice:
         self.priceFluctuation_dollar.name = rep.name
 
 
-class Agg_TransPrice:
-    """
-    Aggregate version of TransPrice that keeps transaction price for all stocks
-    """
-
-    def __init__(self):
-        self.buyPrice = pd.DataFrame()
-        self.sellPrice = pd.DataFrame()
-        self.priceFluctuation_dollar = pd.DataFrame()
-
-
-#         self.inTrade = pd.DataFrame()
-#         self.trades = pd.DataFrame()
-
-
-class Trades:
+class Agg_Trades:
     def __init__(self):
         self.trades = pd.DataFrame()
         # self.inTrade = pd.DataFrame()
         self.weights = pd.DataFrame()
         self.inTradePrice = pd.DataFrame()
+
+        self.priceFluctuation_dollar = pd.DataFrame()
 
 
 class Returns(TransPrice):
@@ -415,22 +477,24 @@ class Returns(TransPrice):
     """
 
     def __init__(self, rep):
-        tp = TransPrice(rep)
+        trans_prices = TransPrice(rep)
         self.index = rep.data.index
         self.returns = pd.DataFrame(index=self.index, columns=[rep.name])
         # might result in errors tradesignal/execution is shifted
-        self.returns[rep.name].loc[tp.buyPrice.index] = tp.buyPrice
-        self.returns[rep.name].loc[tp.sellPrice.index] = tp.sellPrice
+        self.returns[rep.name].loc[
+            trans_prices.buyPrice.index] = trans_prices.buyPrice
+        self.returns[rep.name].loc[
+            trans_prices.sellPrice.index] = trans_prices.sellPrice
         self.returns = self.returns.dropna().pct_change()
         # works for now
         for i in self.returns.index:
-            if tp.inTrade.loc[i][0] == "Buy":
+            if trans_prices.inTrade.loc[i][0] == "Buy":
                 self.returns.loc[i] = -self.returns.loc[i]
 
 
-class Stats:
+class Stagg_trade_signals:
     """
-    Calculats various trade statistics based on returns
+    Calculagg_trade_signals various trade statistics based on returns
     """
 
     def __init__(self, rep):
@@ -486,12 +550,13 @@ def _roll_prev_value(df, current_bar, prev_bar):
     df.loc[current_bar] = df.iloc[prev_bar]
 
 
-def _generate_equity_curve(atp, port, t):
+def _generate_equity_curve(agg_trans_prices, port, agg_trades):
     # Fillna cuz
-    atp.priceFluctuation_dollar.fillna(0, inplace=True)
+    agg_trades.priceFluctuation_dollar.fillna(0, inplace=True)
 
     # find daily fluc per asset
-    port.profit_daily_fluc_per_asset = t.weights * atp.priceFluctuation_dollar
+    port.profit_daily_fluc_per_asset = agg_trades.weights * \
+        agg_trades.priceFluctuation_dollar
 
     # find daily fluc for that day for all assets (sum of fluc for that day)
     port.equity_curve = port.profit_daily_fluc_per_asset.sum(1)
