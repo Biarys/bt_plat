@@ -249,7 +249,7 @@ class Backtest:
 
         # self._generate_trade_list(agg_trades)
 
-    def _generate_trade_list(self, agg_trades):
+    def _generate_trade_list(self, port):
 
         print(port.weights)
 
@@ -403,6 +403,11 @@ class Trades:
         #         self.trades[u.columns] = u.fillna(5)
 
         self.trades["Symbol"] = rep.name
+
+        # changing column names so it's easier to concat in agg_trades
+        self.trades.columns = [
+            "Date_entry", "Entry_price", "Date_exit", "Exit_price", "Symbol"
+        ]
 
         self.inTradePrice = rep.data["Close"].loc[self.inTrade.index]
         self.inTradePrice.name = rep.name
