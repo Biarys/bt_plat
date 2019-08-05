@@ -117,10 +117,10 @@ class Backtest:
 
         # prepare portfolio level
         # copy index and column names for weights
-        agg_trades.weights = pd.DataFrame(
+        port.weights = pd.DataFrame(
             index=agg_trades.priceFluctuation_dollar.index,
             columns=agg_trades.inTradePrice.columns)
-        agg_trades.weights.iloc[0] = 0  # set starting weight to 0
+        port.weights.iloc[0] = 0  # set starting weight to 0
 
         # to avoid nan in the beg for
         agg_trades.priceFluctuation_dollar.iloc[0] = 0
@@ -145,15 +145,15 @@ class Backtest:
         # copy index and column names for invested amount
         port.invested = pd.DataFrame(
             index=agg_trades.priceFluctuation_dollar.index,
-            columns=agg_trades.weights.columns)
+            columns=port.weights.columns)
         port.invested.iloc[0] = 0
         # put trades in chronological order
         # trades_current_asset.trades.sort_values("Date_entry", inplace=True)
         # trades_current_asset.trades.reset_index(drop=True, inplace=True)
 
         # change column names to avoid error
-        agg_trans_prices.buyPrice.columns = agg_trades.weights.columns
-        agg_trans_prices.sellPrice.columns = agg_trades.weights.columns
+        agg_trans_prices.buyPrice.columns = port.weights.columns
+        agg_trans_prices.sellPrice.columns = port.weights.columns
 
         # run portfolio level
         # allocate weights
@@ -171,7 +171,7 @@ class Backtest:
                 _roll_prev_value(port.invested, current_bar, prev_bar)
 
                 # update weight anyway cuz if buy, the wont roll for other stocks (roll)
-                _roll_prev_value(agg_trades.weights, current_bar, prev_bar)
+                _roll_prev_value(port.weights, current_bar, prev_bar)
 
             # if there was an entry on that date
             # allocate weight
@@ -188,7 +188,7 @@ class Backtest:
 
                 # find current bar, affected assets
                 # allocate shares to all assets = invested amount/buy price
-                agg_trades.weights.loc[current_bar, affected_assets] = (
+                port.weights.loc[current_bar, affected_assets] = (
                     to_invest /
                     agg_trans_prices.buyPrice.loc[current_bar, affected_assets])
 
@@ -210,7 +210,7 @@ class Backtest:
                 # drop them, keep those that have values
                 affected_assets = agg_trans_prices.sellPrice.loc[
                     current_bar].dropna().index.values
-                # amountRecovered = agg_trades.weights.loc[current_bar, affected_assets] * agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
+                # amountRecovered = port.weights.loc[current_bar, affected_assets] * agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
                 port.avail_amount.loc[current_bar] += port.invested.loc[
                     current_bar, affected_assets].sum()
 
@@ -218,11 +218,11 @@ class Backtest:
                 port.invested.loc[current_bar, affected_assets] = 0
 
                 # set weight to 0
-                agg_trades.weights.loc[current_bar, affected_assets] = 0
+                port.weights.loc[current_bar, affected_assets] = 0
 
         # agg_trans_prices.priceFluctuation_dollar.fillna(0, inplace=True)
         # # find daily fluc per asset
-        # port.profit_daily_fluc_per_asset = agg_trades.weights * agg_trans_prices.priceFluctuation_dollar
+        # port.profit_daily_fluc_per_asset = port.weights * agg_trans_prices.priceFluctuation_dollar
         # # find daily fluc for that day for all assets (sum of fluc for that day)
         # port.equity_curve = port.profit_daily_fluc_per_asset.sum(1)
         # # set starting amount
@@ -235,13 +235,11 @@ class Backtest:
 
         # testing
         # port.value = port.equity_curve.sum()
-        agg_trades.weights.columns = [
-            "w_" + col for col in agg_trades.weights.columns
-        ]
+        port.weights.columns = ["w_" + col for col in port.weights.columns]
         port.equity_curve.to_sql("equity_curve", self.con, if_exists="replace")
         df_all = pd.concat([port.avail_amount, port.equity_curve], axis=1)
         df_all.to_sql("df_all", self.con, if_exists="replace")
-        agg_trades.weights.to_sql("t_weights", self.con, if_exists="replace")
+        port.weights.to_sql("t_weights", self.con, if_exists="replace")
         port.avail_amount.to_sql(
             "port_avail_amount", self.con, if_exists="replace")
         port.invested.to_sql("port_invested", self.con, if_exists="replace")
@@ -253,7 +251,7 @@ class Backtest:
 
     def _generate_trade_list(self, agg_trades):
 
-        print(agg_trades.weights)
+        print(port.weights)
 
 
 class TradeSignal:
@@ -520,6 +518,8 @@ class Portfolio:
     """
 
     def __init__(self):
+        self.weights = pd.DataFrame()
+
         self.start_amount = 10000
         self.avail_amount = self.start_amount
         self.value = pd.DataFrame()
@@ -556,7 +556,7 @@ def _generate_equity_curve(agg_trans_prices, port, agg_trades):
     agg_trades.priceFluctuation_dollar.fillna(0, inplace=True)
 
     # find daily fluc per asset
-    port.profit_daily_fluc_per_asset = agg_trades.weights * \
+    port.profit_daily_fluc_per_asset = port.weights * \
         agg_trades.priceFluctuation_dollar
 
     # find daily fluc for that day for all assets (sum of fluc for that day)
