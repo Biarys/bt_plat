@@ -430,20 +430,9 @@ class Trades:
         self.inTrade = pd.DataFrame()
         self.inTradePrice = pd.DataFrame()
 
-        # from here
-        # cond = [(self.buyCond == 1), (self.sellCond == 1)]
-        # out = ["Buy", "Sell"]
-        # self.inTrade = np.select(cond, out, default=0)
-        # self.inTrade = pd.DataFrame(
-        #     self.inTrade, index=rep.data.index, columns=[rep.name])
-        # to here is equivalent of trade_signals.all, so we can replace that part with
         self.inTrade = trade_signals.all
-        # self.inTrade = self.inTrade.replace("0", np.NAN)
-        self.inTrade = self.inTrade.ffill()  #.dropna()
+        self.inTrade = self.inTrade.ffill()
         self.inTrade = self.inTrade[self.inTrade[rep.name] == "Buy"]
-
-        # self.buyPrice.name = "Entry"
-        # self.sellPrice.name = "Exit"
 
         df1 = trans_prices.buyPrice.reset_index()
         df2 = trans_prices.sellPrice.reset_index()
