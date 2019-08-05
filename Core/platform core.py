@@ -55,7 +55,9 @@ class Backtest:
         """
         Loop through files
         Generate signals
-        Save them into common classes aggregate*
+        Find transaction prices
+        Match buys and sells
+        Save them into common classes agg_*
         """
 
         for name in data.data:
@@ -75,7 +77,7 @@ class Backtest:
             trans_prices = TransPrice(rep, trade_signals)
             trades_current_asset = Trades(rep, trans_prices)
 
-            # save trade_signals and trans_prices for portfolio level
+            # save trade_signals for portfolio level
             agg_trade_signals.buys = pd.concat(
                 [agg_trade_signals.buys, trade_signals.buyCond], axis=1)
             agg_trade_signals.sells = pd.concat(
@@ -83,6 +85,7 @@ class Backtest:
             agg_trade_signals.all = pd.concat(
                 [agg_trade_signals.all, trade_signals.all], axis=1)
 
+            # save trans_prices for portfolio level
             agg_trans_prices.buyPrice = pd.concat(
                 [agg_trans_prices.buyPrice, trans_prices.buyPrice], axis=1)
             agg_trans_prices.sellPrice = pd.concat(
@@ -99,19 +102,6 @@ class Backtest:
             agg_trades.inTradePrice = pd.concat(
                 [agg_trades.inTradePrice, trades_current_asset.inTradePrice],
                 axis=1)
-
-            # for testing
-            # agg_trade_signals.all.to_sql(
-            #     "agg_trade_signals_all", self.con, if_exists="replace")
-            # agg_trade_signals.buys.to_sql(
-            #     "agg_trade_signals_buys", self.con, if_exists="replace")
-            # agg_trade_signals.sells.to_sql(
-            #     "agg_trade_signals_sells", self.con, if_exists="replace")
-
-            # agg_trans_prices.buyPrice.to_sql(
-            #     "agg_trans_prices_buy_price", self.con, if_exists="replace")
-            # agg_trans_prices.sellPrice.to_sql(
-            #     "agg_trans_prices_sell_price", self.con, if_exists="replace")
 
     def _run_portfolio(self, data):
         """
@@ -333,7 +323,17 @@ class Agg_TradeSingal:
 
 class TransPrice:
     """
-    Find transaction price for current asset
+    Looks up transaction price for current asset
+
+    Inputs:
+        - time series (from repeater)
+        - trade_singals: DataFrame containing all buys and sells
+        - buyOn (optional): column that should be looked up when buy occurs
+        - sellOn (optional): column that should be looked up when sell occurs
+        
+    Output:
+        - buyPrice
+        - sellPrice 
     """
 
     def __init__(self, rep, trade_signals, buyOn="Close", sellOn="Close"):
@@ -412,10 +412,20 @@ class Agg_TransPrice:
 
 
 class Trades:
+    """
+    Generates DataFrame with trade entries, exits, and transaction prices
+
+    Inputs:
+        - trans_prices: Transaction prices that need to be matched
+    Outputs:
+        - trades: DataFrame with trade entry, exits, and transaction prices
+        - inTrade: DataFrame that shows time spent in trade for current asset
+        - inTradePrice: Close price for the time while inTrade
+    """
+
     def __init__(self, rep, trans_prices):
         self.trades = pd.DataFrame()
-        # self.inTrade = pd.DataFrame()
-        self.weights = pd.DataFrame()
+        self.inTrade = pd.DataFrame()
         self.inTradePrice = pd.DataFrame()
 
         # from here
@@ -462,15 +472,19 @@ class Trades:
 
 
 class Agg_Trades:
+    """
+    Aggregate version of Trades. Contains trades, weights, inTradePrice, priceFluctuation in dollars
+    """
+
     def __init__(self):
         self.trades = pd.DataFrame()
         # self.inTrade = pd.DataFrame()
         self.weights = pd.DataFrame()
         self.inTradePrice = pd.DataFrame()
-
         self.priceFluctuation_dollar = pd.DataFrame()
 
 
+# ! not used
 class Returns(TransPrice):
     """
     Calculates returns for the strategy
@@ -492,13 +506,13 @@ class Returns(TransPrice):
                 self.returns.loc[i] = -self.returns.loc[i]
 
 
-class Stagg_trade_signals:
+# ! not used
+class Stats:
     """
-    Calculagg_trade_signals various trade statistics based on returns
+    Calculate various trade statistics based on returns
     """
 
     def __init__(self, rep):
-        # rep = rep
         r = Returns(rep)
         self.posReturns = r.returns[r.returns > 0].dropna()
         self.negReturns = r.returns[r.returns < 0].dropna()
@@ -526,11 +540,6 @@ class Portfolio:
         self.equity_curve = pd.DataFrame()
 
 
-#############################################
-# Generate signals part
-#############################################
-
-
 class Repeater:
     """
     Common class to avoid repetition
@@ -543,10 +552,11 @@ class Repeater:
         self.name = name
 
 
-#############################################
-# Calculate portfolio part
-#############################################
+# ? ##################
+# ? Helper functions #
+# ? ##################
 def _roll_prev_value(df, current_bar, prev_bar):
+    # might wanna return, just to be sure?
     df.loc[current_bar] = df.iloc[prev_bar]
 
 
