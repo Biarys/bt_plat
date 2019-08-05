@@ -352,48 +352,6 @@ class TransPrice:
         self.buyPrice.name = rep.name
         self.sellPrice.name = rep.name
 
-        # # from here
-        # # cond = [(self.buyCond == 1), (self.sellCond == 1)]
-        # # out = ["Buy", "Sell"]
-        # # self.inTrade = np.select(cond, out, default=0)
-        # # self.inTrade = pd.DataFrame(
-        # #     self.inTrade, index=rep.data.index, columns=[rep.name])
-        # # to here is equivalent of trade_signals.all, so we can replace that part with
-        # self.inTrade = self.all
-        # self.inTrade = self.inTrade.replace("0", np.NAN)
-        # self.inTrade = self.inTrade.ffill().dropna()
-        # self.inTrade = self.inTrade[self.inTrade == "Buy"]
-
-        # # self.buyPrice.name = "Entry"
-        # # self.sellPrice.name = "Exit"
-
-        # df1 = self.buyPrice.reset_index()
-        # df2 = self.sellPrice.reset_index()
-
-        # self.trades = df1.join(
-        #     df2, how="outer", lsuffix="_entry", rsuffix="_exit")
-
-        # # replace hardcoded "Date_exit"
-        # self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
-        # # hardcoded Close cuz if still in trade, needs latest quote
-        # self.trades[self.sellPrice.name + "_exit"].fillna(
-        #     rep.data.iloc[-1]["Close"], inplace=True)
-        # # alternative way
-        # #         u = self.trades.select_dtypes(exclude=['datetime'])
-        # #         self.trades[u.columns] = u.fillna(4)
-        # #         u = self.trades.select_dtypes(include=['datetime'])
-        # #         self.trades[u.columns] = u.fillna(5)
-
-        # self.trades["Symbol"] = rep.name
-
-        # self.inTradePrice = rep.data["Close"].loc[self.inTrade.index]
-        # self.inTradePrice.name = rep.name
-
-        # # finding dollar price change
-        # self.priceFluctuation_dollar = rep.data["Close"] - rep.data[
-        #     "Close"].shift()
-        # self.priceFluctuation_dollar.name = rep.name
-
 
 class Agg_TransPrice:
     """
