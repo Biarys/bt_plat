@@ -361,11 +361,6 @@ class Agg_TransPrice:
     def __init__(self):
         self.buyPrice = pd.DataFrame()
         self.sellPrice = pd.DataFrame()
-        # self.priceFluctuation_dollar = pd.DataFrame()
-
-
-#         self.inTrade = pd.DataFrame()
-#         self.trades = pd.DataFrame()
 
 
 class Trades:
