@@ -24,8 +24,8 @@ class Indicator(metaclass=abc.ABCMeta):
 class SMA(Indicator):
     """Implementation of Simple Moving Average"""
 
-    def __init__(self, ts, cols, period):
-        self.data = ts[cols]
+    def __init__(self, time_series, cols, period):
+        self.data = time_series[cols]
         self.period = period
 
     def __call__(self):
