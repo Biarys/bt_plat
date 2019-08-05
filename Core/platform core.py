@@ -30,6 +30,7 @@ from datetime import datetime
 # Core starts
 #############################################
 class Backtest:
+
     def __init__(self, name="My Backtest"):
         self.name = name
         self.data = data_reader.DataReader()
@@ -75,7 +76,7 @@ class Backtest:
             # find trade_signals and trans_prices for an asset
             trade_signals = TradeSignal(rep)
             trans_prices = TransPrice(rep, trade_signals)
-            trades_current_asset = Trades(rep, trans_prices)
+            trades_current_asset = Trades(rep, trade_signals, trans_prices)
 
             # save trade_signals for portfolio level
             agg_trade_signals.buys = pd.concat(
@@ -189,8 +190,7 @@ class Backtest:
                 # allocate shares to all assets = invested amount/buy price
                 agg_trades.weights.loc[current_bar, affected_assets] = (
                     to_invest /
-                    agg_trans_prices.buyPrice.loc[current_bar, affected_assets]
-                )
+                    agg_trans_prices.buyPrice.loc[current_bar, affected_assets])
 
                 # update portfolio invested amount
                 port.invested.loc[current_bar, affected_assets] = to_invest
@@ -279,8 +279,7 @@ class TradeSignal:
         # rep = rep
         # buy/sell/all signals
         self.buyCond = rep.buyCond.where(
-            rep.buyCond != rep.buyCond.shift(1).fillna(rep.buyCond[0])).shift(
-                1)
+            rep.buyCond != rep.buyCond.shift(1).fillna(rep.buyCond[0])).shift(1)
         self.sellCond = rep.sellCond.where(
             rep.sellCond != rep.sellCond.shift(1).fillna(rep.sellCond[0])
         ).shift(1)
@@ -332,8 +331,10 @@ class TransPrice:
         - sellOn (optional): column that should be looked up when sell occurs
         
     Output:
-        - buyPrice
-        - sellPrice 
+        - buyPrice: used in Trades to generate trade list
+        - sellPrice: used in Trades to generate trade list 
+        - buyIndex: dates of buyPrice
+        - sellIndex: dates of sellPrice
     """
 
     def __init__(self, rep, trade_signals, buyOn="Close", sellOn="Close"):
@@ -344,11 +345,11 @@ class TransPrice:
         self.all = _remove_dups(self.all)
         # self.all = self.all.where(self.all != self.all.shift(1))
 
-        buyIndex = self.all[self.all[rep.name] == "Buy"].index
-        sellIndex = self.all[self.all[rep.name] == "Sell"].index
+        self.buyIndex = self.all[self.all[rep.name] == "Buy"].index
+        self.sellIndex = self.all[self.all[rep.name] == "Sell"].index
 
-        self.buyPrice = rep.data[buyOn][buyIndex]
-        self.sellPrice = rep.data[sellOn][sellIndex]
+        self.buyPrice = rep.data[buyOn][self.buyIndex]
+        self.sellPrice = rep.data[sellOn][self.sellIndex]
 
         self.buyPrice.name = rep.name
         self.sellPrice.name = rep.name
@@ -416,6 +417,7 @@ class Trades:
     Generates DataFrame with trade entries, exits, and transaction prices
 
     Inputs:
+        - trade_signals: Raw buys and sells to find trade duration
         - trans_prices: Transaction prices that need to be matched
     Outputs:
         - trades: DataFrame with trade entry, exits, and transaction prices
@@ -423,7 +425,7 @@ class Trades:
         - inTradePrice: Close price for the time while inTrade
     """
 
-    def __init__(self, rep, trans_prices):
+    def __init__(self, rep, trade_signals, trans_prices):
         self.trades = pd.DataFrame()
         self.inTrade = pd.DataFrame()
         self.inTradePrice = pd.DataFrame()
@@ -435,10 +437,10 @@ class Trades:
         # self.inTrade = pd.DataFrame(
         #     self.inTrade, index=rep.data.index, columns=[rep.name])
         # to here is equivalent of trade_signals.all, so we can replace that part with
-        self.inTrade = trans_prices.all
-        self.inTrade = self.inTrade.replace("0", np.NAN)
-        self.inTrade = self.inTrade.ffill().dropna()
-        self.inTrade = self.inTrade[self.inTrade == "Buy"]
+        self.inTrade = trade_signals.all
+        # self.inTrade = self.inTrade.replace("0", np.NAN)
+        self.inTrade = self.inTrade.ffill()  #.dropna()
+        self.inTrade = self.inTrade[self.inTrade[rep.name] == "Buy"]
 
         # self.buyPrice.name = "Entry"
         # self.sellPrice.name = "Exit"
