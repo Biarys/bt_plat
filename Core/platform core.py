@@ -322,6 +322,7 @@ class TradeSignal:
         # drop all sell signals that come before first buy
         self.all = self.all[first_buy:]
 
+        # ? might not be needed cuz TransPrice drops na and removes dups
         # remove all extra signals
         # https://stackoverflow.com/questions/19463985/pandas-drop-consecutive-duplicates
         # alternative, possibly faster solution ^
@@ -408,16 +409,19 @@ class Trades:
         self.inTrade = self.inTrade.ffill()
         self.inTrade = self.inTrade[self.inTrade[rep.name] == "Buy"]
 
-        df1 = trans_prices.buyPrice.reset_index()
-        df2 = trans_prices.sellPrice.reset_index()
+        long = trans_prices.buyPrice.reset_index()
+        cover = trans_prices.sellPrice.reset_index()
 
-        self.trades = df1.join(
-            df2, how="outer", lsuffix="_entry", rsuffix="_exit")
+        long["Direction"] = "Long"
 
-        # replace hardcoded "Date_exit"
+        self.trades = long.join(
+            cover, how="outer", lsuffix="_entry", rsuffix="_exit")
+
+        # TODO: replace hardcoded "Date_exit"
         # NAs should only be last values that are still open
         # self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
         self.trades["Date_exit"].fillna("Open", inplace=True)
+
         # hardcoded Close cuz if still in trade, needs latest quote
         self.trades[trans_prices.sellPrice.name + "_exit"].fillna(
             rep.data.iloc[-1]["Close"], inplace=True)
@@ -430,9 +434,12 @@ class Trades:
         self.trades["Symbol"] = rep.name
 
         # changing column names so it's easier to concat in self.agg_trades
-        self.trades.columns = [
-            "Date_entry", "Entry_price", "Date_exit", "Exit_price", "Symbol"
-        ]
+        self.trades.rename(
+            columns={
+                rep.name + "_entry": "Entry_price",
+                rep.name + "_exit": "Exit_price",
+            },
+            inplace=True)
 
         self.inTradePrice = rep.data["Close"].loc[self.inTrade.index]
         self.inTradePrice.name = rep.name
