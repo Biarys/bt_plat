@@ -326,7 +326,8 @@ class TradeSignal:
         # https://stackoverflow.com/questions/19463985/pandas-drop-consecutive-duplicates
         # alternative, possibly faster solution ^
         # or using pd.ne()
-        self.all = self.all[self.all != self.all.shift()]
+        # or self.all = self.all[self.all != self.all.shift()]
+        self.all = _remove_dups(self.all)
 
 
 class Agg_TradeSingal:
@@ -415,7 +416,8 @@ class Trades:
 
         # replace hardcoded "Date_exit"
         # NAs should only be last values that are still open
-        self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
+        # self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
+        self.trades["Date_exit"].fillna("Open", inplace=True)
         # hardcoded Close cuz if still in trade, needs latest quote
         self.trades[trans_prices.sellPrice.name + "_exit"].fillna(
             rep.data.iloc[-1]["Close"], inplace=True)
