@@ -39,6 +39,7 @@ class Backtest:
         self.agg_trade_signals = Agg_TradeSingal()
         self.agg_trans_prices = Agg_TransPrice()
         self.agg_trades = Agg_Trades()
+        self.trade_list = None
 
     def run(self):
         self.con, self.meta = db.connect(config.user, config.password,
@@ -256,11 +257,23 @@ class Backtest:
         # profit = weight * chg
         # portfolio value += profit
 
-        # self._generate_trade_list(self.agg_trades)
+        self._generate_trade_list()
 
     def _generate_trade_list(self):
+        self.trade_list = self.agg_trades.trades
+        self.trade_list.sort_values(by="Date_entry", inplace=True)
+        self.trade_list.reset_index(drop=True, inplace=True)
 
-        print(self.port.weights)
+        # $ change
+        self.trade_list["Dollar_change"] = self.trade_list[
+            "Exit_price"] - self.trade_list["Entry_price"]
+
+        # % change
+        self.trade_list["Pct_change"] = (
+            self.trade_list["Exit_price"] -
+            self.trade_list["Entry_price"]) / self.trade_list["Entry_price"]
+
+        print(self.trade_list)
 
 
 class TradeSignal:
@@ -401,6 +414,7 @@ class Trades:
             df2, how="outer", lsuffix="_entry", rsuffix="_exit")
 
         # replace hardcoded "Date_exit"
+        # NAs should only be last values that are still open
         self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
         # hardcoded Close cuz if still in trade, needs latest quote
         self.trades[trans_prices.sellPrice.name + "_exit"].fillna(
@@ -547,4 +561,5 @@ if __name__ == "__main__":
     # b.read_from_db
     # strategy logic
     b.run()
+    print(b.agg_trades.trades)
     # b.show_results
