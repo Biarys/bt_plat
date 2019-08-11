@@ -24,6 +24,7 @@ from datetime import datetime
 # TODO
 # change how port.invested is implemented. Currently invests given ammount without round downs
 # find common index for portflio. Should be a range of datetimes. Currently useing agg_trans_prices.priceFluctuation_dollar.index
+# need to set/pass configs
 
 
 #############################################
@@ -122,7 +123,8 @@ class Backtest:
             columns=agg_trades.inTradePrice.columns)
         port.weights.iloc[0] = 0  # set starting weight to 0
 
-        # to avoid nan in the beg for
+        # nan in the beg cuz of .shift while finding priceFluctuation
+        # to avoid nan in the beg
         agg_trades.priceFluctuation_dollar.iloc[0] = 0
 
         # Fill with 0s, otherwise results in NaN for port.avail_amount
@@ -151,9 +153,10 @@ class Backtest:
         # trades_current_asset.trades.sort_values("Date_entry", inplace=True)
         # trades_current_asset.trades.reset_index(drop=True, inplace=True)
 
+        # ! doesnt do anything
         # change column names to avoid error
-        agg_trans_prices.buyPrice.columns = port.weights.columns
-        agg_trans_prices.sellPrice.columns = port.weights.columns
+        # agg_trans_prices.buyPrice.columns = port.weights.columns
+        # agg_trans_prices.sellPrice.columns = port.weights.columns
 
         # run portfolio level
         # allocate weights
@@ -235,14 +238,16 @@ class Backtest:
 
         # testing
         # port.value = port.equity_curve.sum()
-        port.weights.columns = ["w_" + col for col in port.weights.columns]
-        port.equity_curve.to_sql("equity_curve", self.con, if_exists="replace")
-        df_all = pd.concat([port.avail_amount, port.equity_curve], axis=1)
-        df_all.to_sql("df_all", self.con, if_exists="replace")
-        port.weights.to_sql("t_weights", self.con, if_exists="replace")
-        port.avail_amount.to_sql(
-            "port_avail_amount", self.con, if_exists="replace")
-        port.invested.to_sql("port_invested", self.con, if_exists="replace")
+        # ! doesnt do anything
+        # port.weights.columns = ["w_" + col for col in port.weights.columns]
+
+        # port.equity_curve.to_sql("equity_curve", self.con, if_exists="replace")
+        # df_all = pd.concat([port.avail_amount, port.equity_curve], axis=1)
+        # df_all.to_sql("df_all", self.con, if_exists="replace")
+        # port.weights.to_sql("t_weights", self.con, if_exists="replace")
+        # port.avail_amount.to_sql(
+        #     "port_avail_amount", self.con, if_exists="replace")
+        # port.invested.to_sql("port_invested", self.con, if_exists="replace")
 
         # profit = weight * chg
         # portfolio value += profit
