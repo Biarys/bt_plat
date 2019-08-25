@@ -153,6 +153,8 @@ class Backtest:
             columns=self.port.weights.columns)
         self.port.invested.iloc[0] = 0
         # put trades in chronological order
+        # self.agg_trades.trades.sort_values("Date_entry", inplace=True)
+        # self.agg_trades.trades.reset_index(drop=True, inplace=True)
         # trades_current_asset.trades.sort_values("Date_entry", inplace=True)
         # trades_current_asset.trades.reset_index(drop=True, inplace=True)
 
@@ -259,10 +261,36 @@ class Backtest:
 
         self._generate_trade_list()
 
+    def _check_trade_list(self):
+        pass
+
     def _generate_trade_list(self):
-        self.trade_list = self.agg_trades.trades
+        self.trade_list = self.agg_trades.trades.copy()
         self.trade_list.sort_values(by="Date_entry", inplace=True)
         self.trade_list.reset_index(drop=True, inplace=True)
+        self.trade_list["Weights"] = np.NAN
+
+        _weight_list = self.trade_list.Symbol.unique()
+        for asset in _weight_list:
+            # find all entry dates for an asset
+            _dates = self.trade_list[self.trade_list["Symbol"] ==
+                                     asset]["Date_entry"]
+            # save index of the dates in trade_list for further concat
+            _idx = self.trade_list[self.trade_list["Symbol"] ==
+                                   asset]["Date_entry"].index
+            # grab all weights for the asset on entry date
+            # ? might have probems with scaling (probably will)
+            _weights = self.port.weights[asset].loc[_dates]
+            # _weights.name = "Weights"
+
+            self.trade_list.loc[_idx, "Weights"] = _weights.values
+        # self.trade_list = self.trade_list.merge(
+        #     pd.DataFrame(_weights),
+        #     how="left",
+        #     left_on="Date_entry",
+        #     right_on="Date",
+        #     right_index=True)
+        print(self.trade_list)
 
         # $ change
         self.trade_list["Dollar_change"] = self.trade_list[
@@ -273,7 +301,11 @@ class Backtest:
             self.trade_list["Exit_price"] -
             self.trade_list["Entry_price"]) / self.trade_list["Entry_price"]
 
-        print(self.trade_list)
+        # Append weights
+        # 2 ways:
+        # 1) left join port.weights
+        # 2) keep track of weights when assigning weights (might have problems with duplicates)
+        #print(pd.merge(self.agg_trades.trades, self.port.weights, how="left", left_on=("Date_entry", right_on="Date", right_index=True))
 
 
 class TradeSignal:
@@ -570,5 +602,5 @@ if __name__ == "__main__":
     # b.read_from_db
     # strategy logic
     b.run()
-    print(b.agg_trades.trades)
+    print(b.trade_list)
     # b.show_results
