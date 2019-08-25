@@ -281,16 +281,8 @@ class Backtest:
             # grab all weights for the asset on entry date
             # ? might have probems with scaling (probably will)
             _weights = self.port.weights[asset].loc[_dates]
-            # _weights.name = "Weights"
 
             self.trade_list.loc[_idx, "Weights"] = _weights.values
-        # self.trade_list = self.trade_list.merge(
-        #     pd.DataFrame(_weights),
-        #     how="left",
-        #     left_on="Date_entry",
-        #     right_on="Date",
-        #     right_index=True)
-        print(self.trade_list)
 
         # $ change
         self.trade_list["Dollar_change"] = self.trade_list[
@@ -300,12 +292,6 @@ class Backtest:
         self.trade_list["Pct_change"] = (
             self.trade_list["Exit_price"] -
             self.trade_list["Entry_price"]) / self.trade_list["Entry_price"]
-
-        # Append weights
-        # 2 ways:
-        # 1) left join port.weights
-        # 2) keep track of weights when assigning weights (might have problems with duplicates)
-        #print(pd.merge(self.agg_trades.trades, self.port.weights, how="left", left_on=("Date_entry", right_on="Date", right_index=True))
 
 
 class TradeSignal:
