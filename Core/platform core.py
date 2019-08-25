@@ -200,6 +200,10 @@ class Backtest:
                     to_invest / self.agg_trans_prices.buyPrice
                     .loc[current_bar, affected_assets])
 
+                # find actualy amount invested
+                # TODO: adjust amount invested. Right now assumes all intended amount is allocated.
+                # actually_invested =
+
                 # update portfolio invested amount
                 self.port.invested.loc[current_bar, affected_assets] = to_invest
 
@@ -268,8 +272,9 @@ class Backtest:
         self.trade_list = self.agg_trades.trades.copy()
         self.trade_list.sort_values(by="Date_entry", inplace=True)
         self.trade_list.reset_index(drop=True, inplace=True)
-        self.trade_list["Weights"] = np.NAN
 
+        # assign weights
+        self.trade_list["Weight"] = np.NAN
         _weight_list = self.trade_list.Symbol.unique()
         for asset in _weight_list:
             # find all entry dates for an asset
@@ -282,7 +287,7 @@ class Backtest:
             # ? might have probems with scaling (probably will)
             _weights = self.port.weights[asset].loc[_dates]
 
-            self.trade_list.loc[_idx, "Weights"] = _weights.values
+            self.trade_list.loc[_idx, "Weight"] = _weights.values
 
         # $ change
         self.trade_list["Dollar_change"] = self.trade_list[
@@ -292,6 +297,20 @@ class Backtest:
         self.trade_list["Pct_change"] = (
             self.trade_list["Exit_price"] -
             self.trade_list["Entry_price"]) / self.trade_list["Entry_price"]
+
+        # $ profit
+        self.trade_list["Dollar_profit"] = self.trade_list[
+            "Weight"] * self.trade_list["Dollar_change"]
+
+        # cum profit
+        self.trade_list["Cum_profit"] = self.trade_list["Dollar_profit"].cumsum(
+        )
+        self.trade_list["Cum_profit"] += self.port.start_amount
+
+        # % profit
+        # self.trade_list["Pct_profit"] = self.trade_list[""]
+
+        # # bars held
 
 
 class TradeSignal:
