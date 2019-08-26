@@ -275,19 +275,19 @@ class Backtest:
 
         # assign weights
         self.trade_list["Weight"] = np.NAN
-        _weight_list = self.trade_list.Symbol.unique()
-        for asset in _weight_list:
+        weight_list = self.trade_list.Symbol.unique()
+        for asset in weight_list:
             # find all entry dates for an asset
-            _dates = self.trade_list[self.trade_list["Symbol"] ==
-                                     asset]["Date_entry"]
+            dates = self.trade_list[self.trade_list["Symbol"] ==
+                                    asset]["Date_entry"]
             # save index of the dates in trade_list for further concat
-            _idx = self.trade_list[self.trade_list["Symbol"] ==
-                                   asset]["Date_entry"].index
+            idx = self.trade_list[self.trade_list["Symbol"] ==
+                                  asset]["Date_entry"].index
             # grab all weights for the asset on entry date
             # ? might have probems with scaling (probably will)
-            _weights = self.port.weights[asset].loc[_dates]
+            weights = self.port.weights[asset].loc[dates]
 
-            self.trade_list.loc[_idx, "Weight"] = _weights.values
+            self.trade_list.loc[idx, "Weight"] = weights.values
 
         # $ change
         self.trade_list["Dollar_change"] = self.trade_list[
@@ -311,6 +311,10 @@ class Backtest:
         # self.trade_list["Pct_profit"] = self.trade_list[""]
 
         # # bars held
+        temp = pd.to_datetime(self.trade_list["Date_exit"], errors="coerce")
+        self.trade_list[
+            "Position_duration"] = self.trade_list["Date_entry"] - temp
+        self.trade_list["Position_duration"].fillna("Open", inplace=True)
 
 
 class TradeSignal:
