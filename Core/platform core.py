@@ -312,9 +312,8 @@ class Backtest:
 
         # # bars held
         temp = pd.to_datetime(self.trade_list["Date_exit"], errors="coerce")
-        self.trade_list[
-            "Position_duration"] = self.trade_list["Date_entry"] - temp
-        self.trade_list["Position_duration"].fillna("Open", inplace=True)
+        self.trade_list["Trade_duration"] = self.trade_list["Date_entry"] - temp
+        self.trade_list["Trade_duration"].fillna("Open", inplace=True)
 
 
 class TradeSignal:
