@@ -40,6 +40,7 @@ class Backtest:
         self.agg_trans_prices = Agg_TransPrice()
         self.agg_trades = Agg_Trades()
         self.trade_list = None
+        self.settings = Settings()
 
     def run(self):
         self.con, self.meta = db.connect(config.user, config.password,
@@ -138,13 +139,13 @@ class Backtest:
         self.port.value = pd.DataFrame(
             index=self.agg_trades.priceFluctuation_dollar.index,
             columns=["Portfolio value"])
-        self.port.value.iloc[0] = self.port.start_amount
+        self.port.value.iloc[0] = self.settings.start_amount
 
         # copy index and set column name for avail amount
         self.port.avail_amount = pd.DataFrame(
             index=self.agg_trades.priceFluctuation_dollar.index,
             columns=["Available amount"])
-        self.port.avail_amount.iloc[0] = self.port.start_amount
+        self.port.avail_amount.iloc[0] = self.settings.start_amount
         # self.port.avail_amount.ffill(inplace=True)
 
         # copy index and column names for invested amount
@@ -240,7 +241,7 @@ class Backtest:
         # # find daily fluc for that day for all assets (sum of fluc for that day)
         # self.port.equity_curve = self.port.profit_daily_fluc_per_asset.sum(1)
         # # set starting amount
-        # self.port.equity_curve.iloc[0] = self.port.start_amount
+        # self.port.equity_curve.iloc[0] = self.settings.start_amount
         # # apply fluctuation to equity curve
         # self.port.equity_curve = self.port.equity_curve.cumsum()
         # # self.port.equity_curve.columns
@@ -305,7 +306,7 @@ class Backtest:
         # cum profit
         self.trade_list["Cum_profit"] = self.trade_list["Dollar_profit"].cumsum(
         )
-        self.trade_list["Cum_profit"] += self.port.start_amount
+        self.trade_list["Cum_profit"] += self.settings.start_amount
 
         # % profit
         # self.trade_list["Pct_profit"] = self.trade_list[""]
@@ -549,9 +550,6 @@ class Portfolio:
 
     def __init__(self):
         self.weights = pd.DataFrame()
-
-        self.start_amount = 10000
-        self.avail_amount = self.start_amount
         self.value = pd.DataFrame()
         self.profit = pd.DataFrame()
         self.invested = pd.DataFrame()
@@ -559,6 +557,9 @@ class Portfolio:
         self.ror = pd.DataFrame()
         self.capUsed = pd.DataFrame()
         self.equity_curve = pd.DataFrame()
+
+        self.start_amount = Settings().start_amount
+        self.avail_amount = self.start_amount
 
 
 class Repeater:
@@ -628,7 +629,7 @@ def _generate_equity_curve(self):
     self.port.equity_curve = self.port.profit_daily_fluc_per_asset.sum(1)
 
     # set starting amount
-    self.port.equity_curve.iloc[0] = self.port.start_amount
+    self.port.equity_curve.iloc[0] = self.settings.start_amount
 
     # apply fluctuation to equity curve
     self.port.equity_curve = self.port.equity_curve.cumsum()
