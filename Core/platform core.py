@@ -126,6 +126,7 @@ class Backtest:
             index=self.agg_trades.priceFluctuation_dollar.index,
             columns=self.agg_trades.inTradePrice.columns)
         self.port.weights.iloc[0] = 0  # set starting weight to 0
+        self.port.weights = self.port.weights.astype(np.float)
 
         # nan in the beg cuz of .shift while finding priceFluctuation
         # to avoid nan in the beg
@@ -187,8 +188,9 @@ class Backtest:
             # update avail amount (subtract)
             if current_bar in self.agg_trans_prices.buyPrice.index:
                 # find amount to be invested
-                to_invest = self.port.avail_amount.loc[current_bar,
-                                                       "Available amount"] * 0.1
+                to_invest = self.port.avail_amount.loc[
+                    current_bar, "Available amount"] * self.settings.pct_invest
+
                 # find assets that need allocation
                 # those that dont have buyPrice for that day wil have NaN
                 # drop them, keep those that have values
@@ -197,16 +199,24 @@ class Backtest:
 
                 # find current bar, affected assets
                 # allocate shares to all assets = invested amount/buy price
-                self.port.weights.loc[current_bar, affected_assets] = (
-                    to_invest / self.agg_trans_prices.buyPrice
-                    .loc[current_bar, affected_assets])
+                rounded_weights = to_invest / self.agg_trans_prices.buyPrice.loc[
+                    current_bar, affected_assets]
+                rounded_weights = rounded_weights.mul(
+                    10**self.settings.round_to_decimals).apply(np.floor).div(
+                        10**self.settings.round_to_decimals)
+                self.port.weights.loc[current_bar,
+                                      affected_assets] = rounded_weights
 
                 # find actualy amount invested
                 # TODO: adjust amount invested. Right now assumes all intended amount is allocated.
-                # actually_invested =
+                actually_invested = self.port.weights.loc[
+                    current_bar,
+                    affected_assets] * self.agg_trans_prices.buyPrice.loc[
+                        current_bar, affected_assets]
 
                 # update portfolio invested amount
-                self.port.invested.loc[current_bar, affected_assets] = to_invest
+                self.port.invested.loc[current_bar,
+                                       affected_assets] = actually_invested
 
                 # update portfolio avail amount -= sum of all invested money that day
                 self.port.avail_amount.loc[
@@ -595,6 +605,10 @@ class Settings:
         self.cover_delay = 0
         # self.min_bars_hold
         # self.max_bars_hold or self.exit_after_bars ?
+
+        # ? replace with dict?
+        self.pct_invest = 0.1
+        self.round_to_decimals = 0
 
         # not implemented yet
         # self.max_open_positions = None
