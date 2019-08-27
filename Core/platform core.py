@@ -573,6 +573,41 @@ class Repeater:
         self.name = name
 
 
+class Settings:
+    """
+    Defines backtest settings
+    """
+
+    def __init__(self):
+        self.start_amount = 10000
+
+        # which col to use for calc buy/sell price
+        self.buy_on = "Close"
+        self.sell_on = "Close"
+        self.short_on = "Close"
+        self.cover_on = "Close"
+
+        # number of bars to delay entry/exit
+        self.buy_delay = 0
+        self.sell_delay = 0
+        self.short_delay = 0
+        self.cover_delay = 0
+        # self.min_bars_hold
+        # self.max_bars_hold or self.exit_after_bars ?
+
+        # not implemented yet
+        # self.max_open_positions = None
+        # self.max_open_long = None
+        # self.max_open_short = None
+        # self.set_margin = 100
+
+        # # position size
+        # self.min_shares = 0
+        # self.min_position_value = 0
+        # self.max_shares = 0
+        # self.max_position_value = 0
+
+
 # ? ##################
 # ? Helper functions #
 # ? ##################
