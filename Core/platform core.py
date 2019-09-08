@@ -102,7 +102,7 @@ class Backtest:
                 self.agg_trades.priceFluctuation_dollar,
                 trades_current_asset.priceFluctuation_dollar
             ],
-                                                                axis=1)
+                axis=1)
             self.agg_trades.trades = pd.concat(
                 [self.agg_trades.trades, trades_current_asset.trades],
                 axis=0,
@@ -110,7 +110,7 @@ class Backtest:
             self.agg_trades.inTradePrice = pd.concat([
                 self.agg_trades.inTradePrice, trades_current_asset.inTradePrice
             ],
-                                                     axis=1)
+                axis=1)
 
     def _run_portfolio(self, data):
         """
@@ -402,7 +402,7 @@ class TransPrice:
         - trade_singals: DataFrame containing all buys and sells
         - buyOn (optional): column that should be looked up when buy occurs
         - sellOn (optional): column that should be looked up when sell occurs
-        
+
     Output:
         - buyPrice: used in Trades to generate trade list
         - sellPrice: used in Trades to generate trade list 
