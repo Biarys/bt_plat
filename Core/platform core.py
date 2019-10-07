@@ -4,9 +4,9 @@ import os
 import abc
 
 # own files
-import data_reader
 from indicators import *
-import database_stuff as db
+from data_reader import DataReader
+# import database_stuff as db
 import config
 
 # for testing
@@ -34,7 +34,7 @@ class Backtest:
 
     def __init__(self, name="My Backtest"):
         self.name = name
-        self.data = data_reader.DataReader()
+        self.data = DataReader()  #data_reader.DataReader()
         self.port = Portfolio()
         self.agg_trade_signals = Agg_TradeSingal()
         self.agg_trans_prices = Agg_TransPrice()
@@ -42,19 +42,21 @@ class Backtest:
         self.trade_list = None
         self.settings = Settings()
 
-    def run(self):
-        self.con, self.meta = db.connect(config.user, config.password,
-                                         config.db)
-        self.meta.reflect(bind=self.con)
+    def run(self, read_type):
+        # self.con, self.meta = db.connect(config.user, config.password,
+        #                                  config.db)
+        # self.meta.reflect(bind=self.con)
 
-        self.id = self.con.execute(
-            "INSERT INTO \"backtests\" (name) VALUES ('{}') RETURNING backtest_id"
-            .format(self.name)).fetchall()[0][0]  # fetchall() to get the tuple
+        # self.id = self.con.execute(
+        #     "INSERT INTO \"backtests\" (name) VALUES ('{}') RETURNING backtest_id"
+        #     .format(self.name)).fetchall()[0][0]  # fetchall() to get the tuple
 
-        print(f"Backtest #{self.id} is running")
+        # print(f"Backtest #{self.id} is running")
 
-        self.data.readDB(self.con, self.meta, index_col="Date")
-        # data.readCSVFiles(r"C:\Users\Biarys\Desktop\bt_plat\stock_data")
+        # self.data.readDB(self.con, self.meta, index_col="Date")
+        if read_type.lower() == "csv":
+            self.data.readCSVFiles(
+                r"E:\Windows\Documents\bt_plat\stock_data")
 
         self._run_portfolio(self.data)
 
@@ -657,8 +659,9 @@ def _remove_dups(data):
 
 if __name__ == "__main__":
     b = Backtest("Strategy 1")
+
     # b.read_from_db
     # strategy logic
-    b.run()
+    b.run("csv")
     print(b.trade_list)
     # b.show_results

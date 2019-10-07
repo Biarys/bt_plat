@@ -8,7 +8,7 @@ from functools import wraps
 class DataReader:
     def __init__(self):
         self.data = {}
-
+        
     def readCSV(self, path):
         assert os.path.isfile(
             path), "You need to specify a file or the path doesnt exist."
@@ -47,19 +47,21 @@ class DataReader:
                 self.data[table] = _temp
 
         # con.close()
-
+    # add conditional decorator
     def establish_con(func):
+        cond = ""
+        if cond.lower()=="db":
+            con, meta = db.connect(config.user, config.password, config.db)
+            meta.reflect(bind=con)
 
-        con, meta = db.connect(config.user, config.password, config.db)
-        meta.reflect(bind=con)
+            # @wraps(func)
+            def inner(self, *args, **kwargs):
+                return func(self, con, *args, **kwargs)
 
-        # @wraps(func)
-        def inner(self, *args, **kwargs):
-            return func(self, con, *args, **kwargs)
-
-        # con.close() # engine closes connection automatically?
-        return inner
-
+            # con.close() # engine closes connection automatically?
+            return inner
+    
+    
     @establish_con
     def execQuery(self, con, query):
         result = pd.read_sql(query, con)
