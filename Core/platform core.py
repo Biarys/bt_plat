@@ -55,9 +55,8 @@ class Backtest:
         # print(f"Backtest #{self.id} is running")
 
         # self.data.readDB(self.con, self.meta, index_col="Date")
-        if read_type.lower() == "csv":
-            self.data.readCSVFiles(
-                r"E:\Windows\Documents\bt_plat\stock_data")
+        if self.settings.read_from=="csvFiles":
+            self.data.readCSVFiles(self.settings.read_from_csv_path)
 
         self._run_portfolio(self.data)
 
@@ -659,8 +658,9 @@ def _remove_dups(data):
 
 
 if __name__ == "__main__":
+    Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data"
+    
     b = Backtest("Strategy 1")
-
     # b.read_from_db
     # strategy logic
     b.run("csv")
