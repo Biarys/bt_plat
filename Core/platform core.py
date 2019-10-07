@@ -8,6 +8,7 @@ from indicators import *
 from data_reader import DataReader
 # import database_stuff as db
 import config
+import settings as Settings
 
 # for testing
 from datetime import datetime
@@ -40,7 +41,7 @@ class Backtest:
         self.agg_trans_prices = Agg_TransPrice()
         self.agg_trades = Agg_Trades()
         self.trade_list = None
-        self.settings = Settings()
+        self.settings = Settings
 
     def run(self, read_type):
         # self.con, self.meta = db.connect(config.user, config.password,
@@ -570,7 +571,7 @@ class Portfolio:
         self.capUsed = pd.DataFrame()
         self.equity_curve = pd.DataFrame()
 
-        self.start_amount = Settings().start_amount
+        self.start_amount = Settings.start_amount
         self.avail_amount = self.start_amount
 
 
@@ -586,43 +587,43 @@ class Repeater:
         self.name = name
 
 
-class Settings:
-    """
-    Defines backtest settings
-    """
+# class Settings:
+#     """
+#     Defines backtest settings
+#     """
 
-    def __init__(self):
-        self.start_amount = 10000
+#     def __init__(self):
+#         self.start_amount = 10000
 
-        # which col to use for calc buy/sell price
-        self.buy_on = "Close"
-        self.sell_on = "Close"
-        self.short_on = "Close"
-        self.cover_on = "Close"
+#         # which col to use for calc buy/sell price
+#         self.buy_on = "Close"
+#         self.sell_on = "Close"
+#         self.short_on = "Close"
+#         self.cover_on = "Close"
 
-        # number of bars to delay entry/exit
-        self.buy_delay = 0
-        self.sell_delay = 0
-        self.short_delay = 0
-        self.cover_delay = 0
-        # self.min_bars_hold
-        # self.max_bars_hold or self.exit_after_bars ?
+#         # number of bars to delay entry/exit
+#         self.buy_delay = 0
+#         self.sell_delay = 0
+#         self.short_delay = 0
+#         self.cover_delay = 0
+#         # self.min_bars_hold
+#         # self.max_bars_hold or self.exit_after_bars ?
 
-        # ? replace with dict?
-        self.pct_invest = 0.1
-        self.round_to_decimals = 0
+#         # ? replace with dict?
+#         self.pct_invest = 0.1
+#         self.round_to_decimals = 0
 
-        # not implemented yet
-        # self.max_open_positions = None
-        # self.max_open_long = None
-        # self.max_open_short = None
-        # self.set_margin = 100
+#         # not implemented yet
+#         # self.max_open_positions = None
+#         # self.max_open_long = None
+#         # self.max_open_short = None
+#         # self.set_margin = 100
 
-        # # position size
-        # self.min_shares = 0
-        # self.min_position_value = 0
-        # self.max_shares = 0
-        # self.max_position_value = 0
+#         # # position size
+#         # self.min_shares = 0
+#         # self.min_position_value = 0
+#         # self.max_shares = 0
+#         # self.max_position_value = 0
 
 
 # ? ##################
