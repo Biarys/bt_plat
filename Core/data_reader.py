@@ -3,7 +3,7 @@ import pandas as pd
 import database_stuff as db
 import config
 from functools import wraps
-
+import Settings
 
 class DataReader:
     def __init__(self):
@@ -49,8 +49,7 @@ class DataReader:
         # con.close()
     # add conditional decorator
     def establish_con(func):
-        cond = ""
-        if cond.lower()=="db":
+        if Settings.read_from.lower()=="db":
             con, meta = db.connect(config.user, config.password, config.db)
             meta.reflect(bind=con)
 

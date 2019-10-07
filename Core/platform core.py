@@ -8,7 +8,7 @@ from indicators import *
 from data_reader import DataReader
 # import database_stuff as db
 import config
-import settings as Settings
+import Settings
 
 # for testing
 from datetime import datetime
@@ -43,7 +43,7 @@ class Backtest:
         self.trade_list = None
         self.settings = Settings
 
-    def run(self, read_type):
+    def run(self):
         # self.con, self.meta = db.connect(config.user, config.password,
         #                                  config.db)
         # self.meta.reflect(bind=self.con)
@@ -663,6 +663,6 @@ if __name__ == "__main__":
     b = Backtest("Strategy 1")
     # b.read_from_db
     # strategy logic
-    b.run("csv")
+    b.run()
     print(b.trade_list)
     # b.show_results
