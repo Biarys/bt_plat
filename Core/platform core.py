@@ -679,7 +679,11 @@ if __name__ == "__main__":
 
             buyCond = sma5() > sma25()
             sellCond = sma5() < sma25()
-            return buyCond, sellCond
+            
+            shortCond = None
+            coverCond = None
+
+            return buyCond, sellCond, shortCond, coverCond
     
     s = Strategy("name")
     s.run()
