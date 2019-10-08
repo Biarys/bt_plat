@@ -31,9 +31,9 @@ from datetime import datetime
 #############################################
 # Core starts
 #############################################
-class Backtest:
+class Backtest(abc.ABC):
 
-    def __init__(self, name="My Backtest"):
+    def __init__(self, name):
         self.name = name
         self.data = DataReader()  #data_reader.DataReader()
         self.port = Portfolio()
@@ -60,6 +60,10 @@ class Backtest:
 
         self._run_portfolio(self.data)
 
+    @abc.abstractmethod
+    def logic(self, current_asset):
+        pass
+
     def _prepricing(self, data):
         """
         Loop through files
@@ -72,14 +76,17 @@ class Backtest:
         for name in data.data:
             current_asset = data.data[name]
             # separate strategy logic
-            sma5 = SMA(current_asset, ["Close"], 5)
-            sma25 = SMA(current_asset, ["Close"], 25)
+            # sma5 = SMA(current_asset, ["Close"], 5)
+            # sma25 = SMA(current_asset, ["Close"], 25)
 
-            buyCond = sma5() > sma25()
-            sellCond = sma5() < sma25()
+            # buyCond = sma5() > sma25()
+            # sellCond = sma5() < sma25()
+
+            buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
+
             ################################
 
-            rep = Repeater(current_asset, buyCond, sellCond, name)
+            rep = Repeater(current_asset, name, buyCond, sellCond, shortCond, coverCond)
 
             # find trade_signals and trans_prices for an asset
             trade_signals = TradeSignal(rep)
@@ -579,10 +586,12 @@ class Repeater:
     Common class to avoid repetition
     """
 
-    def __init__(self, data, buyCond, sellCond, name):
+    def __init__(self, data, name, buyCond=None, sellCond=None, shortCond=None, coverCond=None):
         self.data = data
         self.buyCond = buyCond
         self.sellCond = sellCond
+        self.shortCond = shortCond
+        self.coverCond = coverCond
         self.name = name
 
 
@@ -656,13 +665,28 @@ def _remove_dups(data):
     data = data.where(data != data.shift(1))
     return data
 
+class Strategy(Backtest):
+    pass
 
 if __name__ == "__main__":
     Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data"
     
-    b = Backtest("Strategy 1")
-    # b.read_from_db
-    # strategy logic
-    b.run()
-    print(b.trade_list)
-    # b.show_results
+    class Strategy(Backtest):
+        def logic(self, current_asset):
+            
+            sma5 = SMA(current_asset, ["Close"], 5)
+            sma25 = SMA(current_asset, ["Close"], 25)
+
+            buyCond = sma5() > sma25()
+            sellCond = sma5() < sma25()
+            return buyCond, sellCond
+    
+    s = Strategy("name")
+    s.run()
+    print(s.trade_list)
+    # b = Backtest("Strategy 1")
+    # # b.read_from_db
+    # # strategy logic
+    # b.run()
+    # print(b.trade_list)
+    # # b.show_results
