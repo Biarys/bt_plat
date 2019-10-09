@@ -422,7 +422,7 @@ class TransPrice:
         - sellIndex: dates of sellPrice
     """
 
-    def __init__(self, rep, trade_signals, buyOn="Close", sellOn="Close"):
+    def __init__(self, rep, trade_signals):
         self.all = trade_signals.all
 
         self.all = self.all.dropna()
@@ -433,8 +433,8 @@ class TransPrice:
         self.buyIndex = self.all[self.all[rep.name] == "Buy"].index
         self.sellIndex = self.all[self.all[rep.name] == "Sell"].index
 
-        self.buyPrice = rep.data[buyOn][self.buyIndex]
-        self.sellPrice = rep.data[sellOn][self.sellIndex]
+        self.buyPrice = rep.data[Settings.buy_on][self.buyIndex]
+        self.sellPrice = rep.data[Settings.sell_on][self.sellIndex]
 
         self.buyPrice.name = rep.name
         self.sellPrice.name = rep.name
