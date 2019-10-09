@@ -335,7 +335,7 @@ class Backtest(abc.ABC):
 
         # # bars held
         temp = pd.to_datetime(self.trade_list["Date_exit"], errors="coerce")
-        self.trade_list["Trade_duration"] = self.trade_list["Date_entry"] - temp
+        self.trade_list["Trade_duration"] = temp - self.trade_list["Date_entry"]
         self.trade_list["Trade_duration"].fillna("Open", inplace=True)
 
 
@@ -690,6 +690,7 @@ if __name__ == "__main__":
     
     s = Strategy("name")
     s.run()
+    s.trade_list.to_csv("test.csv")
     print(s.trade_list)
     # b = Backtest("Strategy 1")
     # # b.read_from_db
