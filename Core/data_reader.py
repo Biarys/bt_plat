@@ -12,23 +12,23 @@ class DataReader:
     def readCSV(self, path):
         assert os.path.isfile(
             path), "You need to specify a file or the path doesnt exist."
-        self.data = pd.read_excel(
+        _fileName = "myStock"
+        self.data[_fileName] = pd.read_csv(
             path,
             index_col="Date",
-            nrows=100,
-            names=["Open", "High", "Low", "Close", "Volume"],
         )
+        self.data[_fileName].index = pd.to_datetime(self.data[_fileName].index)
 
     def readCSVFiles(self, path):
         assert os.path.isdir(
             path), "You need to specify a folder or the path doesnt exist."
         for file in os.listdir(path)[:2]:
-            self._fileName = file.split(".txt")[0]
+            _fileName = file.split(".txt")[0]
             _temp = pd.read_csv(
                 path + "\\" + file, index_col="Date")
             _temp.index.name = "Date"
             _temp.index = pd.to_datetime(_temp.index)
-            self.data[self._fileName] = _temp
+            self.data[_fileName] = _temp
 
     def readDB(self, con, meta, index_col):
         """

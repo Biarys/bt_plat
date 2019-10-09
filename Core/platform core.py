@@ -57,6 +57,9 @@ class Backtest(abc.ABC):
         # self.data.readDB(self.con, self.meta, index_col="Date")
         if self.settings.read_from=="csvFiles":
             self.data.readCSVFiles(self.settings.read_from_csv_path)
+        elif self.settings.read_from=="csvFile":
+            self.data.readCSV(self.settings.read_from_csv_path)
+
 
         self._run_portfolio(self.data)
 
@@ -669,8 +672,8 @@ class Strategy(Backtest):
     pass
 
 if __name__ == "__main__":
-    Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data"
-    
+    Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data\AA.csv"
+    Settings.read_from = "csvFile"
     class Strategy(Backtest):
         def logic(self, current_asset):
             
