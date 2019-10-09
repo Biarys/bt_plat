@@ -362,10 +362,10 @@ class TradeSignal:
         # rep = rep
         # buy/sell/all signals
         self.buyCond = rep.buyCond.where(
-            rep.buyCond != rep.buyCond.shift(1).fillna(rep.buyCond[0])).shift(1)
+            rep.buyCond != rep.buyCond.shift(1).fillna(rep.buyCond[0])).shift(0)
         self.sellCond = rep.sellCond.where(
             rep.sellCond != rep.sellCond.shift(1).fillna(rep.sellCond[0])
-        ).shift(1)
+        ).shift(0)
 
         # might be a better solution cuz might not create copy - need to test it
         # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
