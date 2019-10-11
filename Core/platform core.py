@@ -367,12 +367,16 @@ class TradeSignal:
             rep.sellCond != rep.sellCond.shift(1).fillna(rep.sellCond[0])
         ).shift(0)
 
+        # delay implementation
+        self._buy_shift = self.buyCond.shift(Settings.buy_delay)
+        self._sell_shift = self.sellCond.shift(Settings.sell_delay)
+
         # might be a better solution cuz might not create copy - need to test it
         # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
         #         self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
         #         self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
 
-        cond = [(self.buyCond == 1), (self.sellCond == 1)]
+        cond = [(self._buy_shift == 1), (self._sell_shift == 1)]
         out = ["Buy", "Sell"]
         self.all = np.select(cond, out, default=0)
         self.all = pd.DataFrame(
@@ -380,7 +384,7 @@ class TradeSignal:
         self.all = self.all.replace("0", np.NAN)
 
         # find where first buy occured
-        first_buy = self.buyCond.dropna().index[0]
+        first_buy = self._buy_shift.dropna().index[0]
 
         # drop all sell signals that come before first buy
         self.all = self.all[first_buy:]
@@ -425,8 +429,8 @@ class TransPrice:
     def __init__(self, rep, trade_signals):
         self.all = trade_signals.all
 
-        self.all = self.all.dropna()
         # to get rid of duplicates
+        self.all = self.all.dropna()
         self.all = _remove_dups(self.all)
         # self.all = self.all.where(self.all != self.all.shift(1))
 
@@ -674,6 +678,9 @@ class Strategy(Backtest):
 if __name__ == "__main__":
     Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data\AA.csv"
     Settings.read_from = "csvFile"
+    Settings.buy_delay = 0
+    Settings.sell_delay = 0
+
     class Strategy(Backtest):
         def logic(self, current_asset):
             
