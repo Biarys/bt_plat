@@ -4,7 +4,7 @@ import os
 import abc
 
 # own files
-from indicators import *
+from indicators import SMA
 from data_reader import DataReader
 # import database_stuff as db
 import config
