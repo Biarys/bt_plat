@@ -1,3 +1,10 @@
+# run options
+read_from = "csvFiles"
+read_from_csv_path = ""
+
+# data_frequency = "D"
+
+# simulation options
 start_amount = 10000
 
 # which col to use for calc buy/sell price
@@ -30,6 +37,3 @@ round_to_decimals = 0
 # max_shares = 0
 # max_position_value = 0
 
-# run options
-read_from = "csvFiles"
-read_from_csv_path = ""
