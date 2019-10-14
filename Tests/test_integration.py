@@ -7,8 +7,8 @@ import os
 
 sys.path.append(sys.path[0] + "/..")
 import Core.platform_core as bt
-from  Core.indicators import SMA
 import Core.Settings as Settings
+from Core.indicators import SMA
 
 class TestStocks():
     def __init__(self):
