@@ -3,9 +3,12 @@ import pandas as pd
 import pandas.testing as pdt
 import numpy.testing as npt
 import numpy as np
+import os
 
 sys.path.append(sys.path[0] + "/..")
-import Core.platform_core
+import Core.platform_core as bt
+from  Core.indicators import SMA
+import Core.Settings as Settings
 
 class TestStocks():
     def __init__(self):
@@ -16,12 +19,17 @@ class TestStocks():
 
 class TestSMA(TestStocks):
     def test_stock(self):
+        path = os.getcwd()
         for name in self.stock_list:
-            baseline = pd.read_excel(f'baseline_sma_5_25_{name}.xlsx')
+            baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_{name}.xlsx'.format(name=name))
+            Settings.read_from_csv_path = path + r"\stock_data\{name}.csv".format(
+                name=name)
+            Settings.read_from = "csvFile"
+            
+            s = StrategySMA("name")
+            s.run()
 
-
-
-            self.compare_dfs(baseline)
+            self.compare_dfs(baseline, s.trade_list)
 
     # def test_AA(self):
     #     baseline = pd.read_excel('baseline_sma_5_25_AA.xlsx')
@@ -55,7 +63,19 @@ class TestSMA(TestStocks):
         baseline = pd.read_excel('baseline_sma_5_25_XOM.xlsx')
         self.compare_dfs(baseline)
 
+class StrategySMA(bt.Backtest):
+        def logic(self, current_asset):
+            
+            sma5 = SMA(current_asset, ["Close"], 5)
+            sma25 = SMA(current_asset, ["Close"], 25)
 
+            buyCond = sma5() > sma25()
+            sellCond = sma5() < sma25()
+            
+            shortCond = None
+            coverCond = None
+
+            return buyCond, sellCond, shortCond, coverCond
 
 # might be useful for future testing
 # df1 = pd.DataFrame([1,2,3], "a b c".split())
@@ -75,10 +95,5 @@ class TestSMA(TestStocks):
 #            ).replace('nan -> nan', ' ', regex=True)
 
 if __name__=="__main__":
-    pass
-    # s = bt.Strategy()
-    # df1 = pd.read_excel(r'E:\Windows\Documents\bt_plat\stock_data\AA.csv')
-    # df2 = pd.read_excel(r'E:\Windows\Documents\bt_plat\stock_data\AAPL.csv')
-    # pdt.assert_frame_equal(df1,df2)
-    # npt.assert_equal(df1.values, df2.values)
-    # s.run()
+    t = TestSMA()
+    t.test_stock()
