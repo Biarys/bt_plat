@@ -1,9 +1,11 @@
 import os
 import pandas as pd
-import database_stuff as db
-import config
 from functools import wraps
-import Settings
+
+# own files
+import .database_stuff as db
+import .config
+import .Settings
 
 class DataReader:
     def __init__(self):

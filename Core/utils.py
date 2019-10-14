@@ -1,7 +1,9 @@
 import pandas as pd
 import os
-import database_stuff as db
-import config
+
+# own files
+import .database_stuff as db
+import .config
 
 path = r"D:\Common\Default\Documents\Projects\bt_plat\stock_data"
 

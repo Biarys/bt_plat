@@ -16,8 +16,8 @@ import os
 if not os.path.exists("Core/config.py"):
     with open("Core/config.py", "w+") as config_file:
         config_file.write("user='TestUser' \npassword='TestPass'\ndb='testDB'")
-# asdf
-import config
+# own files
+import .config
 
 
 def connect(user, password, db, host='localhost', port=5432):

@@ -4,11 +4,11 @@ import os
 import abc
 
 # own files
-from indicators import SMA
-from data_reader import DataReader
+from .indicators import SMA
+from .data_reader import DataReader
 # import database_stuff as db
-import config
-import Settings
+import .config
+import .Settings
 
 # for testing
 from datetime import datetime
