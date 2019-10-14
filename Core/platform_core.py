@@ -327,7 +327,9 @@ class Backtest(abc.ABC):
         self.trade_list["Portfolio_value"] += self.settings.start_amount
 
         # % profit
-        # self.trade_list["Pct_profit"] = self.trade_list[""]
+        # TODO: Pct_profit needs to change signs depending on long/short trade
+        self.trade_list["Pct_profit"] = self.trade_list["Pct_change"]
+        # self.trade_list.loc[]
 
         # # bars held
         temp = pd.to_datetime(self.trade_list["Date_exit"], errors="coerce")
