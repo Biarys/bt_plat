@@ -78,15 +78,9 @@ class Backtest(abc.ABC):
 
         for name in data.data:
             current_asset = data.data[name]
-            # separate strategy logic
-            # sma5 = SMA(current_asset, ["Close"], 5)
-            # sma25 = SMA(current_asset, ["Close"], 25)
-
-            # buyCond = sma5() > sma25()
-            # sellCond = sma5() < sma25()
-
+            
+            # strategy logic
             buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
-
             ################################
 
             rep = Repeater(current_asset, name, buyCond, sellCond, shortCond, coverCond)
@@ -324,11 +318,13 @@ class Backtest(abc.ABC):
         # $ profit
         self.trade_list["Dollar_profit"] = self.trade_list[
             "Weight"] * self.trade_list["Dollar_change"]
-
+        
         # cum profit
-        self.trade_list["Cum_profit"] = self.trade_list["Dollar_profit"].cumsum(
-        )
-        self.trade_list["Cum_profit"] += self.settings.start_amount
+        self.trade_list["Cum_profit"] = self.trade_list["Dollar_profit"].cumsum()
+
+        # Port value
+        self.trade_list["Portfolio_value"] = self.trade_list["Dollar_profit"].cumsum()
+        self.trade_list["Portfolio_value"] += self.settings.start_amount
 
         # % profit
         # self.trade_list["Pct_profit"] = self.trade_list[""]
