@@ -14,7 +14,7 @@ class DataReader:
     def readCSV(self, path):
         assert os.path.isfile(
             path), "You need to specify a file or the path doesnt exist."
-        _fileName = "myStock"
+        _fileName = os.path.basename(path).split(".")[0] # gets file name for a given path; splitting by . to get the name
         self.data[_fileName] = pd.read_csv(
             path,
             index_col="Date",
