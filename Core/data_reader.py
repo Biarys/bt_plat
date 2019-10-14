@@ -3,9 +3,9 @@ import pandas as pd
 from functools import wraps
 
 # own files
-import .database_stuff as db
-import .config
-import .Settings
+from . import database_stuff as db
+from . import config
+from . import Settings
 
 class DataReader:
     def __init__(self):

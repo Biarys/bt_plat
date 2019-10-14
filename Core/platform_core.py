@@ -7,8 +7,8 @@ import abc
 from .indicators import SMA
 from .data_reader import DataReader
 # import database_stuff as db
-import .config
-import .Settings
+from . import config
+from . import Settings
 
 # for testing
 from datetime import datetime
@@ -671,9 +671,6 @@ def _generate_equity_curve(self):
 def _remove_dups(data):
     data = data.where(data != data.shift(1))
     return data
-
-class Strategy(Backtest):
-    pass
 
 if __name__ == "__main__":
     Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data\AA.csv"
