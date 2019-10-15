@@ -4,15 +4,18 @@ import pandas.testing as pdt
 import numpy.testing as npt
 import numpy as np
 import os
+import unittest
 
 sys.path.append(sys.path[0] + "/..")
 import Core.platform_core as bt
 import Core.Settings as Settings
 from Core.indicators import SMA
 
-class TestStocks():
-    def __init__(self):
-        self.stock_list = ["AA", "AAPL", "DDD", "DY", "JPM", "T", "XOM"]
+class TestStocks(unittest.TestCase):
+    
+    @classmethod
+    def setUpClass(cls):
+        cls.stock_list = ["AA", "AAPL", "DDD", "DY", "JPM", "T", "XOM"]
 
     def compare_dfs(self, baseline, new):
         npt.assert_equal(baseline.values, new.values)
@@ -21,46 +24,55 @@ class TestSMA(TestStocks):
     def test_stock(self):
         path = os.getcwd()
         for name in self.stock_list:
-            baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_{name}.xlsx'.format(name=name))
+            baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_{name}.xlsx'.format(name=name), sheet_name="Tests")
             Settings.read_from_csv_path = path + r"\stock_data\{name}.csv".format(
                 name=name)
             Settings.read_from = "csvFile"
             
-            s = StrategySMA("name")
+            s = StrategySMA("Test_SMA")
             s.run()
+            
+            s.trade_list.rename(columns={
+                "Date_entry":"Date",
+                "Date_exit":"Ex. date",
+                "Direction":"Trade",
+                "Entry_price":"Price",
+                "Exit_price":"Ex. Price",
+                "Weight":"Shares",
+                "Pct_change":"% chg",
+                "Dollar_profit":"Profit",
+                "Pct_profit":"% Profit",
+                "Cum_profit":"Cum. Profit",
+                "Position_value":"Position value"
+            }, inplace=True)
+
+            s.trade_list = s.trade_list[[
+                "Symbol",
+                "Trade",
+                "Date",
+                "Price",	
+                "Ex. date",	
+                "Ex. Price",	
+                "% chg",
+                "Profit",	
+                "% Profit",	
+                "Shares",
+                "Position value",	
+                "Cum. Profit"
+            ]]
+            s.trade_list[["Price", "Ex. Price", "Profit", "Position value", "Cum. Profit"]] = s.trade_list[
+                ["Price", "Ex. Price", "Profit", "Position value", "Cum. Profit"]].round(2)
+            s.trade_list[["% chg", "% Profit"]] = s.trade_list[["% chg", "% Profit"]].round(4)
+
+            s.trade_list.to_csv("test.csv")
 
             self.compare_dfs(baseline, s.trade_list)
 
-    # def test_AA(self):
-    #     baseline = pd.read_excel('baseline_sma_5_25_AA.xlsx')
-    #     self.compare_dfs(baseline)
-
-    # def test_AAPL(self):
-    #     baseline = pd.read_excel('baseline_sma_5_25_AAPL.xlsx')
-    #     self.compare_dfs(baseline)
-
-    # def test_DDD(self):
-    #     baseline = pd.read_excel('baseline_sma_5_25_DDD.xlsx')
-    #     self.compare_dfs(baseline)
-
-    # def test_DY(self):
-    #     baseline = pd.read_excel('baseline_sma_5_25_DY.xlsx')
-    #     self.compare_dfs(baseline)
-
-    # def test_JPM(self):
-    #     baseline = pd.read_excel('baseline_sma_5_25_JPM.xlsx')
-    #     self.compare_dfs(baseline)
-
-    # def test_T(self):
-    #     baseline = pd.read_excel('baseline_sma_5_25_T.xlsx')
-    #     self.compare_dfs(baseline)
-
-    # def test_XOM(self):
-    #     baseline = pd.read_excel('baseline_sma_5_25_XOM.xlsx')
-    #     self.compare_dfs(baseline)
-
     def test_portfolio(self):
-        baseline = pd.read_excel('baseline_sma_5_25_XOM.xlsx')
+        path = os.getcwd()
+        baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_portfolio.xlsx')
+        Settings.read_from_csv_path = path + r"\stock_data"
+        Settings.read_from = "csvFiles"
         self.compare_dfs(baseline)
 
 class StrategySMA(bt.Backtest):
@@ -95,5 +107,6 @@ class StrategySMA(bt.Backtest):
 #            ).replace('nan -> nan', ' ', regex=True)
 
 if __name__=="__main__":
-    t = TestSMA()
-    t.test_stock()
+    # t = TestSMA()
+    # t.test_stock()
+    unittest.main()
