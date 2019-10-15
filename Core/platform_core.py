@@ -241,9 +241,9 @@ class Backtest(abc.ABC):
                 affected_assets = self.agg_trans_prices.sellPrice.loc[
                     current_bar].dropna().index.values
                 # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
-                self.port.avail_amount.loc[
-                    current_bar] += self.port.invested.loc[
-                        current_bar, affected_assets].sum()
+                self.port.avail_amount.loc[current_bar] += (self.port.weights.loc[
+                        current_bar, affected_assets] * self.agg_trans_prices.sellPrice.loc[
+                            current_bar, affected_assets]).sum()
 
                 # set invested amount of the assets to 0
                 self.port.invested.loc[current_bar, affected_assets] = 0
@@ -330,6 +330,9 @@ class Backtest(abc.ABC):
         # TODO: Pct_profit needs to change signs depending on long/short trade
         self.trade_list["Pct_profit"] = self.trade_list["Pct_change"]
         # self.trade_list.loc[]
+
+        # Position value
+        self.trade_list["Position_value"] = self.trade_list["Weight"] * self.trade_list["Entry_price"]
 
         # # bars held
         temp = pd.to_datetime(self.trade_list["Date_exit"], errors="coerce")
