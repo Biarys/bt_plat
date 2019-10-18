@@ -6,6 +6,7 @@ import numpy as np
 import os
 import unittest
 
+
 sys.path.append(sys.path[0] + "/..")
 import Core.platform_core as bt
 import Core.Settings as Settings
@@ -15,16 +16,23 @@ class TestStocks(unittest.TestCase):
     
     @classmethod
     def setUpClass(cls):
-        cls.stock_list = ["AA", "AAPL", "DDD", "DY", "JPM", "T", "XOM"]
+        cls.stock_list = ["AA", "AAPL", "DDD", "DY", "JPM", "T"]
 
     def compare_dfs(self, baseline, new):
+        # print(baseline.columns == new.columns)
+        temp = compdf(baseline, new)
+        if temp is not None: print(temp) 
         npt.assert_equal(baseline.values, new.values)
 
 class TestSMA(TestStocks):
+
+    maxDiff = None
+    
     def test_stock(self):
         path = os.getcwd()
         for name in self.stock_list:
             baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_{name}.xlsx'.format(name=name), sheet_name="Tests")
+            baseline["Ex. date"] = baseline["Ex. date"].astype(str)
             Settings.read_from_csv_path = path + r"\stock_data\{name}.csv".format(
                 name=name)
             Settings.read_from = "csvFile"
@@ -63,8 +71,9 @@ class TestSMA(TestStocks):
             s.trade_list[["Price", "Ex. Price", "Profit", "Position value", "Cum. Profit"]] = s.trade_list[
                 ["Price", "Ex. Price", "Profit", "Position value", "Cum. Profit"]].round(2)
             s.trade_list[["% chg", "% Profit"]] = s.trade_list[["% chg", "% Profit"]].round(4)
-
-            s.trade_list.to_csv("test.csv")
+            # s.trade_list["Ex. date"] = pd.to_datetime(s.trade_list["Ex. date"], errors="coerce")
+            s.trade_list["Ex. date"] = s.trade_list["Ex. date"].astype(str)
+            s.trade_list.to_csv(r"Tests\temp_results\results_{}.csv".format(name))
 
             self.compare_dfs(baseline, s.trade_list)
 
@@ -73,7 +82,47 @@ class TestSMA(TestStocks):
         baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_portfolio.xlsx')
         Settings.read_from_csv_path = path + r"\stock_data"
         Settings.read_from = "csvFiles"
-        self.compare_dfs(baseline)
+
+        s = StrategySMA("Test_SMA")
+        s.run()
+        
+        s.trade_list.rename(columns={
+            "Date_entry":"Date",
+            "Date_exit":"Ex. date",
+            "Direction":"Trade",
+            "Entry_price":"Price",
+            "Exit_price":"Ex. Price",
+            "Weight":"Shares",
+            "Pct_change":"% chg",
+            "Dollar_profit":"Profit",
+            "Pct_profit":"% Profit",
+            "Cum_profit":"Cum. Profit",
+            "Position_value":"Position value"
+        }, inplace=True)
+
+        s.trade_list = s.trade_list[[
+            "Symbol",
+            "Trade",
+            "Date",
+            "Price",	
+            "Ex. date",	
+            "Ex. Price",	
+            "% chg",
+            "Profit",	
+            "% Profit",	
+            "Shares",
+            "Position value",	
+            "Cum. Profit"
+        ]]
+        s.trade_list[["Price", "Ex. Price", "Profit", "Position value", "Cum. Profit"]] = s.trade_list[
+            ["Price", "Ex. Price", "Profit", "Position value", "Cum. Profit"]].round(2)
+        s.trade_list[["% chg", "% Profit"]] = s.trade_list[["% chg", "% Profit"]].round(4)
+        # s.trade_list["Ex. date"] = pd.to_datetime(s.trade_list["Ex. date"], errors="coerce")
+        s.trade_list["Ex. date"] = s.trade_list["Ex. date"].astype(str)
+        s.trade_list.to_csv(r"Tests\temp_results\results_portfolio.csv")
+
+        self.compare_dfs(baseline, s.trade_list)
+            
 
 class StrategySMA(bt.Backtest):
         def logic(self, current_asset):
@@ -98,13 +147,14 @@ class StrategySMA(bt.Backtest):
 # sample output
 #         0
 # c  3 -> 4
-# def compdf(x,y):
-#     return (x.loc[~((x == y).all(axis=1)),
-#                   ~((x == y).all(axis=0))][~(x==y)].applymap(str) +
-#             ' -> ' +
-#             y.loc[~((x == y).all(axis=1)),
-#                   ~((x == y).all(axis=0))][~(x==y)].applymap(str)
-#            ).replace('nan -> nan', ' ', regex=True)
+def compdf(x,y):
+    if not x.eq(y).all().all(): # compares each element, column, df
+        return ((x.loc[~((x == y).all(axis=1)),
+                    ~((x == y).all(axis=0))][~(x==y)].applymap(str) +
+                ' -> ' +
+                y.loc[~((x == y).all(axis=1)),
+                    ~((x == y).all(axis=0))][~(x==y)].applymap(str)
+            ).replace('nan -> nan', ' ', regex=True))
 
 if __name__=="__main__":
     # t = TestSMA()
