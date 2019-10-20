@@ -102,20 +102,16 @@ class Backtest(abc.ABC):
             self.agg_trans_prices.buyPrice = pd.concat(
                 [self.agg_trans_prices.buyPrice, trans_prices.buyPrice], axis=1)
             self.agg_trans_prices.sellPrice = pd.concat(
-                [self.agg_trans_prices.sellPrice, trans_prices.sellPrice],
-                axis=1)
+                [self.agg_trans_prices.sellPrice, trans_prices.sellPrice], axis=1)
             self.agg_trades.priceFluctuation_dollar = pd.concat([
                 self.agg_trades.priceFluctuation_dollar,
-                trades_current_asset.priceFluctuation_dollar
-            ],
-                axis=1)
+                trades_current_asset.priceFluctuation_dollar], axis=1)
             self.agg_trades.trades = pd.concat(
                 [self.agg_trades.trades, trades_current_asset.trades],
                 axis=0,
                 sort=True)
             self.agg_trades.inTradePrice = pd.concat([
-                self.agg_trades.inTradePrice, trades_current_asset.inTradePrice
-            ],
+                self.agg_trades.inTradePrice, trades_current_asset.inTradePrice], 
                 axis=1)
 
     def _run_portfolio(self, data):
@@ -160,6 +156,11 @@ class Backtest(abc.ABC):
             index=self.agg_trades.priceFluctuation_dollar.index,
             columns=self.port.weights.columns)
         self.port.invested.iloc[0] = 0
+
+        self.agg_trades.in_trade_price_fluc = pd.DataFrame(
+            index=self.agg_trades.priceFluctuation_dollar.index,
+            columns=["in_trade_impact"]
+        )
         # put trades in chronological order
         # self.agg_trades.trades.sort_values("Date_entry", inplace=True)
         # self.agg_trades.trades.reset_index(drop=True, inplace=True)
@@ -215,6 +216,7 @@ class Backtest(abc.ABC):
 
                 # find actualy amount invested
                 # TODO: adjust amount invested. Right now assumes all intended amount is allocated.
+                # ? avail amount doesnt get adjusted for daily fluc?
                 actually_invested = self.port.weights.loc[
                     current_bar,
                     affected_assets] * self.agg_trans_prices.buyPrice.loc[
@@ -243,13 +245,17 @@ class Backtest(abc.ABC):
                 # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
                 self.port.avail_amount.loc[current_bar] += (self.port.weights.loc[
                         current_bar, affected_assets] * self.agg_trans_prices.sellPrice.loc[
-                            current_bar, affected_assets]).sum()
+                        current_bar, affected_assets]).sum()
 
                 # set invested amount of the assets to 0
                 self.port.invested.loc[current_bar, affected_assets] = 0
 
                 # set weight to 0
                 self.port.weights.loc[current_bar, affected_assets] = 0
+
+            if prev_bar != -1:
+                self.agg_trades.in_trade_price_fluc.loc[current_bar] = (self.agg_trades.priceFluctuation_dollar.loc[
+                    current_bar] * self.port.weights.loc[current_bar]).sum()
 
         # self.agg_trans_prices.priceFluctuation_dollar.fillna(0, inplace=True)
         # # find daily fluc per asset
@@ -529,6 +535,7 @@ class Agg_Trades:
         self.weights = pd.DataFrame()
         self.inTradePrice = pd.DataFrame()
         self.priceFluctuation_dollar = pd.DataFrame()
+        self.in_trade_price_fluc = pd.DataFrame()
 
 
 # ! not used
@@ -649,6 +656,9 @@ def _roll_prev_value(df, current_bar, prev_bar):
     # might wanna return, just to be sure?
     df.loc[current_bar] = df.iloc[prev_bar]
 
+def _update_avail_amount(df, in_trade_adjust, current_bar):
+    # df.loc[current_bar] = 
+    pass
 
 def _generate_equity_curve(self):
     # Fillna cuz
