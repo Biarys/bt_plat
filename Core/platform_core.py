@@ -184,6 +184,9 @@ class Backtest(abc.ABC):
                 # update avail amount (roll)
                 _roll_prev_value(self.port.avail_amount, current_bar, prev_bar)
 
+                # update port value (roll)
+                _roll_prev_value(self.port.value, current_bar, prev_bar)
+
                 # update invested amount (roll)
                 _roll_prev_value(self.port.invested, current_bar, prev_bar)
 
@@ -254,8 +257,15 @@ class Backtest(abc.ABC):
                 self.port.weights.loc[current_bar, affected_assets] = 0
 
             if prev_bar != -1:
+                # record unrealized gains/losses
                 self.agg_trades.in_trade_price_fluc.loc[current_bar] = (self.agg_trades.priceFluctuation_dollar.loc[
                     current_bar] * self.port.weights.loc[current_bar]).sum()
+
+                # update avail amount for day's gain/loss
+                # self.port.avail_amount.loc[current_bar] += self.agg_trades.in_trade_price_fluc.loc[current_bar].values
+                _update_for_fluct(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar)
+                _update_for_fluct(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar)
+
 
         # self.agg_trans_prices.priceFluctuation_dollar.fillna(0, inplace=True)
         # # find daily fluc per asset
@@ -656,9 +666,9 @@ def _roll_prev_value(df, current_bar, prev_bar):
     # might wanna return, just to be sure?
     df.loc[current_bar] = df.iloc[prev_bar]
 
-def _update_avail_amount(df, in_trade_adjust, current_bar):
-    # df.loc[current_bar] = 
-    pass
+def _update_for_fluct(df, in_trade_adjust, current_bar):
+    df.loc[current_bar] += in_trade_adjust.loc[current_bar].values
+    
 
 def _generate_equity_curve(self):
     # Fillna cuz
