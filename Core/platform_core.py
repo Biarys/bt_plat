@@ -159,7 +159,7 @@ class Backtest(abc.ABC):
 
         self.agg_trades.in_trade_price_fluc = pd.DataFrame(
             index=self.agg_trades.priceFluctuation_dollar.index,
-            columns=["in_trade_impact"]
+            columns=self.port.weights.columns
         )
         # put trades in chronological order
         # self.agg_trades.trades.sort_values("Date_entry", inplace=True)
@@ -198,8 +198,10 @@ class Backtest(abc.ABC):
             # update avail amount (subtract)
             if current_bar in self.agg_trans_prices.buyPrice.index:
                 # find amount to be invested
-                to_invest = self.port.avail_amount.loc[
-                    current_bar, "Available amount"] * self.settings.pct_invest
+                # to_invest = self.port.avail_amount.loc[
+                #     current_bar, "Available amount"] * self.settings.pct_invest
+                to_invest = self.port.value.loc[current_bar, "Portfolio value"
+                    ] * self.settings.pct_invest
 
                 # find assets that need allocation
                 # those that dont have buyPrice for that day wil have NaN
@@ -256,16 +258,17 @@ class Backtest(abc.ABC):
                 # set weight to 0
                 self.port.weights.loc[current_bar, affected_assets] = 0
 
-            if prev_bar != -1:
-                # record unrealized gains/losses
-                self.agg_trades.in_trade_price_fluc.loc[current_bar] = (self.agg_trades.priceFluctuation_dollar.loc[
-                    current_bar] * self.port.weights.loc[current_bar]).sum()
+            # POST STEPS
+            # record unrealized gains/losses
+            self.agg_trades.in_trade_price_fluc.loc[current_bar] = (self.agg_trades.priceFluctuation_dollar.loc[
+                current_bar] * self.port.weights.loc[current_bar])
 
-                # update avail amount for day's gain/loss
-                # self.port.avail_amount.loc[current_bar] += self.agg_trades.in_trade_price_fluc.loc[current_bar].values
-                _update_for_fluct(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar)
-                _update_for_fluct(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar)
-
+            # update avail amount for day's gain/loss
+            # self.port.avail_amount.loc[current_bar] += self.agg_trades.in_trade_price_fluc.loc[current_bar].values
+            
+            self._update_for_fluct(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar)
+            self._update_for_fluct(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar)
+            # self._update_for_fluc(current_bar)
 
         # self.agg_trans_prices.priceFluctuation_dollar.fillna(0, inplace=True)
         # # find daily fluc per asset
@@ -300,6 +303,37 @@ class Backtest(abc.ABC):
 
     def _check_trade_list(self):
         pass
+
+    def _update_for_fluct(self, df, in_trade_adjust, current_bar):
+        # TODO: Add buy_on high/low, add sell_on
+        if current_bar not in self.agg_trans_prices.buyPrice.index:
+            df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
+        else:
+            affected_assets = self.agg_trans_prices.buyPrice.loc[current_bar].dropna().index.values
+            unaffected_assets = [col for col in in_trade_adjust.columns if col not in affected_assets]
+
+            df.loc[current_bar] += in_trade_adjust.loc[current_bar, unaffected_assets].sum()
+            if Settings.buy_on.capitalize()=="Close":
+                # dont use fluc for that asset
+                # add fluc for all other in trade assets
+                pass
+
+            elif Settings.buy_on.capitalize()=="Open":
+                # add fluc for all in trade assets
+                df.loc[current_bar] += in_trade_adjust.loc[current_bar].values
+
+            elif Settings.buy_on.capitalize()=="High":
+                # use fluc high - close for that asset
+                # add fluc for all other in trade assets
+                pass
+
+            elif Settings.buy_on.capitalize()=="Low":
+                # use fluc low - close for that asset
+                # add fluc for all other in trade assets
+                pass
+            # if Settings.sell_on.capitalize()=="Close":
+            #     # ?? do sell settings need to be adj? prob not
+            #     pass
 
     def _generate_trade_list(self):
         self.trade_list = self.agg_trades.trades.copy()
@@ -665,11 +699,7 @@ class Repeater:
 def _roll_prev_value(df, current_bar, prev_bar):
     # might wanna return, just to be sure?
     df.loc[current_bar] = df.iloc[prev_bar]
-
-def _update_for_fluct(df, in_trade_adjust, current_bar):
-    df.loc[current_bar] += in_trade_adjust.loc[current_bar].values
     
-
 def _generate_equity_curve(self):
     # Fillna cuz
     self.agg_trades.priceFluctuation_dollar.fillna(0, inplace=True)
