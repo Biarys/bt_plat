@@ -263,12 +263,9 @@ class Backtest(abc.ABC):
             self.agg_trades.in_trade_price_fluc.loc[current_bar] = (self.agg_trades.priceFluctuation_dollar.loc[
                 current_bar] * self.port.weights.loc[current_bar])
 
-            # update avail amount for day's gain/loss
-            # self.port.avail_amount.loc[current_bar] += self.agg_trades.in_trade_price_fluc.loc[current_bar].values
-            
-            self._update_for_fluct(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar)
-            self._update_for_fluct(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar)
-            # self._update_for_fluc(current_bar)
+            # update avail amount for day's gain/loss            
+            self._update_for_fluct(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
+            self._update_for_fluct(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
 
         # self.agg_trans_prices.priceFluctuation_dollar.fillna(0, inplace=True)
         # # find daily fluc per asset
@@ -304,8 +301,8 @@ class Backtest(abc.ABC):
     def _check_trade_list(self):
         pass
 
-    def _update_for_fluct(self, df, in_trade_adjust, current_bar):
-        # TODO: Add buy_on high/low, add sell_on
+    def _update_for_fluct(self, df, in_trade_adjust, current_bar, prev_bar):
+        # TODO: Add buy_on high/low (might be look forward), add sell_on (open)
         if current_bar not in self.agg_trans_prices.buyPrice.index:
             df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
         else:
@@ -320,7 +317,7 @@ class Backtest(abc.ABC):
 
             elif Settings.buy_on.capitalize()=="Open":
                 # add fluc for all in trade assets
-                df.loc[current_bar] += in_trade_adjust.loc[current_bar].values
+                df.loc[current_bar] += in_trade_adjust.loc[current_bar].values #?? double counting
 
             elif Settings.buy_on.capitalize()=="High":
                 # use fluc high - close for that asset
@@ -334,6 +331,14 @@ class Backtest(abc.ABC):
             # if Settings.sell_on.capitalize()=="Close":
             #     # ?? do sell settings need to be adj? prob not
             #     pass
+        
+        if current_bar in self.agg_trans_prices.sellPrice.index:
+            affected_assets = self.agg_trans_prices.sellPrice.loc[current_bar].dropna().index.values
+            daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
+                            self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
+
+            if Settings.sell_on.capitalize()=="Close":
+                df.loc[current_bar] += daily_adj
 
     def _generate_trade_list(self):
         self.trade_list = self.agg_trades.trades.copy()
