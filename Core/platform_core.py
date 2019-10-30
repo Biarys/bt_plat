@@ -342,7 +342,8 @@ class Backtest(abc.ABC):
 
     def _generate_trade_list(self):
         self.trade_list = self.agg_trades.trades.copy()
-        self.trade_list.sort_values(by="Date_entry", inplace=True)
+        self.trade_list["Date_exit"] = self.trade_list["Date_exit"].astype(str)
+        self.trade_list.sort_values(by=["Date_exit", "Symbol"], inplace=True)
         self.trade_list.reset_index(drop=True, inplace=True)
 
         # assign weights

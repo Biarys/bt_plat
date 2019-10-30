@@ -79,7 +79,7 @@ class TestSMA(TestStocks):
 
     def test_portfolio(self):
         path = os.getcwd()
-        baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_portfolio.xlsx')
+        baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_portfolio.xlsx', sheet_name="Tests")
         Settings.read_from_csv_path = path + r"\stock_data"
         Settings.read_from = "csvFiles"
 
@@ -119,6 +119,9 @@ class TestSMA(TestStocks):
         s.trade_list[["% chg", "% Profit"]] = s.trade_list[["% chg", "% Profit"]].round(4)
         # s.trade_list["Ex. date"] = pd.to_datetime(s.trade_list["Ex. date"], errors="coerce")
         s.trade_list["Ex. date"] = s.trade_list["Ex. date"].astype(str)
+        s.trade_list["Symbol"] = s.trade_list["Symbol"].str.replace(".csv", "")
+
+        # s.trade_list.sort_values(by="Ex. date", inplace=True)
         s.trade_list.to_csv(r"Tests\temp_results\results_portfolio.csv")
 
         self.compare_dfs(baseline, s.trade_list)
@@ -149,14 +152,25 @@ class StrategySMA(bt.Backtest):
 # c  3 -> 4
 def compdf(x,y):
     if not x.eq(y).all().all(): # compares each element, column, df
-        return ((x.loc[~((x == y).all(axis=1)),
-                    ~((x == y).all(axis=0))][~(x==y)].applymap(str) +
-                ' -> ' +
-                y.loc[~((x == y).all(axis=1)),
-                    ~((x == y).all(axis=0))][~(x==y)].applymap(str)
-            ).replace('nan -> nan', ' ', regex=True))
+        try:
+            return ((x.loc[~((x == y).all(axis=1)),
+                        ~((x == y).all(axis=0))][~(x==y)].applymap(str) +
+                    ' -> ' +
+                    y.loc[~((x == y).all(axis=1)),
+                        ~((x == y).all(axis=0))][~(x==y)].applymap(str)
+                ).replace('nan -> nan', ' ', regex=True))
+        except:
+            return pd.concat([x, y]).loc[x.index.symmetric_difference(y.index)]
+
+def suite():
+    suite = unittest.TestSuite()
+    suite.addTest(TestSMA('test_stock'))
+    suite.addTest(TestSMA('test_portfolio'))
+    return suite
 
 if __name__=="__main__":
     # t = TestSMA()
     # t.test_stock()
-    unittest.main()
+    # unittest.main()
+    runner = unittest.TextTestRunner()
+    runner.run(suite())
