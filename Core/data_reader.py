@@ -24,7 +24,7 @@ class DataReader:
     def readCSVFiles(self, path):
         assert os.path.isdir(
             path), "You need to specify a folder or the path doesnt exist."
-        for file in os.listdir(path)[:2]:
+        for file in os.listdir(path):
             _fileName = file.split(".txt")[0]
             _temp = pd.read_csv(
                 path + "\\" + file, index_col="Date")
