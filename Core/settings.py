@@ -37,3 +37,6 @@ round_to_decimals = 0
 # max_shares = 0
 # max_position_value = 0
 
+log_folder = r"D:\bt_plat_logs"
+log_name = "test.log"
+
