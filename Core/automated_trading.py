@@ -67,6 +67,17 @@ class _IBWrapper(EWrapper):
     def __init__(self):
         EWrapper.__init__(self)
 
+    def error(self, reqId, errorCode, errorString):
+        print("Error: ", reqId, " ", errorCode, " ", errorString)
+
+    @printall
+    def contractDetails(self, reqId, contractDetails):
+        print("contractDetails: ", reqId, " ", contractDetails)
+
+    @printall
+    def accountSummary(self, reqId, account, tag, value, currency):
+        print(reqId, account, tag, value, currency)
+        
 class _IBClient(EClient):
     def __init__(self, wrapper):
         EClient.__init__(self, wrapper)
@@ -114,21 +125,13 @@ class IBApp(_IBWrapper, _IBClient):
         if self.started:
             return
 
-        print(logging.getLogger(__name__))
         self.started = True
         self.setup_log()
         self.run()
         
-    def error(self, reqId, errorCode, errorString):
-        print("Error: ", reqId, " ", errorCode, " ", errorString)
+    
 
-    @printall
-    def contractDetails(self, reqId, contractDetails):
-        print("contractDetails: ", reqId, " ", contractDetails)
-
-    @printall
-    def accountSummary(self, reqId, account, tag, value, currency):
-        print(reqId, account, tag, value, currency)
+    
 
     # def nextValidId(self, orderId):
     #     """
