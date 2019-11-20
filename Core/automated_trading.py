@@ -33,6 +33,14 @@ from ibapi.contract import Contract
 # ? reqScannerSubscription()    cancelScannerSubscription   scannerData
 # ? reqAllOpenOrders()                                      position
 
+def printall(func):
+    def inner(*args, **kwargs):
+        print('Args passed: {}'.format(args))
+        print('Kwargs passed: {}'.format(kwargs))
+        print(func.__code__.co_varnames)
+        return func(*args, **kwargs)
+    return inner
+
 class Contract:
 
     @staticmethod
@@ -72,18 +80,35 @@ class IBApp(_IBWrapper, _IBClient):
 
     @staticmethod
     def setup_log():
-        if not os.path.exists(settings.log_path):
+        if not os.path.exists(settings.log_folder):
             try:
-                print(f"Creating log folder in {settings.log_path}")
-                os.mkdir(settings.log_path)
+                print(f"Creating log folder in {settings.log_folder}")
+                os.mkdir(settings.log_folder)
             except Exception as e:
-                print(f"Failed to create log folder in {settings.log_path}")
+                print(f"Failed to create log folder in {settings.log_folder}")
                 print(f"An error occured {e}")
 
         
-        logging.basicConfig(filename=(settings.log_path+r"\test1.log"), format='%(asctime)s %(message)s',
-                            level=logging.INFO)
-        logging.info("Started")
+        # logging.basicConfig(filename=(settings.log_folder+r"\test1.log"), format='%(asctime)s %(message)s',
+        #                     level=logging.INFO)
+        # logging.info("Started")
+        logger_main = logging.getLogger(__name__)
+        logger_main.setLevel(logging.INFO)
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+        handler_console = logging.StreamHandler()
+        handler_console.setLevel(logging.INFO)
+        handler_console.setFormatter(formatter)
+
+        handler_file = logging.FileHandler(settings.log_folder + r"/" + settings.log_name, mode="w")
+        handler_file.setLevel(logging.INFO)
+        handler_file.setFormatter(formatter)
+        
+        logger_main.addHandler(handler_console)
+        logger_main.addHandler(handler_file)
+
+        logger_main.info("Started")
+        
 
     def start(self):
         if self.started:
@@ -94,13 +119,14 @@ class IBApp(_IBWrapper, _IBClient):
         self.setup_log()
         self.run()
         
-
     def error(self, reqId, errorCode, errorString):
         print("Error: ", reqId, " ", errorCode, " ", errorString)
 
+    @printall
     def contractDetails(self, reqId, contractDetails):
         print("contractDetails: ", reqId, " ", contractDetails)
 
+    @printall
     def accountSummary(self, reqId, account, tag, value, currency):
         print(reqId, account, tag, value, currency)
 
@@ -138,8 +164,8 @@ def main():
     #     contract.currency = "USD"
     #     contract.primaryExchange = "NASDAQ"
     # app.reqContractDetails(10, contract)
-    app.queryDisplayGroups(9006)
-    # app.reqAccountSummary(9006, "All", "AccountType")
+    # app.queryDisplayGroups(9006)
+    app.reqAccountSummary(9006, "All", "AccountType")
     app.start()
     # app.run()
     # # app.place_order()
