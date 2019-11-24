@@ -1,7 +1,8 @@
 from datetime import datetime as dt
 import logging
 import os
-import Settings as settings
+from Core import Settings as settings
+import threading
 
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
@@ -106,6 +107,7 @@ class IBApp(_IBWrapper, _IBClient):
 
         self.started = False
 
+
     @staticmethod
     def setup_log():
         if not os.path.exists(settings.log_folder):
@@ -144,7 +146,8 @@ class IBApp(_IBWrapper, _IBClient):
 
         self.started = True
         self.setup_log()
-        self.run()
+        ib_thread = threading.Thread(target=self.run, name="Interactive Broker Client Thread", )
+        ib_thread.start()
            
 
     # def nextValidId(self, orderId):
