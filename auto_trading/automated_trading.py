@@ -41,6 +41,14 @@ def printall(func):
         return func(*args, **kwargs)
     return inner
 
+def logall(func):
+    def inner(*args, **kwargs):
+        print('Args passed: {}'.format(args))
+        print('Kwargs passed: {}'.format(kwargs))
+        print(func.__code__.co_varnames)
+        return func(*args, **kwargs)
+    return inner
+
 class Contract:
 
     @staticmethod
@@ -77,7 +85,16 @@ class _IBWrapper(EWrapper):
     @printall
     def accountSummary(self, reqId, account, tag, value, currency):
         print(reqId, account, tag, value, currency)
-        
+
+    @printall
+    def accountSummaryEnd(self, reqId: int):
+        super().accountSummaryEnd(reqId)
+        print("AccountSummaryEnd. ReqId:", reqId)
+
+    @printall
+    def position(self, account, contract, pos, avg_cost):
+        print(account, contract, pos, avg_cost)
+
 class _IBClient(EClient):
     def __init__(self, wrapper):
         EClient.__init__(self, wrapper)
@@ -128,10 +145,7 @@ class IBApp(_IBWrapper, _IBClient):
         self.started = True
         self.setup_log()
         self.run()
-        
-    
-
-    
+           
 
     # def nextValidId(self, orderId):
     #     """
@@ -168,7 +182,8 @@ def main():
     #     contract.primaryExchange = "NASDAQ"
     # app.reqContractDetails(10, contract)
     # app.queryDisplayGroups(9006)
-    app.reqAccountSummary(9006, "All", "AccountType")
+    #app.reqAccountSummary(9006, "All", "AccountType")
+    #app.reqPositions()
     app.start()
     # app.run()
     # # app.place_order()
