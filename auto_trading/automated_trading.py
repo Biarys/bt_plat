@@ -42,13 +42,41 @@ def printall(func):
         return func(*args, **kwargs)
     return inner
 
-def logall(func):
-    def inner(*args, **kwargs):
-        print('Args passed: {}'.format(args))
-        print('Kwargs passed: {}'.format(kwargs))
-        print(func.__code__.co_varnames)
-        return func(*args, **kwargs)
-    return inner
+def logall(logger):
+    def outer(func):
+        def inner(*args, **kwargs):
+            logger.info(*args, **kwargs)
+            return func(*args, **kwargs)
+        return inner
+    return outer
+
+
+def _setup_log(name, file, level=logging.INFO):
+    if not os.path.exists(settings.log_folder):
+        try:
+            print(f"Creating log folder in {settings.log_folder}")
+            os.mkdir(settings.log_folder)
+        except Exception as e:
+            print(f"Failed to create log folder in {settings.log_folder}")
+            print(f"An error occured {e}")
+
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    formatter = logging.Formatter("%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s")
+
+    handler_console = logging.StreamHandler()
+    handler_console.setLevel(level)
+    handler_console.setFormatter(formatter)
+
+    handler_file = logging.FileHandler(settings.log_folder + r"/" + file, mode="w")
+    handler_file.setLevel(level)
+    handler_file.setFormatter(formatter)
+    
+    logger.addHandler(handler_console)
+    logger.addHandler(handler_file)
+
+    logger.info("Started")
 
 class Contract:
 
@@ -77,24 +105,49 @@ class _IBWrapper(EWrapper):
         EWrapper.__init__(self)
 
     def error(self, reqId, errorCode, errorString):
-        print("Error: ", reqId, " ", errorCode, " ", errorString)
+        print(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
+        self.logger.info(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
 
     @printall
     def contractDetails(self, reqId, contractDetails):
-        print("contractDetails: ", reqId, " ", contractDetails)
+        print(f"ReqID: {reqId}, Contract Details: {contractDetails}")
+        self.logger.info(f"ReqID: {reqId}, Contract Details: {contractDetails}")
 
     @printall
     def accountSummary(self, reqId, account, tag, value, currency):
-        print(reqId, account, tag, value, currency)
+        print(f"ReqID: {reqId}, Account: {account}, Tag: {tag}, Value: {value}, Currency: {currency}")
+        self.logger.info(f"ReqID: {reqId}, Account: {account}, Tag: {tag}, Value: {value}, Currency: {currency}")
 
     @printall
     def accountSummaryEnd(self, reqId: int):
-        super().accountSummaryEnd(reqId)
-        print("AccountSummaryEnd. ReqId:", reqId)
+        print(f"AccountSummaryEnd. ReqId: {reqId}")
+        self.logger.info(f"AccountSummaryEnd. ReqId: {reqId}")
 
     @printall
     def position(self, account, contract, pos, avg_cost):
-        print(account, contract, pos, avg_cost)
+        print(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
+        self.logger.info(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
+
+    @printall
+    def nextValidId(self, orderId):
+        """
+        The nextValidId event provides the next valid identifier needed to place an order. 
+        This identifier is nothing more than the next number in the sequence. 
+        This means that if there is a single client application submitting orders to an account, 
+        it does not have to obtain a new valid identifier every time it needs to submit a new order. 
+        It is enough to increase the last value received from the nextValidId method by one.
+
+        However if there are multiple client applications connected to one account, 
+        it is necessary to use an order ID with new orders which is greater than all previous 
+        order IDs returned to the client application in openOrder or orderStatus callbacks.
+
+        More info http://interactivebrokers.github.io/tws-api/order_submission.html
+        """
+        super().nextValidId(orderId)
+        # logging.debug("setting nextValidOrderId: %d", orderId)
+        self.nextValidOrderId = orderId
+        print(f"NextValidId: {orderId}")
+        self.logger.info(f"NextValidId: {orderId}")
 
 class _IBClient(EClient):
     def __init__(self, wrapper):
@@ -104,70 +157,27 @@ class IBApp(_IBWrapper, _IBClient):
     def __init__(self):
         _IBWrapper.__init__(self)
         _IBClient.__init__(self, self)
+        
 
         self.started = False
-
-
-    @staticmethod
-    def setup_log():
-        if not os.path.exists(settings.log_folder):
-            try:
-                print(f"Creating log folder in {settings.log_folder}")
-                os.mkdir(settings.log_folder)
-            except Exception as e:
-                print(f"Failed to create log folder in {settings.log_folder}")
-                print(f"An error occured {e}")
-
-        
-        # logging.basicConfig(filename=(settings.log_folder+r"\test1.log"), format='%(asctime)s %(message)s',
-        #                     level=logging.INFO)
-        # logging.info("Started")
-        logger_main = logging.getLogger(__name__)
-        logger_main.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
-        handler_console = logging.StreamHandler()
-        handler_console.setLevel(logging.INFO)
-        handler_console.setFormatter(formatter)
-
-        handler_file = logging.FileHandler(settings.log_folder + r"/" + settings.log_name, mode="w")
-        handler_file.setLevel(logging.INFO)
-        handler_file.setFormatter(formatter)
-        
-        logger_main.addHandler(handler_console)
-        logger_main.addHandler(handler_file)
-
-        logger_main.info("Started")
-        
+        self.nextValidOrderId = None
+        self.logger = None
 
     def start(self):
         if self.started:
             return
 
         self.started = True
-        self.setup_log()
+        _setup_log("IBApp", "test.log")
+        self.logger = logging.getLogger("IBApp")
+        
         ib_thread = threading.Thread(target=self.run, name="Interactive Broker Client Thread", )
         ib_thread.start()
            
-
-    # def nextValidId(self, orderId):
-    #     """
-    #     The nextValidId event provides the next valid identifier needed to place an order. 
-    #     This identifier is nothing more than the next number in the sequence. 
-    #     This means that if there is a single client application submitting orders to an account, 
-    #     it does not have to obtain a new valid identifier every time it needs to submit a new order. 
-    #     It is enough to increase the last value received from the nextValidId method by one.
-
-    #     However if there are multiple client applications connected to one account, 
-    #     it is necessary to use an order ID with new orders which is greater than all previous 
-    #     order IDs returned to the client application in openOrder or orderStatus callbacks.
-
-    #     More info http://interactivebrokers.github.io/tws-api/order_submission.html
-    #     """
-    #     super().nextValidId(orderId)
-    #     # logging.debug("setting nextValidOrderId: %d", orderId)
-    #     self.nextValidOrderId = orderId
-    #     print("NextValidId: ", orderId)
+    def nextOrderId(self):
+        oid = self.nextValidOrderId
+        self.nextValidOrderId += 1
+        return oid
         
     # def place_order(self):
     #     self.simplePlaceOid = self.nextValidId()
