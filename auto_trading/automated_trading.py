@@ -3,10 +3,12 @@ import logging
 import os
 from Core import Settings as settings
 import threading
+import time
 
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
+from ibapi.order import Order
 
 
 # TODO: 
@@ -42,13 +44,14 @@ def printall(func):
         return func(*args, **kwargs)
     return inner
 
-def logall(logger):
-    def outer(func):
-        def inner(*args, **kwargs):
-            logger.info(*args, **kwargs)
-            return func(*args, **kwargs)
-        return inner
-    return outer
+# TODO:
+# def logall(logger):
+#     def outer(func):
+#         def inner(*args, **kwargs):
+#             logger.info(*args, **kwargs)
+#             return func(*args, **kwargs)
+#         return inner
+#     return outer
 
 
 def _setup_log(name, file, level=logging.INFO):
@@ -78,7 +81,7 @@ def _setup_log(name, file, level=logging.INFO):
 
     logger.info("Started")
 
-class Contract:
+class IBContract:
 
     @staticmethod
     def stock(symbol, secType, exchange, currency, primaryExchange):
@@ -90,16 +93,72 @@ class Contract:
         contract.primaryExchange = primaryExchange
         return contract
 
-class Order:
+    @staticmethod
+    def EurGbpFx():
+        contract = Contract()
+        contract.symbol = "EUR"
+        contract.secType = "CASH"
+        contract.currency = "GBP"
+        contract.exchange = "IDEALPRO"
+        return contract
+
+    @staticmethod
+    def USStockSample():
+        contract = Contract()
+        contract.symbol = "IBKR"
+        contract.secType = "STK"
+        contract.currency = "USD"
+        #In the API side, NASDAQ is always defined as ISLAND in the exchange field
+        contract.exchange = "ISLAND" 
+        return contract
+
+class IBOrder:
 
     @staticmethod
     def MarketOrder(action, quantity):
+        """
+        Action: BUY or SELL
+        Quantity
+        """
         order = Order()
-        order.action = action
+        order.action = action.upper()
         order.orderType = "MKT"
         order.totalQuantity = quantity
         return order
 
+    @staticmethod
+    def LimitOrder(action:str, quantity:float, limitPrice:float):
+        """
+        Action: BUY or SELL
+        Quantity
+        LimitPrice
+        """
+        # ! [limitorder]
+        order = Order()
+        order.action = action
+        order.orderType = "LMT"
+        order.totalQuantity = quantity
+        order.lmtPrice = limitPrice
+        order.transmit=True
+        # ! [limitorder]
+        return order
+
+    @staticmethod
+    def Stop(action:str, quantity:float, stopPrice:float):
+        """
+        Action: BUY or SELL
+        Quantity
+        StopPrice
+        """
+        # ! [stop]
+        order = Order()
+        order.action = action
+        order.orderType = "STP"
+        order.auxPrice = stopPrice
+        order.totalQuantity = quantity
+        # ! [stop]
+        return order
+    
 class _IBWrapper(EWrapper):
     def __init__(self):
         EWrapper.__init__(self)
@@ -129,6 +188,12 @@ class _IBWrapper(EWrapper):
         self.logger.info(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
 
     @printall
+    def connectAck(self):
+        print("connectAck CALLED")
+        if self.asynchronous:
+            self.startApi()
+
+    @printall
     def nextValidId(self, orderId):
         """
         The nextValidId event provides the next valid identifier needed to place an order. 
@@ -146,8 +211,12 @@ class _IBWrapper(EWrapper):
         super().nextValidId(orderId)
         # logging.debug("setting nextValidOrderId: %d", orderId)
         self.nextValidOrderId = orderId
+        print("nextValidId CALLED")
+        print(self.nextValidOrderId)
+
         print(f"NextValidId: {orderId}")
         self.logger.info(f"NextValidId: {orderId}")
+
 
 class _IBClient(EClient):
     def __init__(self, wrapper):
@@ -158,10 +227,9 @@ class IBApp(_IBWrapper, _IBClient):
         _IBWrapper.__init__(self)
         _IBClient.__init__(self, self)
         
-
         self.started = False
         self.nextValidOrderId = None
-        self.logger = None
+        self.logger = None       
 
     def start(self):
         if self.started:
@@ -170,14 +238,29 @@ class IBApp(_IBWrapper, _IBClient):
         self.started = True
         _setup_log("IBApp", "test.log")
         self.logger = logging.getLogger("IBApp")
+
+        self.reqIds(-1) # to make sure nextValidOrderId gets a value for sure
+ 
+        # self.reqAllOpenOrders()
+        # self.reqCurrentTime()
         
         ib_thread = threading.Thread(target=self.run, name="Interactive Broker Client Thread", )
         ib_thread.start()
+        print("Waiting 1 second for nextValidID response")
+        self.logger.info("Waiting 1 second for nextValidID response")
+        time.sleep(1) 
            
     def nextOrderId(self):
-        oid = self.nextValidOrderId
-        self.nextValidOrderId += 1
-        return oid
+        if self.nextValidOrderId == None:
+            self.reqIds(-1)
+            time.sleep(1)
+            self.nextOrderId()
+        else:
+            oid = self.nextValidOrderId
+            print("nextOrderId CALLED")
+            print(self.nextValidOrderId)
+            self.nextValidOrderId += 1
+            return oid
         
     # def place_order(self):
     #     self.simplePlaceOid = self.nextValidId()
