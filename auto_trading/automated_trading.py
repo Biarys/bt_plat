@@ -22,7 +22,7 @@ from ibapi.order import Order
 # ? reqAccountSummary()         cancelAccountSummary        AccountSummary
 # ? reqIds()                                                nextValidId
 # ? reqMktData()                cancelMktData               tickGeneric???  
-# ? reqOpenOrders()                                         position
+# ? reqOpenOrders()                                         openOrder/openStatus
 # ? reqPositions()                                          position
 # ?                                                         positionEnd()
 # ? reqMatchingSymbols                                      symbolSamples
@@ -189,9 +189,17 @@ class _IBWrapper(EWrapper):
 
     @printall
     def connectAck(self):
-        print("connectAck CALLED")
+        # print("connectAck CALLED")
         if self.asynchronous:
             self.startApi()
+
+    def openOrder(self, orderId, contract, order, orderState):
+        print(f"Order Id: {orderId}, Contract: {contract}, Order: {order}, Order state: {orderState}")
+        self.logger.info(f"Order Id: {orderId}, Contract: {contract}, Order: {order}, Order state: {orderState}")   
+
+    def openOrderEnd(self):
+        print("Finished executing reqOpenOrders")
+        self.logger.info("Finished executing reqOpenOrders")
 
     @printall
     def nextValidId(self, orderId):
@@ -211,8 +219,8 @@ class _IBWrapper(EWrapper):
         super().nextValidId(orderId)
         # logging.debug("setting nextValidOrderId: %d", orderId)
         self.nextValidOrderId = orderId
-        print("nextValidId CALLED")
-        print(self.nextValidOrderId)
+        # print("nextValidId CALLED")
+        # print(self.nextValidOrderId)
 
         print(f"NextValidId: {orderId}")
         self.logger.info(f"NextValidId: {orderId}")
@@ -239,7 +247,7 @@ class IBApp(_IBWrapper, _IBClient):
         _setup_log("IBApp", "test.log")
         self.logger = logging.getLogger("IBApp")
 
-        self.reqIds(-1) # to make sure nextValidOrderId gets a value for sure
+        #self.reqIds(-1) # to make sure nextValidOrderId gets a value for sure
  
         # self.reqAllOpenOrders()
         # self.reqCurrentTime()
@@ -257,7 +265,7 @@ class IBApp(_IBWrapper, _IBClient):
             self.nextOrderId()
         else:
             oid = self.nextValidOrderId
-            print("nextOrderId CALLED")
+            # print("nextOrderId CALLED")
             print(self.nextValidOrderId)
             self.nextValidOrderId += 1
             return oid
