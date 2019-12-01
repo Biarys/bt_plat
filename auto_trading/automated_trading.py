@@ -1,7 +1,7 @@
 from datetime import datetime as dt
 import logging
 import os
-from Core import Settings as settings
+from Backtest import Settings as settings
 import threading
 import time
 
@@ -10,12 +10,6 @@ from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
 from ibapi.order import Order
 
-
-# TODO: 
-# generate contract
-# send an order
-# error handling
-# logging
 
 # ! CLIENT                      # Client Cancel             # WRAPPER
 # ? IsConnected()               
@@ -84,22 +78,22 @@ def _setup_log(name, file, level=logging.INFO):
 class IBContract:
 
     @staticmethod
-    def stock(symbol, secType, exchange, currency, primaryExchange):
+    def stock(symbol, secType, currency, exchange, primaryExchange):
         contract = Contract()
         contract.symbol = symbol
-        contract.secType = secType
-        contract.exchange = exchange
+        contract.secType = secType        
         contract.currency = currency
+        contract.exchange = exchange
         contract.primaryExchange = primaryExchange
         return contract
 
     @staticmethod
-    def EurGbpFx():
+    def forex(symbol, secType, currency, exchange):
         contract = Contract()
-        contract.symbol = "EUR"
-        contract.secType = "CASH"
-        contract.currency = "GBP"
-        contract.exchange = "IDEALPRO"
+        contract.symbol = symbol
+        contract.secType = secType
+        contract.currency = currency
+        contract.exchange = exchange
         return contract
 
     @staticmethod
@@ -162,10 +156,11 @@ class IBOrder:
 class _IBWrapper(EWrapper):
     def __init__(self):
         EWrapper.__init__(self)
+        self.data = {}
 
     def error(self, reqId, errorCode, errorString):
         print(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
-        self.logger.info(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
+        self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
 
     @printall
     def contractDetails(self, reqId, contractDetails):
@@ -200,6 +195,11 @@ class _IBWrapper(EWrapper):
     def openOrderEnd(self):
         print("Finished executing reqOpenOrders")
         self.logger.info("Finished executing reqOpenOrders")
+
+    def historicalData(self, reqId, bar):
+        print(f"ReqID: {reqId}, Hist Data: {bar}")
+        self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
+        # self.data
 
     @printall
     def nextValidId(self, orderId):
