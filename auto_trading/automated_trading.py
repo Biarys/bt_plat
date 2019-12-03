@@ -238,6 +238,11 @@ class _IBClient(EClient):
                         whatToShow, useRTH, formatDate, keepUpToDate, chartOptions):
         super().reqHistoricalData(reqId, contract, endDateTime, durationStr, barSizeSetting, 
                                 whatToShow, useRTH, formatDate, keepUpToDate, chartOptions)
+        
+        # temp = _split_contract(contract)
+        # print(temp)
+        self.data_tracker[reqId] = contract.symbol + "." + contract.currency
+        print(self.data_tracker)
 
 
 class IBApp(_IBWrapper, _IBClient):
