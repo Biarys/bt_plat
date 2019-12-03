@@ -201,6 +201,10 @@ class _IBWrapper(EWrapper):
         self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
         # self.data
 
+    def historicalDataUpdate(self, reqId, bar):
+        print(f"ReqID: {reqId}, Hist Data: {bar}")
+        self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
+
     @printall
     def nextValidId(self, orderId):
         """
