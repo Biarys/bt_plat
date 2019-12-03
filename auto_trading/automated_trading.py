@@ -48,7 +48,7 @@ def printall(func):
 #     return outer
 
 
-def _setup_log(name, file, level=logging.INFO):
+def _setup_log(name, level=logging.INFO):
     if not os.path.exists(settings.log_folder):
         try:
             print(f"Creating log folder in {settings.log_folder}")
@@ -66,7 +66,7 @@ def _setup_log(name, file, level=logging.INFO):
     handler_console.setLevel(level)
     handler_console.setFormatter(formatter)
 
-    handler_file = logging.FileHandler(settings.log_folder + r"/" + file, mode="w")
+    handler_file = logging.FileHandler(settings.log_folder + r"/" + settings.log_name, mode="w")
     handler_file.setLevel(level)
     handler_file.setFormatter(formatter)
     
@@ -88,12 +88,12 @@ class IBContract:
         return contract
 
     @staticmethod
-    def forex(symbol, secType, currency, exchange):
+    def forex(ticker):
         contract = Contract()
-        contract.symbol = symbol
-        contract.secType = secType
-        contract.currency = currency
-        contract.exchange = exchange
+        contract.symbol = ticker["symbol"]
+        contract.secType = ticker["secType"]
+        contract.currency = ticker["currency"]
+        contract.exchange = ticker["exchange"]
         return contract
 
     @staticmethod
@@ -244,7 +244,7 @@ class IBApp(_IBWrapper, _IBClient):
             return
 
         self.started = True
-        _setup_log("IBApp", "test.log")
+        _setup_log("IBApp")
         self.logger = logging.getLogger("IBApp")
 
         #self.reqIds(-1) # to make sure nextValidOrderId gets a value for sure
