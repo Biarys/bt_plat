@@ -234,6 +234,12 @@ class _IBClient(EClient):
     def __init__(self, wrapper):
         EClient.__init__(self, wrapper)
 
+    def reqHistoricalData(self, reqId, contract, endDateTime, durationStr, barSizeSetting, 
+                        whatToShow, useRTH, formatDate, keepUpToDate, chartOptions):
+        super().reqHistoricalData(reqId, contract, endDateTime, durationStr, barSizeSetting, 
+                                whatToShow, useRTH, formatDate, keepUpToDate, chartOptions)
+
+
 class IBApp(_IBWrapper, _IBClient):
     def __init__(self):
         _IBWrapper.__init__(self)
@@ -241,7 +247,8 @@ class IBApp(_IBWrapper, _IBClient):
         
         self.started = False
         self.nextValidOrderId = None
-        self.logger = None       
+        self.logger = None   
+        self.data_tracker = {}    
 
     def start(self):
         if self.started:
