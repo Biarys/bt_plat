@@ -199,7 +199,12 @@ class _IBWrapper(EWrapper):
         self.logger.info("Finished executing reqOpenOrders")
 
     def historicalData(self, reqId, bar):
-        print(f"ReqID: {reqId}, Hist Data: {bar}")
+        #print(f"ReqID: {reqId}, Hist Data: {bar}")
+        # delete old asset's data
+        if self._last_reqId != reqId:
+            self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])            
+            self._last_reqId = reqId
+            
         self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
 
         _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
@@ -208,10 +213,11 @@ class _IBWrapper(EWrapper):
 
         self._data_all = self._data_all.append(_row)
         self._data_all.index.name = "Date"
+        # self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(_row)
         self.data[self.data_tracker[reqId]] = self._data_all
 
     def historicalDataUpdate(self, reqId, bar):
-        print(f"ReqID: {reqId}, Hist Data: {bar}")
+        #print(f"ReqID: {reqId}, Hist Data: {bar}")
         self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
 
     @printall
@@ -264,7 +270,8 @@ class IBApp(_IBWrapper, _IBClient):
         self.logger = None   
         self.data_tracker = {}  
         self.data = {}  
-        self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"], )
+        self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+        self._last_reqId = None
         
 
     def start(self):
