@@ -1,9 +1,11 @@
 from datetime import datetime as dt
+import pandas as pd
 import logging
 import os
-from Backtest import Settings as settings
 import threading
 import time
+
+from Backtest import Settings as settings
 
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
@@ -199,7 +201,14 @@ class _IBWrapper(EWrapper):
     def historicalData(self, reqId, bar):
         print(f"ReqID: {reqId}, Hist Data: {bar}")
         self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
-        # self.data
+
+        _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
+        _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
+                            columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
+
+        self._data_all = self._data_all.append(_row)
+        self._data_all.index.name = "Date"
+        self.data[self.data_tracker[reqId]] = self._data_all
 
     def historicalDataUpdate(self, reqId, bar):
         print(f"ReqID: {reqId}, Hist Data: {bar}")
@@ -253,7 +262,10 @@ class IBApp(_IBWrapper, _IBClient):
         self.started = False
         self.nextValidOrderId = None
         self.logger = None   
-        self.data_tracker = {}    
+        self.data_tracker = {}  
+        self.data = {}  
+        self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"], )
+        
 
     def start(self):
         if self.started:
