@@ -43,7 +43,7 @@ class Backtest(abc.ABC):
         self.trade_list = None
         self.settings = Settings
 
-    def run(self):
+    def run(self, data):
         # self.con, self.meta = db.connect(config.user, config.password,
         #                                  config.db)
         # self.meta.reflect(bind=self.con)
@@ -55,13 +55,14 @@ class Backtest(abc.ABC):
         # print(f"Backtest #{self.id} is running")
 
         # self.data.readDB(self.con, self.meta, index_col="Date")
-        if self.settings.read_from=="csvFiles":
-            self.data.readCSVFiles(self.settings.read_from_csv_path)
-        elif self.settings.read_from=="csvFile":
-            self.data.readCSV(self.settings.read_from_csv_path)
+        # if self.settings.read_from=="csvFiles":
+        #     self.data.readCSVFiles(self.settings.read_from_csv_path)
+        # elif self.settings.read_from=="csvFile":
+        #     self.data.readCSV(self.settings.read_from_csv_path)
+        # elif self.settings.read_from=="ib":
+        #     self.data.readIB(self)
 
-
-        self._run_portfolio(self.data)
+        self._run_portfolio(data)
 
     @abc.abstractmethod
     def logic(self, current_asset):
@@ -76,8 +77,8 @@ class Backtest(abc.ABC):
         Save them into common classes agg_*
         """
 
-        for name in data.data:
-            current_asset = data.data[name]
+        for name in data:
+            current_asset = data[name]
             
             # strategy logic
             buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
