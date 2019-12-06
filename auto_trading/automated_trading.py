@@ -200,9 +200,9 @@ class _IBWrapper(EWrapper):
 
     def historicalData(self, reqId, bar):
         #print(f"ReqID: {reqId}, Hist Data: {bar}")
-        # delete old asset's data
+        # delete old asset's data        
         if self._last_reqId != reqId:
-            self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])            
+            self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
             self._last_reqId = reqId
             
         self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
@@ -218,7 +218,24 @@ class _IBWrapper(EWrapper):
 
     def historicalDataUpdate(self, reqId, bar):
         #print(f"ReqID: {reqId}, Hist Data: {bar}")
+        self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+        if self._last_reqId != reqId:
+            self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+            self._last_reqId = reqId
+            
         self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
+
+        _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
+        _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
+                            columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
+
+        self._data_all = self._data_all.append(_row)
+        self._data_all.index.name = "Date"
+        # self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(_row)
+        self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(self._data_all)
+        
+
+
 
     @printall
     def nextValidId(self, orderId):
