@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+from queue import Queue
 
 from Backtest import Settings as settings
 
@@ -215,6 +216,7 @@ class _IBWrapper(EWrapper):
         self._data_all.index.name = "Date"
         # self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(_row)
         self.data[self.data_tracker[reqId]] = self._data_all
+        # self.q.put(self.data)
 
     def historicalDataUpdate(self, reqId, bar):
         #print(f"ReqID: {reqId}, Hist Data: {bar}")
@@ -231,9 +233,11 @@ class _IBWrapper(EWrapper):
 
         self._data_all = self._data_all.append(_row)
         self._data_all.index.name = "Date"
-        # self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(_row)
         self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(self._data_all)
         
+    def historicalDataEnd(self, reqId, start, end):
+        print(f"ReqID: {reqId}, start: {start}, end: {end}")
+        # self.data = self.q.get()
 
 
 
@@ -289,6 +293,7 @@ class IBApp(_IBWrapper, _IBClient):
         self.data = {}  
         self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
         self._last_reqId = None
+        # self.q = Queue()
         
 
     def start(self):
