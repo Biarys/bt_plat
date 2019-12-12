@@ -1,0 +1,26 @@
+{
+    "forex": {
+        "EURGBP": {
+            "symbol":"EUR",
+            "secType":"CASH",
+            "currency":"GBP",
+            "exchange":"IDEALPRO"
+        },
+        "EURUSD": {
+            "symbol":"EUR",
+            "secType":"CASH",
+            "currency":"USD",
+            "exchange":"IDEALPRO"
+        }
+    },
+    "stock": {
+        "note": "In the API side, NASDAQ is always defined as ISLAND in the exchange field!!!",
+        "AMZN":{
+            "symbol":"AMZN",
+            "secType":"STK",
+            "currency":"USD",
+            "exchange":"SMART",
+            "primaryExchange":"ISLAND"
+        }
+    }
+}
