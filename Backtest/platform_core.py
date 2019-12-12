@@ -76,7 +76,22 @@ class Backtest(abc.ABC):
         Match buys and sells
         Save them into common classes agg_*
         """
+        for name in data:
+            temp = pd.DataFrame(columns=data[name].columns)
+            temp.index.name = "Date"
+            temp["Open"] = data[name]["Open"].groupby("Date").nth(0)
+            temp["High"] = data[name]["High"].groupby("Date").max()
+            temp["Low"] = data[name]["Low"].groupby("Date").min()
+            temp["Close"] = data[name]["Close"].groupby("Date").nth(-1)
+            # TODO:
+            # volume need to be chage for forex, etc cuz gives volume of -1
+            # because of that, summing volume will produce wrong result
+            temp["Volume"] = data[name]["Volume"].groupby("Date").sum() 
+            data[name] = temp
+                                                                        
 
+
+        
         for name in data:
             current_asset = data[name]
             
