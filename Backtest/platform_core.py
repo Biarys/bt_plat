@@ -2,16 +2,18 @@ import pandas as pd
 import numpy as np
 import os
 import abc
+import logging
 
 # own files
 from .indicators import SMA
 from .data_reader import DataReader
+from auto_trading.automated_trading import _setup_log
 # import database_stuff as db
 from . import config
 from . import Settings
 
 # for testing
-from datetime import datetime
+from datetime import datetime as dt
 
 #############################################
 # Data reading
@@ -27,7 +29,7 @@ from datetime import datetime
 # find common index for portflio. Should be a range of datetimes. Currently useing self.agg_trans_prices.priceFluctuation_dollar.index
 # need to set/pass configs
 
-
+_setup_log("Backtester")
 #############################################
 # Core starts
 #############################################
@@ -35,13 +37,17 @@ class Backtest(abc.ABC):
 
     def __init__(self, name):
         self.name = name
-        self.data = DataReader()  #data_reader.DataReader()
+        # self.data = DataReader()  #data_reader.DataReader()
+        self.data = {}
+        self.runs_at = dt.now() # for logging and data prep purposes. Gets updated when self.run() is called
         self.port = Portfolio()
         self.agg_trade_signals = Agg_TradeSingal()
         self.agg_trans_prices = Agg_TransPrice()
         self.agg_trades = Agg_Trades()
         self.trade_list = None
         self.settings = Settings
+        self.log = logging.getLogger("Backtester")
+        self.log.info("Backtester started!")
 
     def run(self, data):
         # self.con, self.meta = db.connect(config.user, config.password,
@@ -61,21 +67,19 @@ class Backtest(abc.ABC):
         #     self.data.readCSV(self.settings.read_from_csv_path)
         # elif self.settings.read_from=="ib":
         #     self.data.readIB(self)
-
-        self._run_portfolio(data)
+        try:   
+            self.runs_at = dt.now()
+            self._prepare_data(data)
+            self._run_portfolio()
+        except Exception as e:
+            print(e)
 
     @abc.abstractmethod
     def logic(self, current_asset):
         pass
 
-    def _prepricing(self, data):
-        """
-        Loop through files
-        Generate signals
-        Find transaction prices
-        Match buys and sells
-        Save them into common classes agg_*
-        """
+    def _prepare_data(self, data):
+        self.log.info(f"Preparing data for {self.runs_at}")
         for name in data:
             temp = pd.DataFrame(columns=data[name].columns)
             temp.index.name = "Date"
@@ -83,17 +87,30 @@ class Backtest(abc.ABC):
             temp["High"] = data[name]["High"].groupby("Date").max()
             temp["Low"] = data[name]["Low"].groupby("Date").min()
             temp["Close"] = data[name]["Close"].groupby("Date").nth(-1)
+
             # TODO:
             # volume need to be chage for forex, etc cuz gives volume of -1
             # because of that, summing volume will produce wrong result
-            temp["Volume"] = data[name]["Volume"].groupby("Date").sum() 
-            data[name] = temp
-                                                                        
+            temp["Volume"] = data[name]["Volume"].groupby("Date").sum()
 
+            # getting all but last candle. This is done to avoid incomplete bars at runtime
+            if self.runs_at == temp.iloc[-1].name:
+                temp = temp.loc[:self.runs_at].iloc[:-1]
+                self.log.warning(f"Last bars for {self.runs_at} were cut during data prep")
+            self.data[name] = temp     
+            
 
-        
-        for name in data:
-            current_asset = data[name]
+    def _prepricing(self):
+        """
+        Loop through files
+        Generate signals
+        Find transaction prices
+        Match buys and sells
+        Save them into common classes agg_*
+        """
+                                                           
+        for name in self.data:
+            current_asset = self.data[name]
             
             # strategy logic
             buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
@@ -130,14 +147,10 @@ class Backtest(abc.ABC):
                 self.agg_trades.inTradePrice, trades_current_asset.inTradePrice], 
                 axis=1)
 
-    def _run_portfolio(self, data):
+    def _run_portfolio(self):
         """
         Calculate profit and loss for the stretegy
         """
-
-        # prepare data for portfolio
-        self._prepricing(data)
-
         # prepare portfolio level
         # copy index and column names for weights
         self.port.weights = pd.DataFrame(
