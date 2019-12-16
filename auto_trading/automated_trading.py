@@ -193,7 +193,11 @@ class _IBWrapper(EWrapper):
 
     def openOrder(self, orderId, contract, order, orderState):
         print(f"Order Id: {orderId}, Contract: {contract}, Order: {order}, Order state: {orderState}")
-        self.logger.info(f"Order Id: {orderId}, Contract: {contract}, Order: {order}, Order state: {orderState}")   
+        self.logger.info(f"Order Id: {orderId}, Contract: {contract}, Order: {order}, Order state: {orderState}")
+        _row = pd.DataFrame(data=[[orderId, contract.symbol+"."+contract.currency, order.action, order.totalQuantity, order.orderType]], 
+                            columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
+        self.open_orders = self.open_orders.append(_row)
+
 
     def openOrderEnd(self):
         print("Finished executing reqOpenOrders")
@@ -206,7 +210,7 @@ class _IBWrapper(EWrapper):
             self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
             self._last_reqId = reqId
             
-        self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
+        # self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
 
         _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
         _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
@@ -225,7 +229,7 @@ class _IBWrapper(EWrapper):
             self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
             self._last_reqId = reqId
             
-        self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
+        # self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
 
         _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
         _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
@@ -293,6 +297,7 @@ class IBApp(_IBWrapper, _IBClient):
         self.data = {}  
         self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
         self._last_reqId = None
+        self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
         # self.q = Queue()
         
 
