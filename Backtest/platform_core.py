@@ -75,6 +75,7 @@ class Backtest(abc.ABC):
         except Exception as e:
             print(e)
             traceback.print_exc()
+            self.log.error(e, stack_info=True)
             
 
     @abc.abstractmethod
