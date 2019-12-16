@@ -3,6 +3,7 @@ import numpy as np
 import os
 import abc
 import logging
+import traceback
 
 # own files
 from .indicators import SMA
@@ -73,6 +74,8 @@ class Backtest(abc.ABC):
             self._run_portfolio()
         except Exception as e:
             print(e)
+            traceback.print_exc()
+            
 
     @abc.abstractmethod
     def logic(self, current_asset):
