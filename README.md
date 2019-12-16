@@ -1,12 +1,16 @@
 # bt_plat
+A comprehensive platform that includes backtest, real time trading, charting, optimization
 
-## Description
-- Data folder will contain data
-- Indicators folder will contain code for indicators
-- Core folder will have logic of how the platform will perform calculation
+## TODO:
+    - auto_trading:
+        - add order handing (probably separate file?)
+        - needs to check existing orders+positions before submitting
+        - add email notification
+    - Backtest:
+        - Add sell (close position) logic
+        - Change weights to be rounded down to actual values?
+        - Profile the module
+        - add necessary indicators
+    - Optimization module
+    - Charts
 
-## Goals
-- some create indicators for us to use
-
-## Other
-- Will probably need to have brokers folder to connect with brokers
