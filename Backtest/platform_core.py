@@ -94,9 +94,9 @@ class Backtest(abc.ABC):
             temp["Volume"] = data[name]["Volume"].groupby("Date").sum()
 
             # getting all but last candle. This is done to avoid incomplete bars at runtime
-            if self.runs_at == temp.iloc[-1].name:
+            if pd.Timestamp(self.runs_at.replace(second=0, microsecond=0)) == temp.iloc[-1].name:
                 temp = temp.loc[:self.runs_at].iloc[:-1]
-                self.log.warning(f"Last bars for {self.runs_at} were cut during data prep")
+                self.log.warning(f"Last bars for {name} {self.runs_at} were cut during data prep")
             self.data[name] = temp     
             
 
@@ -151,6 +151,9 @@ class Backtest(abc.ABC):
         """
         Calculate profit and loss for the stretegy
         """
+        # prepare data for portfolio
+        self._prepricing()
+
         # prepare portfolio level
         # copy index and column names for weights
         self.port.weights = pd.DataFrame(
