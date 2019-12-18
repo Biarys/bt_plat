@@ -184,6 +184,15 @@ class _IBWrapper(EWrapper):
     def position(self, account, contract, pos, avg_cost):
         print(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
         self.logger.info(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
+        _row = pd.DataFrame(data=[[account, contract.symbol+"."+contract.currency, pos, avg_cost]], 
+                            columns=["account", "symbol_currency", "quantity", "avg_cost"])
+        self.open_positions = self.open_positions.append(_row)
+
+    def positionEnd(self):
+        print("Finished executing reqPositions")
+        self.logger.info("Finished executing reqPositions")
+        self.open_positions_received = True
+
 
     @printall
     def connectAck(self):
@@ -198,10 +207,10 @@ class _IBWrapper(EWrapper):
                             columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
         self.open_orders = self.open_orders.append(_row)
 
-
     def openOrderEnd(self):
         print("Finished executing reqOpenOrders")
         self.logger.info("Finished executing reqOpenOrders")
+        self.open_orders_received = True
 
     def historicalData(self, reqId, bar):
         #print(f"ReqID: {reqId}, Hist Data: {bar}")
@@ -284,6 +293,19 @@ class _IBClient(EClient):
         self.data_tracker[reqId] = contract.symbol + "." + contract.currency
         print(self.data_tracker)
 
+    def reqPositions(self):        
+        print("Requesting open positions")
+        self.logger.info("Requesting open positions")
+        super().reqPositions()
+        self.open_positions_received = False
+        self.open_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
+
+    def reqOpenOrders(self):        
+        print("Requesting open orders")
+        self.logger.info("Requesting open orders")
+        super().reqOpenOrders()
+        self.open_orders_received = False
+        self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
 
 class IBApp(_IBWrapper, _IBClient):
     def __init__(self):
@@ -298,6 +320,9 @@ class IBApp(_IBWrapper, _IBClient):
         self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
         self._last_reqId = None
         self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
+        self.open_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
+        self.open_orders_received = False
+        self.open_positions_received = False
         # self.q = Queue()
         
 
