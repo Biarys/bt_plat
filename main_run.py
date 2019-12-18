@@ -10,13 +10,48 @@ from ibapi.order import Order
 import threading
 import json
 from datetime import datetime as dt
+import time
 
-def submit_orders(bt_orders, current_orders):
-    for ix, order in bt_orders.iterrows():
-        # _buy_or_sell = "BUY" if order["Direction"] == "Long" else "SELL"
-        _asset = order["Symbol"].split(".")
-        _asset = "".join(_asset)
-        app.placeOrder(app.nextOrderId(), at.IBContract.forex(file["forex"][_asset]), at.IBOrder.MarketOrder("BUY", order["Position_value"]))
+def cancelOpenPositions():
+    app.reqPositions()
+
+    while not app.open_positions_received:
+        time.sleep(0.5)
+
+    for ix, pos in app.open_positions.iterrows():
+        app.placeOrder(app.nextOrderId(), at.IBContract.forex(file["forex"][pos["symbol_currency"]]), at.IBOrder.MarketOrder("SELL", pos["quantity"]))
+
+def submit_orders(trades):
+    app.reqPositions()
+    app.reqOpenOrders()
+    bt_orders = trades[trades["Date_exit"] == "Open"]
+
+    while (not app.open_orders_received) and (not app.open_positions_received):
+        time.sleep(0.5)
+        
+    current_orders = app.open_orders
+    current_positions = app.open_positions[app.open_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
+
+    if len(bt_orders) == 0:
+        # close all positions and orders
+        app.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
+        cancelOpenPositions()
+    else:
+        # buy logic
+        for ix, order in bt_orders.iterrows():
+            # _buy_or_sell = "BUY" if order["Direction"] == "Long" else "SELL"
+            asset = order["Symbol"]
+            # _asset = order["Symbol"].split(".")
+            # _asset = "".join(_asset)
+            
+            # simple check to see if current order has already been submitted
+            if (asset not in current_orders["symbol_currency"].values) and (asset not in current_positions["symbol_currency"].values):
+                app.placeOrder(app.nextOrderId(), at.IBContract.forex(file["forex"][asset]), at.IBOrder.MarketOrder("BUY", order["Position_value"]))
+        # sell logic
+        for order in current_positions.iterrows():
+            asset = order["Symbol"]
+            if (asset not in bt_orders["Symbol"].values) or (asset not in current_orders["symbol_currency"].values):
+                app.placeOrder(app.nextOrderId(), at.IBContract.forex(file["forex"][asset]), at.IBOrder.MarketOrder("SELL", order["quantity"]))
 
 def run_every_min(data):
     prev_min = None
@@ -27,10 +62,10 @@ def run_every_min(data):
             prev_min = recent_min
             # TODO: replaced hardcoded Strategy. Gotta find a way to invoke new object each run/appen to previoius one (prob better)
             strat = Strategy("Test_SMA") # gotta create new object, otherwise it duplicates previous results
-            strat.run(data)
-            bt_orders = strat.trade_list[strat.trade_list["Date_exit"] == "Open"]
-            submit_orders(bt_orders, app.open_orders)
             print("Running strategy")
+            strat.run(data)
+            submit_orders(strat.trade_list)
+
 
 if __name__ == "__main__":
     # Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data\XOM.csv"
@@ -75,11 +110,11 @@ if __name__ == "__main__":
     # app.placeOrder(app.nextOrderId(), at.IBContract.EurGbpFx(), at.IBOrder.LimitOrder("BUY", 500, 0.85))
     # app.placeOrder(app.nextOrderId(), at.IBContract.EurGbpFx(), at.IBOrder.Stop("BUY", 500, 0.87))
     # print(app.nextValidOrderId)
-    app.reqOpenOrders()
+    # app.reqOpenOrders()
     # app.cancelOrder(10)
     # app.reqPositions()
     app.reqHistoricalData(reqId=app.nextOrderId(), 
-                        contract=at.IBContract.forex(file["forex"]["EURGBP"]),
+                        contract=at.IBContract.forex(file["forex"]["EUR.GBP"]),
                         #endDateTime="20191125 00:00:00",
                         endDateTime="",
                         durationStr="1 D", 
@@ -91,7 +126,7 @@ if __name__ == "__main__":
                         chartOptions=[]
                         )
     app.reqHistoricalData(reqId=app.nextOrderId(), 
-                        contract=at.IBContract.forex(file["forex"]["EURUSD"]),
+                        contract=at.IBContract.forex(file["forex"]["EUR.USD"]),
                         #endDateTime="20191125 00:00:00",
                         endDateTime="",
                         durationStr="1 D", 
