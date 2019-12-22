@@ -3,6 +3,7 @@ import Backtest.Settings as Settings
 from Backtest.indicators import SMA
 from auto_trading import automated_trading as at
 from Backtest.data_reader import DataReader
+import Backtest.config as config
 
 from ibapi.contract import Contract
 from ibapi.order import Order
@@ -11,6 +12,27 @@ import threading
 import json
 from datetime import datetime as dt
 import time
+import smtplib, ssl 
+# from email.mime.text import MIMEText
+
+def send_email(message):
+    port = 465 # for SSL
+    password = config.password
+    smtp_server = "smtp.gmail.com"
+    sender_email = "tradingrocs@gmail.com"  # Enter your address
+    receiver_email = ["sbiarys@gmail.com", "edmond@inkandeve.com"]  # Enter receiver address
+
+    # msg = MIMEText("""body""")
+    # msg['To'] = ", ".join(receiver_email)
+    # msg['Subject'] = "subject line"
+    # msg['From'] = sender_email
+
+    context = ssl.create_default_context() # Create a secure SSL context
+    with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
+        server.login(sender_email, password)
+        for email in receiver_email:
+            server.sendmail(sender_email, email, message)
+
 
 def cancelOpenPositions():
     app.reqPositions()
@@ -36,6 +58,7 @@ def submit_orders(trades):
         # close all positions and orders
         app.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
         cancelOpenPositions()
+        send_email(f"Orders has been cancelled: {app.open_orders}. Positions have been cancelled {app.open_positions}")
     else:
         # buy logic
         for ix, order in bt_orders.iterrows():
@@ -47,11 +70,13 @@ def submit_orders(trades):
             # simple check to see if current order has already been submitted
             if (asset not in current_orders["symbol_currency"].values) and (asset not in current_positions["symbol_currency"].values):
                 app.placeOrder(app.nextOrderId(), at.IBContract.forex(file["forex"][asset]), at.IBOrder.MarketOrder("BUY", order["Position_value"]))
+                send_email(f"BUY - {asset} - {order['Position_value']}")
         # sell logic
-        for order in current_positions.iterrows():
-            asset = order["Symbol"]
-            if (asset not in bt_orders["Symbol"].values) or (asset not in current_orders["symbol_currency"].values):
+        for ix, order in current_positions.iterrows():
+            asset = order["symbol_currency"]
+            if (asset not in bt_orders["Symbol"].values) and (asset not in current_orders["symbol_currency"].values):
                 app.placeOrder(app.nextOrderId(), at.IBContract.forex(file["forex"][asset]), at.IBOrder.MarketOrder("SELL", order["quantity"]))
+                send_email(f"SELL - {asset} - {order['quantity']}")
 
 def run_every_min(data):
     prev_min = None
