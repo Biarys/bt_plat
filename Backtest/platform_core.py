@@ -118,6 +118,9 @@ class Backtest(abc.ABC):
             
             # strategy logic
             buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
+            if buyCond == sellCond == shortCond == coverCond == None:
+                raise Exception("You have to specify buy or short condition. Neither was specified.")
+                
             ################################
 
             rep = Repeater(current_asset, name, buyCond, sellCond, shortCond, coverCond)
@@ -452,7 +455,6 @@ class TradeSignal:
     # sellCond = sellCond.where(sellCond != sellCond.shift(1).fillna(sellCond[0])).shift(1)
 
     def __init__(self, rep):
-        # rep = rep
         # buy/sell/all signals
         self.buyCond = rep.buyCond.where(
             rep.buyCond != rep.buyCond.shift(1).fillna(rep.buyCond[0])).shift(0)
@@ -499,6 +501,8 @@ class Agg_TradeSingal:
     def __init__(self):
         self.buys = pd.DataFrame()
         self.sells = pd.DataFrame()
+        self.shorts = pd.DataFrame()
+        self.covers = pd.DataFrame()
         self.all = pd.DataFrame()
 
 
