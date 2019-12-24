@@ -118,7 +118,7 @@ class Backtest(abc.ABC):
             
             # strategy logic
             buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
-            if buyCond == sellCond == shortCond == coverCond == None:
+            if buyCond is None and sellCond is None and shortCond is None and coverCond is None:
                 raise Exception("You have to specify buy or short condition. Neither was specified.")
                 
             ################################
@@ -456,23 +456,24 @@ class TradeSignal:
 
     def __init__(self, rep):
         # buy/sell/all signals
-        self.buyCond = rep.buyCond.where(
-            rep.buyCond != rep.buyCond.shift(1).fillna(rep.buyCond[0])).shift(0)
-        self.sellCond = rep.sellCond.where(
-            rep.sellCond != rep.sellCond.shift(1).fillna(rep.sellCond[0])
-        ).shift(0)
+        self.buyCond = _find_signals(rep.buyCond)
+        self.sellCond = _find_signals(rep.sellCond)
+        self.shortCond = _find_signals(rep.shortCond)
+        self.coverCond = _find_signals(rep.coverCond)
 
         # delay implementation
         self._buy_shift = self.buyCond.shift(Settings.buy_delay)
         self._sell_shift = self.sellCond.shift(Settings.sell_delay)
+        self._short_shift = self.shortCond.shift(Settings.short_delay)
+        self._cover_shift = self.coverCond.shift(Settings.cover_delay)
 
         # might be a better solution cuz might not create copy - need to test it
         # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
         #         self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
         #         self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
 
-        cond = [(self._buy_shift == 1), (self._sell_shift == 1)]
-        out = ["Buy", "Sell"]
+        cond = [(self._buy_shift == 1), (self._sell_shift == 1), (self._short_shift == 1), (self._cover_shift == 1)]
+        out = ["Buy", "Sell", "Short", "Cover"]
         self.all = np.select(cond, out, default=0)
         self.all = pd.DataFrame(
             self.all, index=rep.data.index, columns=[rep.name])
@@ -764,10 +765,12 @@ def _generate_equity_curve(self):
     self.port.equity_curve = self.port.equity_curve.cumsum()
     self.port.equity_curve.name = "Equity"
 
-
 def _remove_dups(data):
     data = data.where(data != data.shift(1))
     return data
+
+def _find_signals(df):
+    return df.where(df != df.shift(1).fillna(df[0])).shift(0)
 
 if __name__ == "__main__":
     Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data\AA.csv"
