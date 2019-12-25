@@ -456,11 +456,16 @@ class TradeSignal:
     # sellCond = sellCond.where(sellCond != sellCond.shift(1).fillna(sellCond[0])).shift(1)
 
     def __init__(self, rep):
-        # buy/sell/all signals
+        # buy/sell/short/cover/all signals
         self.buyCond = _find_signals(rep.buyCond)
         self.sellCond = _find_signals(rep.sellCond)
         self.shortCond = _find_signals(rep.shortCond)
         self.coverCond = _find_signals(rep.coverCond)
+
+        self.buyCond.name = "Buy"
+        self.sellCond.name = "Sell"
+        self.shortCond.name = "Short"
+        self.coverCond.name = "Cover"
 
         # delay implementation
         self._buy_shift = self.buyCond.shift(Settings.buy_delay)
@@ -468,31 +473,34 @@ class TradeSignal:
         self._short_shift = self.shortCond.shift(Settings.short_delay)
         self._cover_shift = self.coverCond.shift(Settings.cover_delay)
 
-        # might be a better solution cuz might not create copy - need to test it
-        # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
-        #         self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
-        #         self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
+        self.all = pd.concat([self._buy_shift, self._sell_shift, self._short_shift, 
+                            self._cover_shift], axis=1)
 
-        cond = [(self._buy_shift == 1), (self._sell_shift == 1), (self._short_shift == 1), (self._cover_shift == 1)]
-        out = ["Buy", "Sell", "Short", "Cover"]
-        self.all = np.select(cond, out, default=0)
-        self.all = pd.DataFrame(
-            self.all, index=rep.data.index, columns=[rep.name])
-        self.all = self.all.replace("0", np.NAN)
+        # # might be a better solution cuz might not create copy - need to test it
+        # # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
+        # #         self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
+        # #         self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
 
-        # find where first buy occured
-        first_buy = self._buy_shift.dropna().index[0]
+        # cond = [(self._buy_shift == 1), (self._sell_shift == 1), (self._short_shift == 1), (self._cover_shift == 1)]
+        # out = ["Buy", "Sell", "Short", "Cover"]
+        # self.all = np.select(cond, out, default=0)
+        # self.all = pd.DataFrame(
+        #     self.all, index=rep.data.index, columns=[rep.name])
+        # self.all = self.all.replace("0", np.NAN)
 
-        # drop all sell signals that come before first buy
-        self.all = self.all[first_buy:]
+        # # find where first buy occured
+        # first_buy = self._buy_shift.dropna().index[0]
 
-        # ? might not be needed cuz TransPrice drops na and removes dups
-        # remove all extra signals
-        # https://stackoverflow.com/questions/19463985/pandas-drop-consecutive-duplicates
-        # alternative, possibly faster solution ^
-        # or using pd.ne()
-        # or self.all = self.all[self.all != self.all.shift()]
-        self.all = _remove_dups(self.all)
+        # # drop all sell signals that come before first buy
+        # self.all = self.all[first_buy:]
+
+        # # ? might not be needed cuz TransPrice drops na and removes dups
+        # # remove all extra signals
+        # # https://stackoverflow.com/questions/19463985/pandas-drop-consecutive-duplicates
+        # # alternative, possibly faster solution ^
+        # # or using pd.ne()
+        # # or self.all = self.all[self.all != self.all.shift()]
+        # self.all = _remove_dups(self.all)
 
 
 class Agg_TradeSingal:
