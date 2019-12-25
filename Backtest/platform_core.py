@@ -537,18 +537,24 @@ class TransPrice:
         self.all = trade_signals.all
 
         # to get rid of duplicates
-        self.all = self.all.dropna()
-        self.all = _remove_dups(self.all)
+        # self.all = self.all.dropna()
+        # self.all = _remove_dups(self.all)
         # self.all = self.all.where(self.all != self.all.shift(1))
 
-        self.buyIndex = self.all[self.all[rep.name] == "Buy"].index
-        self.sellIndex = self.all[self.all[rep.name] == "Sell"].index
+        self.buyIndex = self.all[self.all["Buy"] == 1].index
+        self.sellIndex = self.all[self.all["Sell"] == 1].index
+        self.shortIndex = self.all[self.all["Short"] == 1].index
+        self.coverIndex = self.all[self.all["Cover"] == 1].index
 
         self.buyPrice = rep.data[Settings.buy_on][self.buyIndex]
         self.sellPrice = rep.data[Settings.sell_on][self.sellIndex]
+        self.shortPrice = rep.data[Settings.short_on][self.shortIndex]
+        self.coverPrice = rep.data[Settings.cover_on][self.coverIndex]
 
         self.buyPrice.name = rep.name
         self.sellPrice.name = rep.name
+        self.shortPrice.name = rep.name
+        self.coverPrice.name = rep.name
 
 
 class Agg_TransPrice:
