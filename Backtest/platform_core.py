@@ -1,3 +1,4 @@
+# %%
 import pandas as pd
 import numpy as np
 import os
@@ -6,12 +7,12 @@ import logging
 import traceback
 
 # own files
-from .indicators import SMA
-from .data_reader import DataReader
+from Backtest.indicators import SMA
+from Backtest.data_reader import DataReader
 from auto_trading.automated_trading import _setup_log
 # import database_stuff as db
-from . import config
-from . import Settings
+from Backtest import config
+from Backtest import Settings
 
 # for testing
 from datetime import datetime as dt
@@ -787,15 +788,17 @@ if __name__ == "__main__":
             buyCond = sma5() > sma25()
             sellCond = sma5() < sma25()
             
-            shortCond = None
-            coverCond = None
+            shortCond = sma5() < sma25()
+            coverCond = sma5() > sma25()
 
             return buyCond, sellCond, shortCond, coverCond
     
     s = Strategy("name")
-    s.run()
-    s.trade_list.to_csv("test.csv")
-    print(s.trade_list)
+    data = DataReader()
+    data.readCSV(Settings.read_from_csv_path)
+    s.run(data.data)
+    # s.trade_list.to_csv("test.csv")
+    # print(s.trade_list)
     # b = Backtest("Strategy 1")
     # # b.read_from_db
     # # strategy logic
