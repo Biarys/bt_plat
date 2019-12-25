@@ -476,16 +476,21 @@ class TradeSignal:
         self.all = pd.concat([self._buy_shift, self._sell_shift, self._short_shift, 
                             self._cover_shift], axis=1)
 
-        # # might be a better solution cuz might not create copy - need to test it
-        # # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
-        # #         self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
-        # #         self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
+        # might be a better solution cuz might not create copy - need to test it
+        # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
+        #         self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
+        #         self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
 
-        # cond = [(self._buy_shift == 1), (self._sell_shift == 1), (self._short_shift == 1), (self._cover_shift == 1)]
-        # out = ["Buy", "Sell", "Short", "Cover"]
+        cond = [(self._buy_shift == 1), (self._sell_shift == 1)]
+        out = ["Buy", "Sell"]
+        self.long = self._merge_singals(cond, out, rep, self._buy_shift)
+        
+        cond = [(self._short_shift == 1), (self._cover_shift == 1)]
+        out = ["Short", "Cover"]
+        self.short = self._merge_singals(cond, out, rep, self._short_shift)
+
         # self.all = np.select(cond, out, default=0)
-        # self.all = pd.DataFrame(
-        #     self.all, index=rep.data.index, columns=[rep.name])
+        # self.all = pd.DataFrame(self.all, index=rep.data.index, columns=[rep.name])
         # self.all = self.all.replace("0", np.NAN)
 
         # # find where first buy occured
@@ -501,6 +506,19 @@ class TradeSignal:
         # # or using pd.ne()
         # # or self.all = self.all[self.all != self.all.shift()]
         # self.all = _remove_dups(self.all)
+
+    @staticmethod
+    def _merge_singals(cond, out, rep, entry):
+        df = np.select(cond, out, default=0)
+        df = pd.DataFrame(df, index=rep.data.index, columns=[rep.name])
+        df = df.replace("0", np.NAN)
+
+        # find where first buy occured
+        # first_entry = entry.dropna().index[0]
+
+        # df = df[first_entry:]
+        # df = _remove_dups(df)
+        return df
 
 
 class Agg_TradeSingal:
@@ -598,7 +616,6 @@ class Trades:
         self.trades = long.join(
             cover, how="outer", lsuffix="_entry", rsuffix="_exit")
 
-        # TODO: replace hardcoded "Date_exit"
         # NAs should only be last values that are still open
         # self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
         self.trades["Date_exit"].fillna("Open", inplace=True)
