@@ -565,7 +565,8 @@ class Agg_TransPrice:
     def __init__(self):
         self.buyPrice = pd.DataFrame()
         self.sellPrice = pd.DataFrame()
-
+        self.shortPrice = pd.DataFrame()
+        self.coverPrice = pd.DataFrame()
 
 class Trades:
     """
