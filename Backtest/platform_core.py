@@ -317,7 +317,8 @@ class Backtest(abc.ABC):
         # self.port.equity_curve = self.port.equity_curve.cumsum()
         # # self.port.equity_curve.columns
         # self.port.equity_curve.name = "Equity"
-        _generate_equity_curve(self)
+
+        self._generate_equity_curve()
 
         # testing
         # self.port.value = self.port.equity_curve.sum()
@@ -434,6 +435,23 @@ class Backtest(abc.ABC):
         self.trade_list["Trade_duration"] = temp - self.trade_list["Date_entry"]
         self.trade_list["Trade_duration"].fillna("Open", inplace=True)
 
+    def _generate_equity_curve(self):
+        # Fillna cuz
+        self.agg_trades.priceFluctuation_dollar.fillna(0, inplace=True)
+
+        # find daily fluc per asset
+        self.port.profit_daily_fluc_per_asset = self.port.weights * \
+            self.agg_trades.priceFluctuation_dollar
+
+        # find daily fluc for that day for all assets (sum of fluc for that day)
+        self.port.equity_curve = self.port.profit_daily_fluc_per_asset.sum(1)
+
+        # set starting amount
+        self.port.equity_curve.iloc[0] = self.settings.start_amount
+
+        # apply fluctuation to equity curve
+        self.port.equity_curve = self.port.equity_curve.cumsum()
+        self.port.equity_curve.name = "Equity"
 
 class TradeSignal:
     """
@@ -790,23 +808,6 @@ def _roll_prev_value(df, current_bar, prev_bar):
     # might wanna return, just to be sure?
     df.loc[current_bar] = df.iloc[prev_bar]
     
-def _generate_equity_curve(self):
-    # Fillna cuz
-    self.agg_trades.priceFluctuation_dollar.fillna(0, inplace=True)
-
-    # find daily fluc per asset
-    self.port.profit_daily_fluc_per_asset = self.port.weights * \
-        self.agg_trades.priceFluctuation_dollar
-
-    # find daily fluc for that day for all assets (sum of fluc for that day)
-    self.port.equity_curve = self.port.profit_daily_fluc_per_asset.sum(1)
-
-    # set starting amount
-    self.port.equity_curve.iloc[0] = self.settings.start_amount
-
-    # apply fluctuation to equity curve
-    self.port.equity_curve = self.port.equity_curve.cumsum()
-    self.port.equity_curve.name = "Equity"
 
 def _remove_dups(data):
     data = data.where(data != data.shift(1))
