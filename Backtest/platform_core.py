@@ -149,8 +149,7 @@ class Backtest(abc.ABC):
                 trades_current_asset.priceFluctuation_dollar], axis=1)
             self.agg_trades.trades = pd.concat(
                 [self.agg_trades.trades, trades_current_asset.trades],
-                axis=0,
-                sort=True)
+                axis=0, sort=True)
             self.agg_trades.inTradePrice = pd.concat([
                 self.agg_trades.inTradePrice, trades_current_asset.inTradePrice], 
                 axis=1)
@@ -483,12 +482,17 @@ class TradeSignal:
 
         cond = [(self._buy_shift == 1), (self._sell_shift == 1)]
         out = ["Buy", "Sell"]
-        self.long = self._merge_singals(cond, out, rep, self._buy_shift)
-        
+        self.long = self._merge_singals(cond, out, rep, self._buy_shift, "Long")
+
         cond = [(self._short_shift == 1), (self._cover_shift == 1)]
         out = ["Short", "Cover"]
-        self.short = self._merge_singals(cond, out, rep, self._short_shift)
+        self.short = self._merge_singals(cond, out, rep, self._short_shift, "Short")
 
+        self.all_merged = pd.concat([self.long, self.short], axis=1)
+        
+        # old logic
+        # cond = [(self._buy_shift == 1), (self._sell_shift == 1)]
+        # out = ["Buy", "Sell"]
         # self.all = np.select(cond, out, default=0)
         # self.all = pd.DataFrame(self.all, index=rep.data.index, columns=[rep.name])
         # self.all = self.all.replace("0", np.NAN)
@@ -508,9 +512,9 @@ class TradeSignal:
         # self.all = _remove_dups(self.all)
 
     @staticmethod
-    def _merge_singals(cond, out, rep, entry):
+    def _merge_singals(cond, out, rep, entry, col_name):
         df = np.select(cond, out, default=0)
-        df = pd.DataFrame(df, index=rep.data.index, columns=[rep.name])
+        df = pd.DataFrame(df, index=rep.data.index, columns=[col_name])
         df = df.replace("0", np.NAN)
 
         # find where first buy occured
@@ -604,18 +608,23 @@ class Trades:
         self.inTrade = pd.DataFrame()
         self.inTradePrice = pd.DataFrame()
 
-        self.inTrade = trade_signals.all
+        self.inTrade = trade_signals.all_merged #long, short
         self.inTrade = self.inTrade.ffill()
-        self.inTrade = self.inTrade[self.inTrade[rep.name] == "Buy"]
+        self.inTrade = self.inTrade[(self.inTrade["Long"] == "Buy") | (self.inTrade["Short"] == "Short")]
 
         long = trans_prices.buyPrice.reset_index()
-        cover = trans_prices.sellPrice.reset_index()
+        sell = trans_prices.sellPrice.reset_index()
+        short = trans_prices.shortPrice.reset_index()
+        cover = trans_prices.coverPrice.reset_index()
 
         long["Direction"] = "Long"
+        short["Direction"] = "Short"
 
-        self.trades = long.join(
-            cover, how="outer", lsuffix="_entry", rsuffix="_exit")
+        # self.trades = long.join(sell, how="outer", lsuffix="_entry", rsuffix="_exit")
+        long = long.join(sell, how="outer", lsuffix="_entry", rsuffix="_exit")
+        short = short.join(cover, how="outer", lsuffix="_entry", rsuffix="_exit")
 
+        self.trades = pd.concat([long, short])
         # NAs should only be last values that are still open
         # self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
         self.trades["Date_exit"].fillna("Open", inplace=True)
@@ -643,6 +652,7 @@ class Trades:
         self.inTradePrice.name = rep.name
 
         # finding dollar price change
+        # ? use inTradePrice - inTradePrice.shift(1) ?
         self.priceFluctuation_dollar = rep.data["Close"] - rep.data[
             "Close"].shift()
         self.priceFluctuation_dollar.name = rep.name
