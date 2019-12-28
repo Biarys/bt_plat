@@ -132,27 +132,28 @@ class Backtest(abc.ABC):
             trades_current_asset = Trades(rep, trade_signals, trans_prices)
 
             # save trade_signals for portfolio level
-            self.agg_trade_signals.buys = pd.concat(
-                [self.agg_trade_signals.buys, trade_signals.buyCond], axis=1)
-            self.agg_trade_signals.sells = pd.concat(
-                [self.agg_trade_signals.sells, trade_signals.sellCond], axis=1)
-            self.agg_trade_signals.all = pd.concat(
-                [self.agg_trade_signals.all, trade_signals.all], axis=1)
+
+            self.agg_trade_signals.buys = self._aggregate(self.agg_trade_signals.buys, trade_signals.buyCond)
+            self.agg_trade_signals.sells = self._aggregate(self.agg_trade_signals.sells, trade_signals.sellCond)
+            self.agg_trade_signals.shorts = self._aggregate(self.agg_trade_signals.shorts, trade_signals.shortCond)
+            self.agg_trade_signals.covers = self._aggregate(self.agg_trade_signals.covers, trade_signals.coverCond)
+            self.agg_trade_signals.all = self._aggregate(self.agg_trade_signals.all, trade_signals.all)
 
             # save trans_prices for portfolio level
-            self.agg_trans_prices.buyPrice = pd.concat(
-                [self.agg_trans_prices.buyPrice, trans_prices.buyPrice], axis=1)
-            self.agg_trans_prices.sellPrice = pd.concat(
-                [self.agg_trans_prices.sellPrice, trans_prices.sellPrice], axis=1)
-            self.agg_trades.priceFluctuation_dollar = pd.concat([
-                self.agg_trades.priceFluctuation_dollar,
-                trades_current_asset.priceFluctuation_dollar], axis=1)
-            self.agg_trades.trades = pd.concat(
-                [self.agg_trades.trades, trades_current_asset.trades],
-                axis=0, sort=True)
-            self.agg_trades.inTradePrice = pd.concat([
-                self.agg_trades.inTradePrice, trades_current_asset.inTradePrice], 
-                axis=1)
+            self.agg_trans_prices.buyPrice = self._aggregate(self.agg_trans_prices.buyPrice, trans_prices.buyPrice)
+            self.agg_trans_prices.sellPrice = self._aggregate(self.agg_trans_prices.sellPrice, trans_prices.sellPrice)
+            self.agg_trans_prices.shortPrice = self._aggregate(self.agg_trans_prices.shortPrice, trans_prices.shortPrice)
+            self.agg_trans_prices.coverPrice = self._aggregate(self.agg_trans_prices.coverPrice, trans_prices.coverPrice)
+            self.agg_trades.priceFluctuation_dollar = self._aggregate(self.agg_trades.priceFluctuation_dollar,
+                                                                    trades_current_asset.priceFluctuation_dollar)
+            # fix trades -> gives exception
+            self.agg_trades.trades = self._aggregate(self.agg_trades.trades, trades_current_asset.trades)
+            self.agg_trades.inTradePrice = self._aggregate(self.agg_trades.inTradePrice, trades_current_asset.inTradePrice)
+
+    @staticmethod
+    def _aggregate(agg_df, df):
+        return pd.concat([agg_df, df], axis=1)
+        
 
     def _run_portfolio(self):
         """
@@ -180,7 +181,7 @@ class Backtest(abc.ABC):
         # copy index and column names for portfolio change
         self.port.value = pd.DataFrame(
             index=self.agg_trades.priceFluctuation_dollar.index,
-            columns=["Portfolio value"])
+             columns=["Portfolio value"])
         self.port.value.iloc[0] = self.settings.start_amount
 
         # copy index and set column name for avail amount
