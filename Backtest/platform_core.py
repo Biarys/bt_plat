@@ -50,6 +50,7 @@ class Backtest(abc.ABC):
         self.settings = Settings
         self.log = logging.getLogger("Backtester")
         self.log.info("Backtester started!")
+        self.cond = Cond()
 
     def run(self, data):
         # self.con, self.meta = db.connect(config.user, config.password,
@@ -118,13 +119,15 @@ class Backtest(abc.ABC):
             current_asset = self.data[name]
             
             # strategy logic
-            buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
-            if buyCond is None and sellCond is None and shortCond is None and coverCond is None:
-                raise Exception("You have to specify buy or short condition. Neither was specified.")
-                
+            # buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
+            self.logic(current_asset)
+            self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
+            self.cond._combine() # combine all conds into all
+            # if buyCond is None and shortCond is None:
+            #     raise Exception("You have to specify buy or short condition. Neither was specified.")
             ################################
 
-            rep = Repeater(current_asset, name, buyCond, sellCond, shortCond, coverCond)
+            rep = Repeater(current_asset, name, self.cond.all)
 
             # find trade_signals and trans_prices for an asset
             trade_signals = TradeSignal(rep)
@@ -132,7 +135,6 @@ class Backtest(abc.ABC):
             trades_current_asset = Trades(rep, trade_signals, trans_prices)
 
             # save trade_signals for portfolio level
-
             self.agg_trade_signals.buys = self._aggregate(self.agg_trade_signals.buys, trade_signals.buyCond)
             self.agg_trade_signals.sells = self._aggregate(self.agg_trade_signals.sells, trade_signals.sellCond)
             self.agg_trade_signals.shorts = self._aggregate(self.agg_trade_signals.shorts, trade_signals.shortCond)
@@ -475,15 +477,15 @@ class TradeSignal:
 
     def __init__(self, rep):
         # buy/sell/short/cover/all signals
-        self.buyCond = _find_signals(rep.buyCond)
-        self.sellCond = _find_signals(rep.sellCond)
-        self.shortCond = _find_signals(rep.shortCond)
-        self.coverCond = _find_signals(rep.coverCond)
+        self.buyCond = _find_signals(rep.allCond["Buy"])
+        self.sellCond = _find_signals(rep.allCond["Sell"])
+        self.shortCond = _find_signals(rep.allCond["Short"])
+        self.coverCond = _find_signals(rep.allCond["Cover"])
 
-        self.buyCond.name = "Buy"
-        self.sellCond.name = "Sell"
-        self.shortCond.name = "Short"
-        self.coverCond.name = "Cover"
+        # self.buyCond.name = "Buy"
+        # self.sellCond.name = "Sell"
+        # self.shortCond.name = "Short"
+        # self.coverCond.name = "Cover"
 
         # delay implementation
         self._buy_shift = self.buyCond.shift(Settings.buy_delay)
@@ -754,14 +756,33 @@ class Repeater:
     Common class to avoid repetition
     """
 
-    def __init__(self, data, name, buyCond=None, sellCond=None, shortCond=None, coverCond=None):
+    def __init__(self, data, name, allCond):
         self.data = data
-        self.buyCond = buyCond
-        self.sellCond = sellCond
-        self.shortCond = shortCond
-        self.coverCond = coverCond
+        # self.buyCond = buyCond
+        # self.sellCond = sellCond
+        # self.shortCond = shortCond
+        # self.coverCond = coverCond
+        self.allCond = allCond
         self.name = name
 
+class Cond:
+    def __init__(self):
+        self.buy = pd.DataFrame()
+        self.sell = pd.DataFrame()
+        self.short = pd.DataFrame()
+        self.cover = pd.DataFrame()
+        self.all = pd.DataFrame()
+
+    def _combine(self):
+        for df in [self.buy, self.sell, self.short, self.cover]:
+            self.all = self.all.append(df)
+        self.all = self.all.T
+
+        for df in [self.buy, self.sell, self.short, self.cover]:
+            if df.name not in self.all.columns:
+                self.all[df.name] = False
+
+        # self.all = pd.concat([self.buy, self.sell, self.short, self.cover], axis=1)
 
 # class Settings:
 #     """
