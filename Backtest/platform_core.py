@@ -503,11 +503,11 @@ class TradeSignal:
 
         cond = [(self._buy_shift == 1), (self._sell_shift == 1)]
         out = ["Buy", "Sell"]
-        self.long = self._merge_singals(cond, out, rep, self._buy_shift, "Long")
+        self.long = self._merge_signals(cond, out, rep, self._buy_shift, "Long")
 
         cond = [(self._short_shift == 1), (self._cover_shift == 1)]
         out = ["Short", "Cover"]
-        self.short = self._merge_singals(cond, out, rep, self._short_shift, "Short")
+        self.short = self._merge_signals(cond, out, rep, self._short_shift, "Short")
 
         self.all_merged = pd.concat([self.long, self.short], axis=1)
         
@@ -533,7 +533,7 @@ class TradeSignal:
         # self.all = _remove_dups(self.all)
 
     @staticmethod
-    def _merge_singals(cond, out, rep, entry, col_name):
+    def _merge_signals(cond, out, rep, entry, col_name):
         df = np.select(cond, out, default=0)
         df = pd.DataFrame(df, index=rep.data.index, columns=[col_name])
         df = df.replace("0", np.NAN)
