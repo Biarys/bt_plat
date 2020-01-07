@@ -495,7 +495,7 @@ class TradeSignal:
 
         self.all = pd.concat([self._buy_shift, self._sell_shift, self._short_shift, 
                             self._cover_shift], axis=1)
-
+        self.all.index.name = "Date"
         # might be a better solution cuz might not create copy - need to test it
         # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
         #         self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
@@ -636,7 +636,7 @@ class Trades:
         long = trans_prices.buyPrice.reset_index()
         sell = trans_prices.sellPrice.reset_index()
         short = trans_prices.shortPrice.reset_index()
-        cover = trans_prices.coverPrice.reset_index()
+        cover = trans_prices.coverPrice.reset_index()     
 
         long["Direction"] = "Long"
         short["Direction"] = "Short"
