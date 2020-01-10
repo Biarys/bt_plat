@@ -50,7 +50,7 @@ class Backtest(abc.ABC):
         self.settings = Settings
         self.log = logging.getLogger("Backtester")
         self.log.info("Backtester started!")
-        self.cond = Cond()
+        
 
     def run(self, data):
         # self.con, self.meta = db.connect(config.user, config.password,
@@ -120,6 +120,7 @@ class Backtest(abc.ABC):
             
             # strategy logic
             # buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
+            self.cond = Cond()
             self.logic(current_asset)
             self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
             self.cond._combine() # combine all conds into all
@@ -149,12 +150,12 @@ class Backtest(abc.ABC):
             self.agg_trades.priceFluctuation_dollar = self._aggregate(self.agg_trades.priceFluctuation_dollar,
                                                                     trades_current_asset.priceFluctuation_dollar)
             # fix trades -> gives exception
-            self.agg_trades.trades = self._aggregate(self.agg_trades.trades, trades_current_asset.trades)
+            self.agg_trades.trades = self._aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
             self.agg_trades.inTradePrice = self._aggregate(self.agg_trades.inTradePrice, trades_current_asset.inTradePrice)
 
     @staticmethod
-    def _aggregate(agg_df, df):
-        return pd.concat([agg_df, df], axis=1)
+    def _aggregate(agg_df, df, ax=1):
+        return pd.concat([agg_df, df], axis=ax)
         
 
     def _run_portfolio(self):
@@ -510,6 +511,7 @@ class TradeSignal:
         self.short = self._merge_signals(cond, out, rep, self._short_shift, "Short")
 
         self.all_merged = pd.concat([self.long, self.short], axis=1)
+        self.all_merged.index.name = "Date"
         
         # old logic
         # cond = [(self._buy_shift == 1), (self._sell_shift == 1)]
@@ -533,17 +535,21 @@ class TradeSignal:
         # self.all = _remove_dups(self.all)
 
     @staticmethod
-    def _merge_signals(cond, out, rep, entry, col_name):
+    def _merge_signals(cond, out, rep, entry, col_name):        
         df = np.select(cond, out, default=0)
         df = pd.DataFrame(df, index=rep.data.index, columns=[col_name])
         df = df.replace("0", np.NAN)
 
         # find where first buy occured
-        # first_entry = entry.dropna().index[0]
+        temp = entry.dropna()
+        if not temp.empty:
+            first_entry = temp.index[0]
 
-        # df = df[first_entry:]
-        # df = _remove_dups(df)
+            df = df[first_entry:]
+            # df = _remove_dups(df)
+        
         return df
+            
 
 
 class Agg_TradeSingal:
@@ -577,17 +583,17 @@ class TransPrice:
     """
 
     def __init__(self, rep, trade_signals):
-        self.all = trade_signals.all
+        self.all = trade_signals.all_merged
 
         # to get rid of duplicates
         # self.all = self.all.dropna()
         # self.all = _remove_dups(self.all)
         # self.all = self.all.where(self.all != self.all.shift(1))
 
-        self.buyIndex = self.all[self.all["Buy"] == 1].index
-        self.sellIndex = self.all[self.all["Sell"] == 1].index
-        self.shortIndex = self.all[self.all["Short"] == 1].index
-        self.coverIndex = self.all[self.all["Cover"] == 1].index
+        self.buyIndex = self.all[self.all["Long"]=="Buy"].index
+        self.sellIndex = self.all[self.all["Long"]=="Sell"].index
+        self.shortIndex = self.all[self.all["Short"]=="Short"].index
+        self.coverIndex = self.all[self.all["Short"]=="Cover"].index
 
         self.buyPrice = rep.data[Settings.buy_on][self.buyIndex]
         self.sellPrice = rep.data[Settings.sell_on][self.sellIndex]
