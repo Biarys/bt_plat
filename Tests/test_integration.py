@@ -139,6 +139,7 @@ class TestSMA(TestStocks):
         print("RUNNING PORTFOLIO TEST")
         path = os.getcwd()
         baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
+        baseline["Ex. date"] = baseline["Ex. date"].astype(str)
         Settings.read_from_csv_path = path + r"\stock_data"
         Settings.read_from = "csvFiles"
 
@@ -241,8 +242,8 @@ def compdf(x,y):
 def suite():
     suite = unittest.TestSuite()
     # suite.addTest(TestSMA('test_stock_long'))
-    # suite.addTest(TestSMA('test_portfolio'))
-    suite.addTest(TestSMA('test_stock_short'))
+    suite.addTest(TestSMA('test_portfolio'))
+    # suite.addTest(TestSMA('test_stock_short'))
     return suite
 
 if __name__=="__main__":
