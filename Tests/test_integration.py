@@ -8,9 +8,10 @@ import unittest
 
 
 sys.path.append(sys.path[0] + "/..")
-import Core.platform_core as bt
-import Core.Settings as Settings
-from Core.indicators import SMA
+import Backtest.platform_core as bt
+import Backtest.Settings as Settings
+from Backtest.indicators import SMA
+from Backtest.data_reader import DataReader
 
 class TestStocks(unittest.TestCase):
     
@@ -28,17 +29,21 @@ class TestSMA(TestStocks):
 
     maxDiff = None
     
-    def test_stock(self):
+    def test_stock_long(self):
         path = os.getcwd()
         for name in self.stock_list:
+            print(f"RUNNING TEST FOR {name}")
             baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_{name}.xlsx'.format(name=name), sheet_name="Tests")
             baseline["Ex. date"] = baseline["Ex. date"].astype(str)
             Settings.read_from_csv_path = path + r"\stock_data\{name}.csv".format(
                 name=name)
             Settings.read_from = "csvFile"
             
-            s = StrategySMA("Test_SMA")
-            s.run()
+            data = DataReader()
+            data.readCSV(Settings.read_from_csv_path)
+
+            s = StrategySMALong("Test_SMA")
+            s.run(data.data)
             
             s.trade_list.rename(columns={
                 "Date_entry":"Date",
@@ -73,18 +78,75 @@ class TestSMA(TestStocks):
             s.trade_list[["% chg", "% Profit"]] = s.trade_list[["% chg", "% Profit"]].round(4)
             # s.trade_list["Ex. date"] = pd.to_datetime(s.trade_list["Ex. date"], errors="coerce")
             s.trade_list["Ex. date"] = s.trade_list["Ex. date"].astype(str)
-            s.trade_list.to_csv(r"Tests\temp_results\results_{}.csv".format(name))
+            s.trade_list.to_csv(r"D:\results_{}.csv".format(name)) 
+
+            self.compare_dfs(baseline, s.trade_list)
+
+    def test_stock_short(self):
+        path = os.getcwd()
+        for name in self.stock_list:
+            print(f"RUNNING TEST FOR {name}")
+            baseline = pd.read_excel(path + r'\Tests\baseline_short_sma_5_25_{name}.xlsx'.format(name=name), sheet_name="Tests")
+            baseline["Ex. date"] = baseline["Ex. date"].astype(str)
+            Settings.read_from_csv_path = path + r"\stock_data\{name}.csv".format(
+                name=name)
+            Settings.read_from = "csvFile"
+            
+            data = DataReader()
+            data.readCSV(Settings.read_from_csv_path)
+
+            s = StrategySMAShort("Test_SMA")
+            s.run(data.data)
+            
+            s.trade_list.rename(columns={
+                "Date_entry":"Date",
+                "Date_exit":"Ex. date",
+                "Direction":"Trade",
+                "Entry_price":"Price",
+                "Exit_price":"Ex. Price",
+                "Weight":"Shares",
+                "Pct_change":"% chg",
+                "Dollar_profit":"Profit",
+                "Pct_profit":"% Profit",
+                "Cum_profit":"Cum. Profit",
+                "Position_value":"Position value"
+            }, inplace=True)
+
+            s.trade_list = s.trade_list[[
+                "Symbol",
+                "Trade",
+                "Date",
+                "Price",	
+                "Ex. date",	
+                "Ex. Price",	
+                "% chg",
+                "Profit",	
+                "% Profit",	
+                "Shares",
+                "Position value",	
+                "Cum. Profit"
+            ]]
+            s.trade_list[["Price", "Ex. Price", "Profit", "Position value", "Cum. Profit"]] = s.trade_list[
+                ["Price", "Ex. Price", "Profit", "Position value", "Cum. Profit"]].round(2)
+            s.trade_list[["% chg", "% Profit"]] = s.trade_list[["% chg", "% Profit"]].round(4)
+            # s.trade_list["Ex. date"] = pd.to_datetime(s.trade_list["Ex. date"], errors="coerce")
+            s.trade_list["Ex. date"] = s.trade_list["Ex. date"].astype(str)
+            s.trade_list.to_csv(r"D:\results_short_{}.csv".format(name)) 
 
             self.compare_dfs(baseline, s.trade_list)
 
     def test_portfolio(self):
+        print("RUNNING PORTFOLIO TEST")
         path = os.getcwd()
-        baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_portfolio.xlsx', sheet_name="Tests")
+        baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
         Settings.read_from_csv_path = path + r"\stock_data"
         Settings.read_from = "csvFiles"
 
-        s = StrategySMA("Test_SMA")
-        s.run()
+        data = DataReader()
+        data.readCSVFiles(Settings.read_from_csv_path)
+
+        s = StrategySMALong("Test_SMA")
+        s.run(data.data)
         
         s.trade_list.rename(columns={
             "Date_entry":"Date",
@@ -122,24 +184,38 @@ class TestSMA(TestStocks):
         s.trade_list["Symbol"] = s.trade_list["Symbol"].str.replace(".csv", "")
 
         # s.trade_list.sort_values(by="Ex. date", inplace=True)
-        s.trade_list.to_csv(r"Tests\temp_results\results_portfolio.csv")
+        s.trade_list.to_csv(r"D:\results_portfolio.csv")
 
         self.compare_dfs(baseline, s.trade_list)
             
 
-class StrategySMA(bt.Backtest):
+class StrategySMALong(bt.Backtest):
         def logic(self, current_asset):
             
             sma5 = SMA(current_asset, ["Close"], 5)
             sma25 = SMA(current_asset, ["Close"], 25)
 
-            buyCond = sma5() > sma25()
-            sellCond = sma5() < sma25()
+            self.cond.buy = sma5() > sma25()
+            self.cond.sell = sma5() < sma25()
             
-            shortCond = None
-            coverCond = None
+            # shortCond = sma5() < sma25()
+            # coverCond = sma5() > sma25()
 
-            return buyCond, sellCond, shortCond, coverCond
+            # return buyCond, sellCond, shortCond, coverCond
+
+class StrategySMAShort(bt.Backtest):
+        def logic(self, current_asset):
+            
+            sma5 = SMA(current_asset, ["Close"], 5)
+            sma25 = SMA(current_asset, ["Close"], 25)
+
+            self.cond.short = sma5() < sma25()
+            self.cond.cover = sma5() > sma25()
+            
+            # shortCond = sma5() < sma25()
+            # coverCond = sma5() > sma25()
+
+            # return buyCond, sellCond, shortCond, coverCond
 
 # might be useful for future testing
 # df1 = pd.DataFrame([1,2,3], "a b c".split())
@@ -164,13 +240,14 @@ def compdf(x,y):
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(TestSMA('test_stock'))
-    suite.addTest(TestSMA('test_portfolio'))
+    # suite.addTest(TestSMA('test_stock_long'))
+    # suite.addTest(TestSMA('test_portfolio'))
+    suite.addTest(TestSMA('test_stock_short'))
     return suite
 
 if __name__=="__main__":
     # t = TestSMA()
-    # t.test_stock()
+    # t.test_stock_long()
     # unittest.main()
     runner = unittest.TextTestRunner()
     runner.run(suite())
