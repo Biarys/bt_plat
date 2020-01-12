@@ -483,6 +483,9 @@ class Backtest(abc.ABC):
             weights = self.port.weights[asset].loc[dates]
 
             self.trade_list.loc[idx, "Weight"] = weights.values
+        # change values to display positive for short trades (isntead of negative shares)
+        self.trade_list["Weight"] = np.where(self.trade_list.Direction=="Long", 
+                                self.trade_list["Weight"], -self.trade_list["Weight"])
 
         # $ change
         self.trade_list["Dollar_change"] = self.trade_list[
@@ -507,7 +510,6 @@ class Backtest(abc.ABC):
         # % profit
         self.trade_list["Pct_profit"] = np.where(self.trade_list.Direction=="Long", 
                                         self.trade_list["Pct_change"], -self.trade_list["Pct_change"])
-        # self.trade_list.loc[]
 
         # Position value
         self.trade_list["Position_value"] = self.trade_list["Weight"] * self.trade_list["Entry_price"]
