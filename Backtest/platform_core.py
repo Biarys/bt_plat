@@ -154,8 +154,7 @@ class Backtest(abc.ABC):
 
     @staticmethod
     def _aggregate(agg_df, df, ax=1):
-        return pd.concat([agg_df, df], axis=ax)
-        
+        return pd.concat([agg_df, df], axis=ax)        
 
     def _run_portfolio(self):
         """
@@ -238,8 +237,7 @@ class Backtest(abc.ABC):
             # if there was an entry on that date
             # allocate weight
             # update avail amount (subtract)
-            self._execute_trades(current_bar)
-            
+            self._execute_trades(current_bar)            
 
             # POST STEPS
             # record unrealized gains/losses
@@ -374,7 +372,7 @@ class Backtest(abc.ABC):
         self.port.invested.loc[current_bar, affected_assets] = actually_invested
 
         # update portfolio avail amount -= sum of all invested money that day
-        self.port.avail_amount.loc[current_bar] -= self.port.invested.loc[current_bar, affected_assets].sum()
+        self.port.avail_amount.loc[current_bar] += self.port.invested.loc[current_bar, affected_assets].sum()
 
     def _execute_cover(self, current_bar):
         """
@@ -417,7 +415,7 @@ class Backtest(abc.ABC):
         pass
 
     def _update_for_fluct(self, df, in_trade_adjust, current_bar, prev_bar):
-        # TODO: Add buy_on high/low (might be look forward), add sell_on (open)
+        # TODO: Add sell_on (open)
         if current_bar not in self.agg_trans_prices.buyPrice.index:
             df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
         else:
@@ -425,30 +423,39 @@ class Backtest(abc.ABC):
             unaffected_assets = [col for col in in_trade_adjust.columns if col not in affected_assets]
 
             df.loc[current_bar] += in_trade_adjust.loc[current_bar, unaffected_assets].sum()
-            if Settings.buy_on.capitalize()=="Close":
-                # dont use fluc for that asset
-                # add fluc for all other in trade assets
-                pass
 
-            elif Settings.buy_on.capitalize()=="Open":
+            # removed Settings.buy_on close cuz it should just pass -> no point in having it
+            # removed Settings.buy_on high, low cuz of look forward bias -> how do you know 
+            if Settings.buy_on.capitalize()=="Open":
                 # add fluc for all in trade assets
                 df.loc[current_bar] += in_trade_adjust.loc[current_bar].values #?? double counting
 
-            elif Settings.buy_on.capitalize()=="High":
-                # use fluc high - close for that asset
-                # add fluc for all other in trade assets
-                pass
-
-            elif Settings.buy_on.capitalize()=="Low":
-                # use fluc low - close for that asset
-                # add fluc for all other in trade assets
-                pass
-            # if Settings.sell_on.capitalize()=="Close":
-            #     # ?? do sell settings need to be adj? prob not
-            #     pass
-        
         if current_bar in self.agg_trans_prices.sellPrice.index:
             affected_assets = self.agg_trans_prices.sellPrice.loc[current_bar].dropna().index.values
+            daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
+                            self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
+
+            if Settings.sell_on.capitalize()=="Close":
+                df.loc[current_bar] += daily_adj
+        #####################################################################################
+        # Copied code from above & modified for short/cover
+        #####################################################################################
+        if current_bar not in self.agg_trans_prices.shortPrice.index:
+            df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
+        else:
+            affected_assets = self.agg_trans_prices.shortPrice.loc[current_bar].dropna().index.values
+            unaffected_assets = [col for col in in_trade_adjust.columns if col not in affected_assets]
+
+            df.loc[current_bar] += in_trade_adjust.loc[current_bar, unaffected_assets].sum()
+
+            # removed Settings.buy_on close cuz it should just pass -> no point in having it
+            # removed Settings.buy_on high, low cuz of look forward bias -> how do you know 
+            if Settings.buy_on.capitalize()=="Open":
+                # add fluc for all in trade assets
+                df.loc[current_bar] += in_trade_adjust.loc[current_bar].values #?? double counting
+
+        if current_bar in self.agg_trans_prices.coverPrice.index:
+            affected_assets = self.agg_trans_prices.coverPrice.loc[current_bar].dropna().index.values
             daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
                             self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
 
@@ -498,8 +505,8 @@ class Backtest(abc.ABC):
         self.trade_list["Portfolio_value"] += self.settings.start_amount
 
         # % profit
-        # TODO: Pct_profit needs to change signs depending on long/short trade
-        self.trade_list["Pct_profit"] = self.trade_list["Pct_change"]
+        self.trade_list["Pct_profit"] = np.where(self.trade_list.Direction=="Long", 
+                                        self.trade_list["Pct_change"], -self.trade_list["Pct_change"])
         # self.trade_list.loc[]
 
         # Position value
