@@ -136,11 +136,11 @@ class Backtest(abc.ABC):
             trades_current_asset = Trades(rep, trade_signals, trans_prices)
 
             # save trade_signals for portfolio level
-            self.agg_trade_signals.buys = self._aggregate(self.agg_trade_signals.buys, trade_signals.buyCond)
-            self.agg_trade_signals.sells = self._aggregate(self.agg_trade_signals.sells, trade_signals.sellCond)
-            self.agg_trade_signals.shorts = self._aggregate(self.agg_trade_signals.shorts, trade_signals.shortCond)
-            self.agg_trade_signals.covers = self._aggregate(self.agg_trade_signals.covers, trade_signals.coverCond)
-            self.agg_trade_signals.all = self._aggregate(self.agg_trade_signals.all, trade_signals.all)
+            # self.agg_trade_signals.buys = self._aggregate(self.agg_trade_signals.buys, trade_signals.buyCond)
+            # self.agg_trade_signals.sells = self._aggregate(self.agg_trade_signals.sells, trade_signals.sellCond)
+            # self.agg_trade_signals.shorts = self._aggregate(self.agg_trade_signals.shorts, trade_signals.shortCond)
+            # self.agg_trade_signals.covers = self._aggregate(self.agg_trade_signals.covers, trade_signals.coverCond)
+            # self.agg_trade_signals.all = self._aggregate(self.agg_trade_signals.all, trade_signals.all)
 
             # save trans_prices for portfolio level
             self.agg_trans_prices.buyPrice = self._aggregate(self.agg_trans_prices.buyPrice, trans_prices.buyPrice)
