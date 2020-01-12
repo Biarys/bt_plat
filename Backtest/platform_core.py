@@ -282,6 +282,7 @@ class Backtest(abc.ABC):
         # portfolio value += profit
 
         self._generate_trade_list()
+
     def _execute_buy(self, current_bar):
         # find amount to be invested
         # to_invest = self.port.avail_amount.loc[
@@ -302,24 +303,21 @@ class Backtest(abc.ABC):
         rounded_weights = rounded_weights.mul(
             10**self.settings.round_to_decimals).apply(np.floor).div(
                 10**self.settings.round_to_decimals)
-        self.port.weights.loc[current_bar,
-                                affected_assets] = rounded_weights
+        self.port.weights.loc[current_bar, affected_assets] = rounded_weights
 
         # find actualy amount invested
         # TODO: adjust amount invested. Right now assumes all intended amount is allocated.
         # ? avail amount doesnt get adjusted for daily fluc?
         actually_invested = self.port.weights.loc[
-            current_bar,
-            affected_assets] * self.agg_trans_prices.buyPrice.loc[
+            current_bar, affected_assets] * self.agg_trans_prices.buyPrice.loc[
                 current_bar, affected_assets]
 
         # update portfolio invested amount
-        self.port.invested.loc[current_bar,
-                                affected_assets] = actually_invested
+        self.port.invested.loc[current_bar, affected_assets] = actually_invested
 
         # update portfolio avail amount -= sum of all invested money that day
-        self.port.avail_amount.loc[
-            current_bar] -= self.port.invested.loc[current_bar, affected_assets].sum()
+        self.port.avail_amount.loc[current_bar] -= self.port.invested.loc[current_bar, affected_assets].sum()
+
     def _execute_sell(self, current_bar):
         """
         if there was an exit on that date
@@ -329,7 +327,7 @@ class Backtest(abc.ABC):
         # prob need to change this part for scaling implementation
 
         # find assets that need allocation
-        # those that dont have buyPrice for that day wil have NaN
+        # those that dont have sellPrice for that day wil have NaN
         # drop them, keep those that have values
         affected_assets = self.agg_trans_prices.sellPrice.loc[
             current_bar].dropna().index.values
@@ -345,17 +343,76 @@ class Backtest(abc.ABC):
         self.port.weights.loc[current_bar, affected_assets] = 0
 
     def _execute_short(self, current_bar):
-        pass
+        # find amount to be invested
+        # to_invest = self.port.avail_amount.loc[
+        #     current_bar, "Available amount"] * self.settings.pct_invest
+        to_invest = self.port.value.loc[current_bar, "Portfolio value"
+            ] * self.settings.pct_invest
+
+        # find assets that need allocation
+        # those that dont have shortPrice for that day wil have NaN
+        # drop them, keep those that have values
+        affected_assets = self.agg_trans_prices.shortPrice.loc[
+            current_bar].dropna().index.values
+
+        # find current bar, affected assets
+        # allocate shares to all assets = invested amount/buy price
+        rounded_weights = to_invest / self.agg_trans_prices.shortPrice.loc[
+            current_bar, affected_assets]
+        rounded_weights = rounded_weights.mul(
+            10**self.settings.round_to_decimals).apply(np.floor).div(
+                10**self.settings.round_to_decimals)
+        self.port.weights.loc[current_bar, affected_assets] = -rounded_weights
+
+        # find actualy amount invested
+        # TODO: adjust amount invested. Right now assumes all intended amount is allocated.
+        # ? avail amount doesnt get adjusted for daily fluc?
+        actually_invested = self.port.weights.loc[
+            current_bar, affected_assets] * self.agg_trans_prices.shortPrice.loc[
+                current_bar, affected_assets]
+
+        # update portfolio invested amount
+        self.port.invested.loc[current_bar, affected_assets] = actually_invested
+
+        # update portfolio avail amount -= sum of all invested money that day
+        self.port.avail_amount.loc[current_bar] -= self.port.invested.loc[current_bar, affected_assets].sum()
+
     def _execute_cover(self, current_bar):
-        pass
+        """
+        if there was an exit on that date
+        set weight to 0
+        update avail amount
+        """
+        # prob need to change this part for scaling implementation
+
+        # find assets that need allocation
+        # those that dont have coverPrice for that day wil have NaN
+        # drop them, keep those that have values
+        affected_assets = self.agg_trans_prices.coverPrice.loc[
+            current_bar].dropna().index.values
+        # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
+        self.port.avail_amount.loc[current_bar] += (self.port.weights.loc[
+                current_bar, affected_assets] * self.agg_trans_prices.coverPrice.loc[
+                current_bar, affected_assets]).sum()
+
+        # set invested amount of the assets to 0
+        self.port.invested.loc[current_bar, affected_assets] = 0
+
+        # set weight to 0
+        self.port.weights.loc[current_bar, affected_assets] = 0
 
     def _execute_trades(self, current_bar):
         if current_bar in self.agg_trans_prices.buyPrice.index:
-            self._execute_buy(current_bar)
-            
+            self._execute_buy(current_bar)            
 
         if current_bar in self.agg_trans_prices.sellPrice.index:
             self._execute_sell(current_bar)
+
+        if current_bar in self.agg_trans_prices.shortPrice.index:
+            self._execute_short(current_bar)
+
+        if current_bar in self.agg_trans_prices.coverPrice.index:
+            self._execute_cover(current_bar)
 
     def _check_trade_list(self):
         pass
