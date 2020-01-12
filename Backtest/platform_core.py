@@ -485,31 +485,29 @@ class Backtest(abc.ABC):
             self.trade_list.loc[idx, "Weight"] = weights.values
         # change values to display positive for short trades (isntead of negative shares)
         self.trade_list["Weight"] = np.where(self.trade_list.Direction=="Long", 
-                                self.trade_list["Weight"], -self.trade_list["Weight"])
+                                    self.trade_list["Weight"], -self.trade_list["Weight"])
 
         # $ change
-        self.trade_list["Dollar_change"] = self.trade_list[
-            "Exit_price"] - self.trade_list["Entry_price"]
+        self.trade_list["Dollar_change"] = self.trade_list["Exit_price"] - self.trade_list["Entry_price"]
 
         # % change
-        self.trade_list["Pct_change"] = (
-            self.trade_list["Exit_price"] -
-            self.trade_list["Entry_price"]) / self.trade_list["Entry_price"]
+        self.trade_list["Pct_change"] = (self.trade_list["Exit_price"] -
+                                        self.trade_list["Entry_price"]) / self.trade_list["Entry_price"]
 
         # $ profit
-        self.trade_list["Dollar_profit"] = self.trade_list[
-            "Weight"] * self.trade_list["Dollar_change"]
+        self.trade_list["Dollar_profit"] = self.trade_list["Weight"] * self.trade_list["Dollar_change"]
+        self.trade_list["Dollar_profit"] = np.where(self.trade_list.Direction=="Long", 
+                                        self.trade_list["Dollar_profit"], -self.trade_list["Dollar_profit"])
         
+        # % profit
+        self.trade_list["Pct_profit"] = np.where(self.trade_list.Direction=="Long", 
+                                        self.trade_list["Pct_change"], -self.trade_list["Pct_change"])
         # cum profit
         self.trade_list["Cum_profit"] = self.trade_list["Dollar_profit"].cumsum()
 
         # Port value
         self.trade_list["Portfolio_value"] = self.trade_list["Dollar_profit"].cumsum()
         self.trade_list["Portfolio_value"] += self.settings.start_amount
-
-        # % profit
-        self.trade_list["Pct_profit"] = np.where(self.trade_list.Direction=="Long", 
-                                        self.trade_list["Pct_change"], -self.trade_list["Pct_change"])
 
         # Position value
         self.trade_list["Position_value"] = self.trade_list["Weight"] * self.trade_list["Entry_price"]
@@ -760,8 +758,7 @@ class Trades:
 
         # finding dollar price change
         # ? use inTradePrice - inTradePrice.shift(1) ?
-        self.priceFluctuation_dollar = rep.data["Close"] - rep.data[
-            "Close"].shift()
+        self.priceFluctuation_dollar = rep.data["Close"] - rep.data["Close"].shift()
         self.priceFluctuation_dollar.name = rep.name
 
 
