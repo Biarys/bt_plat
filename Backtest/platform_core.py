@@ -149,9 +149,8 @@ class Backtest(abc.ABC):
             self.agg_trans_prices.coverPrice = self._aggregate(self.agg_trans_prices.coverPrice, trans_prices.coverPrice)
             self.agg_trades.priceFluctuation_dollar = self._aggregate(self.agg_trades.priceFluctuation_dollar,
                                                                     trades_current_asset.priceFluctuation_dollar)
-            # fix trades -> gives exception
             self.agg_trades.trades = self._aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
-            self.agg_trades.inTradePrice = self._aggregate(self.agg_trades.inTradePrice, trades_current_asset.inTradePrice)
+            # self.agg_trades.inTradePrice = self._aggregate(self.agg_trades.inTradePrice, trades_current_asset.inTradePrice)
 
     @staticmethod
     def _aggregate(agg_df, df, ax=1):
@@ -169,7 +168,7 @@ class Backtest(abc.ABC):
         # copy index and column names for weights
         self.port.weights = pd.DataFrame(
             index=self.agg_trades.priceFluctuation_dollar.index,
-            columns=self.agg_trades.inTradePrice.columns)
+            columns=self.agg_trades.priceFluctuation_dollar.columns)
         self.port.weights.iloc[0] = 0  # set starting weight to 0
         self.port.weights = self.port.weights.astype(np.float)
 
