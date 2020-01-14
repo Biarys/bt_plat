@@ -416,27 +416,22 @@ class Backtest(abc.ABC):
 
     def _update_for_fluct(self, df, in_trade_adjust, current_bar, prev_bar):
         """
-        # POST STEPS
-        # record unrealized gains/losses
-        self.agg_trades.in_trade_price_fluc.loc[current_bar] = (self.agg_trades.priceFluctuation_dollar.loc[
-            current_bar] * self.port.weights.loc[current_bar])
-
-        # update avail amount for day's gain/loss            
-        self._update_for_fluct(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
-        self._update_for_fluct(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
-
-        ####
-        # Update for today's gains and losses
-        # Unless the stock was purchased today 
-        """
+        Update for today's gains and losses
+        """        
+        # By default does not record daily's P&L when stock position is closed that day
+        # This happens because sell/cover execution comes before _update_for_fluct
+        # Hence in_trade_adjust.loc[current_bar].sum() == 0 for the stocks that were closed
+        # because of this we need to manually adj P&L for that day
         df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
 
-        if (Settings.buy_on.capitalize()=="Close") and (current_bar in self.agg_trans_prices.buyPrice.index):
+
+        if current_bar in self.agg_trans_prices.buyPrice.index:
             # if buy_on close, then should not record today's gains/losses
-            # find assets that were entered today
-            affected_assets = self.agg_trans_prices.buyPrice.loc[current_bar].dropna().index.values
-            # deduct the amount for that asset
-            df.loc[current_bar] += in_trade_adjust.loc[current_bar, affected_assets].sum()
+            if Settings.buy_on.capitalize()=="Close":            
+                # find assets that were entered today
+                affected_assets = self.agg_trans_prices.buyPrice.loc[current_bar].dropna().index.values
+                # deduct the amount for that asset
+                df.loc[current_bar] -= in_trade_adjust.loc[current_bar, affected_assets].sum()
 
         if current_bar in self.agg_trans_prices.shortPrice.index:
             # if short_on close, then should not record today's gains/losses
@@ -444,8 +439,10 @@ class Backtest(abc.ABC):
                 # find assets that were entered today
                 affected_assets = self.agg_trans_prices.shortPrice.loc[current_bar].dropna().index.values
                 # deduct the amount for that asset
-                df.loc[current_bar] += in_trade_adjust.loc[current_bar, affected_assets].sum()
+                df.loc[current_bar] -= in_trade_adjust.loc[current_bar, affected_assets].sum()
 
+        # for position close (sell/cover) we add daily_adj instead of subtracting because of signs of the values 
+        # that we get needs is different from what is stored in in_trade_adjust.loc[current_bar, affected_assets]
         if current_bar in self.agg_trans_prices.sellPrice.index:
             # if sell_on close, then should not record today's gains/losses
             if Settings.sell_on.capitalize()=="Close":
@@ -457,7 +454,7 @@ class Backtest(abc.ABC):
                 df.loc[current_bar] += daily_adj
 
         if current_bar in self.agg_trans_prices.coverPrice.index:            
-            # if cover_on close, then should not record today's gains/losses
+            # if cover_on open, then should not record today's gains/losses
             if Settings.cover_on.capitalize()=="Close": 
                 # find assets that were entered today
                 affected_assets = self.agg_trans_prices.coverPrice.loc[current_bar].dropna().index.values
