@@ -444,7 +444,7 @@ class Backtest(abc.ABC):
         # for position close (sell/cover) we add daily_adj instead of subtracting because of signs of the values 
         # that we get needs is different from what is stored in in_trade_adjust.loc[current_bar, affected_assets]
         if current_bar in self.agg_trans_prices.sellPrice.index:
-            # if sell_on close, then should not record today's gains/losses
+            # if sell_on close, then should record today's gains/losses
             if Settings.sell_on.capitalize()=="Close":
                 # find assets that were entered today
                 affected_assets = self.agg_trans_prices.sellPrice.loc[current_bar].dropna().index.values
@@ -454,7 +454,7 @@ class Backtest(abc.ABC):
                 df.loc[current_bar] += daily_adj
 
         if current_bar in self.agg_trans_prices.coverPrice.index:            
-            # if cover_on open, then should not record today's gains/losses
+            # if cover_on open, then should record today's gains/losses
             if Settings.cover_on.capitalize()=="Close": 
                 # find assets that were entered today
                 affected_assets = self.agg_trans_prices.coverPrice.loc[current_bar].dropna().index.values
