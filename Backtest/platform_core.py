@@ -415,52 +415,103 @@ class Backtest(abc.ABC):
         pass
 
     def _update_for_fluct(self, df, in_trade_adjust, current_bar, prev_bar):
-        # TODO: Add sell_on (open)
-        if current_bar not in self.agg_trans_prices.buyPrice.index:
-            df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
-        else:
+        """
+        # POST STEPS
+        # record unrealized gains/losses
+        self.agg_trades.in_trade_price_fluc.loc[current_bar] = (self.agg_trades.priceFluctuation_dollar.loc[
+            current_bar] * self.port.weights.loc[current_bar])
+
+        # update avail amount for day's gain/loss            
+        self._update_for_fluct(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
+        self._update_for_fluct(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
+
+        ####
+        # Update for today's gains and losses
+        # Unless the stock was purchased today 
+        """
+        df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
+
+        if (Settings.buy_on.capitalize()=="Close") and (current_bar in self.agg_trans_prices.buyPrice.index):
+            # if buy_on close, then should not record today's gains/losses
+            # find assets that were entered today
             affected_assets = self.agg_trans_prices.buyPrice.loc[current_bar].dropna().index.values
-            unaffected_assets = [col for col in in_trade_adjust.columns if col not in affected_assets]
+            # deduct the amount for that asset
+            df.loc[current_bar] += in_trade_adjust.loc[current_bar, affected_assets].sum()
 
-            df.loc[current_bar] += in_trade_adjust.loc[current_bar, unaffected_assets].sum()
-
-            # removed Settings.buy_on close cuz it should just pass -> no point in having it
-            # removed Settings.buy_on high, low cuz of look forward bias -> how do you know 
-            if Settings.buy_on.capitalize()=="Open":
-                # add fluc for all in trade assets
-                df.loc[current_bar] += in_trade_adjust.loc[current_bar].values #?? double counting
+        if current_bar in self.agg_trans_prices.shortPrice.index:
+            # if short_on close, then should not record today's gains/losses
+            if Settings.short_on.capitalize()=="Close":
+                # find assets that were entered today
+                affected_assets = self.agg_trans_prices.shortPrice.loc[current_bar].dropna().index.values
+                # deduct the amount for that asset
+                df.loc[current_bar] += in_trade_adjust.loc[current_bar, affected_assets].sum()
 
         if current_bar in self.agg_trans_prices.sellPrice.index:
-            affected_assets = self.agg_trans_prices.sellPrice.loc[current_bar].dropna().index.values
-            daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
-                            self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
-
+            # if sell_on close, then should not record today's gains/losses
             if Settings.sell_on.capitalize()=="Close":
+                # find assets that were entered today
+                affected_assets = self.agg_trans_prices.sellPrice.loc[current_bar].dropna().index.values
+                # deduct the amount for that asset
+                daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
+                                self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
                 df.loc[current_bar] += daily_adj
-        #####################################################################################
-        # Copied code from above & modified for short/cover
-        #####################################################################################
-        if current_bar not in self.agg_trans_prices.shortPrice.index:
-            df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
-        else:
-            affected_assets = self.agg_trans_prices.shortPrice.loc[current_bar].dropna().index.values
-            unaffected_assets = [col for col in in_trade_adjust.columns if col not in affected_assets]
 
-            df.loc[current_bar] += in_trade_adjust.loc[current_bar, unaffected_assets].sum()
-
-            # removed Settings.buy_on close cuz it should just pass -> no point in having it
-            # removed Settings.buy_on high, low cuz of look forward bias -> how do you know 
-            if Settings.buy_on.capitalize()=="Open":
-                # add fluc for all in trade assets
-                df.loc[current_bar] += in_trade_adjust.loc[current_bar].values #?? double counting
-
-        if current_bar in self.agg_trans_prices.coverPrice.index:
-            affected_assets = self.agg_trans_prices.coverPrice.loc[current_bar].dropna().index.values
-            daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
-                            self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
-
-            if Settings.sell_on.capitalize()=="Close":
+        if current_bar in self.agg_trans_prices.coverPrice.index:            
+            # if cover_on close, then should not record today's gains/losses
+            if Settings.cover_on.capitalize()=="Close": 
+                # find assets that were entered today
+                affected_assets = self.agg_trans_prices.coverPrice.loc[current_bar].dropna().index.values
+                # deduct the amount for that asset
+                daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
+                                self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
                 df.loc[current_bar] += daily_adj
+
+        # # TODO: Add sell_on (open)
+        # if current_bar not in self.agg_trans_prices.buyPrice.index:
+        #     df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
+        # else:
+        #     affected_assets = self.agg_trans_prices.buyPrice.loc[current_bar].dropna().index.values
+        #     unaffected_assets = [col for col in in_trade_adjust.columns if col not in affected_assets]
+
+        #     df.loc[current_bar] += in_trade_adjust.loc[current_bar, unaffected_assets].sum()
+
+        #     # removed Settings.buy_on close cuz it should just pass -> no point in having it
+        #     # removed Settings.buy_on high, low cuz of look forward bias -> how do you know 
+        #     if Settings.buy_on.capitalize()=="Open":
+        #         # add fluc for all in trade assets
+        #         df.loc[current_bar] += in_trade_adjust.loc[current_bar].values #?? double counting
+
+        # if current_bar in self.agg_trans_prices.sellPrice.index:
+        #     affected_assets = self.agg_trans_prices.sellPrice.loc[current_bar].dropna().index.values
+        #     daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
+        #                     self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
+
+        #     if Settings.sell_on.capitalize()=="Close":
+        #         df.loc[current_bar] += daily_adj
+        # #####################################################################################
+        # # Copied code from above & modified for short/cover
+        # #####################################################################################
+        # if current_bar not in self.agg_trans_prices.shortPrice.index:
+        #     df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
+        # else:
+        #     affected_assets = self.agg_trans_prices.shortPrice.loc[current_bar].dropna().index.values
+        #     unaffected_assets = [col for col in in_trade_adjust.columns if col not in affected_assets]
+
+        #     df.loc[current_bar] += in_trade_adjust.loc[current_bar, unaffected_assets].sum()
+
+        #     # removed Settings.short_on close cuz it should just pass -> no point in having it
+        #     # removed Settings.short_on high, low cuz of look forward bias -> how do you know 
+        #     if Settings.short_on.capitalize()=="Open":
+        #         # add fluc for all in trade assets
+        #         df.loc[current_bar] += in_trade_adjust.loc[current_bar].values #?? double counting
+
+        # if current_bar in self.agg_trans_prices.coverPrice.index:
+        #     affected_assets = self.agg_trans_prices.coverPrice.loc[current_bar].dropna().index.values
+        #     daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
+        #                     self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
+
+        #     if Settings.cover_on.capitalize()=="Close":
+        #         df.loc[current_bar] += daily_adj
 
     def _generate_trade_list(self):
         self.trade_list = self.agg_trades.trades.copy()
