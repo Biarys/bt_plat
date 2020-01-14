@@ -135,8 +135,8 @@ class TestSMA(TestStocks):
 
             self.compare_dfs(baseline, s.trade_list)
 
-    def test_portfolio(self):
-        print("RUNNING PORTFOLIO TEST")
+    def test_portfolio_long(self):
+        print("RUNNING PORTFOLIO TEST - LONG")
         path = os.getcwd()
         baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
         baseline["Ex. date"] = baseline["Ex. date"].astype(str)
@@ -186,6 +186,60 @@ class TestSMA(TestStocks):
 
         # s.trade_list.sort_values(by="Ex. date", inplace=True)
         s.trade_list.to_csv(r"D:\results_portfolio.csv")
+
+        self.compare_dfs(baseline, s.trade_list)
+
+    def test_portfolio_short(self):
+        print("RUNNING PORTFOLIO TEST - SHORT")
+        path = os.getcwd()
+        baseline = pd.read_excel(path + r'\Tests\baseline_short_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
+        baseline["Ex. date"] = baseline["Ex. date"].astype(str)
+        Settings.read_from_csv_path = path + r"\stock_data"
+        Settings.read_from = "csvFiles"
+
+        data = DataReader()
+        data.readCSVFiles(Settings.read_from_csv_path)
+
+        s = StrategySMAShort("Test_SMA")
+        s.run(data.data)
+        
+        s.trade_list.rename(columns={
+            "Date_entry":"Date",
+            "Date_exit":"Ex. date",
+            "Direction":"Trade",
+            "Entry_price":"Price",
+            "Exit_price":"Ex. Price",
+            "Weight":"Shares",
+            "Pct_change":"% chg",
+            "Dollar_profit":"Profit",
+            "Pct_profit":"% Profit",
+            "Cum_profit":"Cum. Profit",
+            "Position_value":"Position value"
+        }, inplace=True)
+
+        s.trade_list = s.trade_list[[
+            "Symbol",
+            "Trade",
+            "Date",
+            "Price",	
+            "Ex. date",	
+            "Ex. Price",	
+            "% chg",
+            "Profit",	
+            "% Profit",	
+            "Shares",
+            "Position value",	
+            "Cum. Profit"
+        ]]
+        s.trade_list[["Price", "Ex. Price", "Profit", "Position value", "Cum. Profit"]] = s.trade_list[
+            ["Price", "Ex. Price", "Profit", "Position value", "Cum. Profit"]].round(2)
+        s.trade_list[["% chg", "% Profit"]] = s.trade_list[["% chg", "% Profit"]].round(4)
+        # s.trade_list["Ex. date"] = pd.to_datetime(s.trade_list["Ex. date"], errors="coerce")
+        s.trade_list["Ex. date"] = s.trade_list["Ex. date"].astype(str)
+        s.trade_list["Symbol"] = s.trade_list["Symbol"].str.replace(".csv", "")
+
+        # s.trade_list.sort_values(by="Ex. date", inplace=True)
+        s.trade_list.to_csv(r"D:\results_portfolio_short.csv")
 
         self.compare_dfs(baseline, s.trade_list)
             
@@ -242,8 +296,9 @@ def compdf(x,y):
 def suite():
     suite = unittest.TestSuite()
     # suite.addTest(TestSMA('test_stock_long'))
-    suite.addTest(TestSMA('test_portfolio'))
+    suite.addTest(TestSMA('test_portfolio_long'))
     # suite.addTest(TestSMA('test_stock_short'))
+    # suite.addTest(TestSMA('test_portfolio_short'))
     return suite
 
 if __name__=="__main__":
