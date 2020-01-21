@@ -1,4 +1,3 @@
-# %%
 import pandas as pd
 import numpy as np
 import os
@@ -624,7 +623,7 @@ class TradeSignal:
             first_entry = temp.index[0]
 
             df = df[first_entry:]
-            # df = _remove_dups(df)
+            df = _remove_dups(df)
         
         return df
             
@@ -915,6 +914,7 @@ def _roll_prev_value(df, current_bar, prev_bar):
     
 
 def _remove_dups(data):
+    data = data.ffill()
     data = data.where(data != data.shift(1))
     return data
 
