@@ -1,6 +1,6 @@
 import pandas as pd
 
-def time_frame_adj(df, to):
+def time_frame_set(df, to):
     """
     Converts dataframe to a desired frequency, then restores original indices, then ffill()
     """
@@ -25,8 +25,13 @@ def time_frame_adj(df, to):
 
     temp.index = temp.index + pd.Timedelta(hours=9, minutes=30)
 
-    restore_orig_index = pd.DataFrame(index=df.index)
-    restore_orig_index = restore_orig_index.join(temp, how="left").ffill()
+    return temp
+
+def time_frame_restore(current_asset, df_modif):
+    restore_orig_index = pd.DataFrame(index=current_asset.index)
+    df_modif.name = "Column1"
+    restore_orig_index = restore_orig_index.join(df_modif, how="left").ffill()
+    restore_orig_index = restore_orig_index["Column1"]
 
     return restore_orig_index
 
