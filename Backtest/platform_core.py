@@ -49,6 +49,7 @@ class Backtest(abc.ABC):
         self.settings = Settings
         self.log = logging.getLogger("Backtester")
         self.log.info("Backtester started!")
+        self.in_trade = {"long":0, "short":0}
         
 
     def run(self, data):
@@ -280,6 +281,7 @@ class Backtest(abc.ABC):
         self._generate_trade_list()
 
     def _execute_buy(self, current_bar):
+        self.in_trade["long"] = 1
         # find amount to be invested
         # to_invest = self.port.avail_amount.loc[
         #     current_bar, "Available amount"] * self.settings.pct_invest
@@ -320,6 +322,7 @@ class Backtest(abc.ABC):
         set weight to 0
         update avail amount
         """
+        self.in_trade["long"] = 0
         # prob need to change this part for scaling implementation
 
         # find assets that need allocation
@@ -339,6 +342,7 @@ class Backtest(abc.ABC):
         self.port.weights.loc[current_bar, affected_assets] = 0
 
     def _execute_short(self, current_bar):
+        self.in_trade["short"] = 1
         # find amount to be invested
         # to_invest = self.port.avail_amount.loc[
         #     current_bar, "Available amount"] * self.settings.pct_invest
@@ -379,6 +383,7 @@ class Backtest(abc.ABC):
         set weight to 0
         update avail amount
         """
+        self.in_trade["short"] = 0
         # prob need to change this part for scaling implementation
 
         # find assets that need allocation
@@ -398,16 +403,16 @@ class Backtest(abc.ABC):
         self.port.weights.loc[current_bar, affected_assets] = 0
 
     def _execute_trades(self, current_bar):
-        if current_bar in self.agg_trans_prices.buyPrice.index:
+        if (current_bar in self.agg_trans_prices.buyPrice.index) and (self.in_trade["long"]==0):
             self._execute_buy(current_bar)            
 
-        if current_bar in self.agg_trans_prices.sellPrice.index:
+        if (current_bar in self.agg_trans_prices.sellPrice.index) and (self.in_trade["long"]==1):
             self._execute_sell(current_bar)
 
-        if current_bar in self.agg_trans_prices.shortPrice.index:
+        if (current_bar in self.agg_trans_prices.shortPrice.index) and (self.in_trade["short"]==0):
             self._execute_short(current_bar)
 
-        if current_bar in self.agg_trans_prices.coverPrice.index:
+        if (current_bar in self.agg_trans_prices.coverPrice.index) and (self.in_trade["short"]==1):
             self._execute_cover(current_bar)
 
     def _check_trade_list(self):
@@ -556,8 +561,16 @@ class TradeSignal:
     def __init__(self, rep):
         # buy/sell/short/cover/all signals
         self.buyCond = _find_signals(rep.allCond["Buy"])
-        self.sellCond = _find_signals(rep.allCond["Sell"])
         self.shortCond = _find_signals(rep.allCond["Short"])
+
+        # keeping it here for now
+        from Backtest.indicators import ATR
+        atr = ATR(rep.data, 14)
+
+        self._apply_stop("buy", self.buyCond, rep, atr()*2)
+        self._apply_stop("short", self.buyCond, rep, atr()*2)
+
+        self.sellCond = _find_signals(rep.allCond["Sell"])
         self.coverCond = _find_signals(rep.allCond["Cover"])
 
         # self.buyCond.name = "Buy"
@@ -610,7 +623,29 @@ class TradeSignal:
         # # or using pd.ne()
         # # or self.all = self.all[self.all != self.all.shift()]
         # self.all = _remove_dups(self.all)
+    
+    def _apply_stop(self, buy_or_short, cond, rep, ind):
+        if buy_or_short == "buy":
+            temp_ind = rep.data["Close"] - ind 
+        elif buy_or_short == "short":
+            temp_ind = rep.data["Close"] + ind 
 
+        stops = pd.DataFrame(index=rep.data.index)
+        temp = temp_ind[cond==1]
+        temp.name = "ATR"
+        stops = stops.join(temp)
+        stops = stops.ffill()
+        stops = stops["ATR"]
+
+        # update sell/cover cond
+        if buy_or_short == "buy":
+            temp_cond = rep.data.Close < stops
+            rep.allCond["Sell"] = temp_cond | rep.allCond["Sell"]
+        elif buy_or_short == "short":
+            temp_cond = rep.data.Close > stops
+            rep.allCond["Cover"] = temp_cond | rep.allCond["Cover"]
+        
+        
     @staticmethod
     def _merge_signals(cond, out, rep, entry, col_name):        
         df = np.select(cond, out, default=0)
@@ -844,8 +879,8 @@ class Repeater:
         # self.sellCond = sellCond
         # self.shortCond = shortCond
         # self.coverCond = coverCond
-        self.allCond = allCond
         self.name = name
+        self.allCond = allCond
 
 class Cond:
     def __init__(self):
