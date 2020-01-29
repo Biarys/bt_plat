@@ -217,7 +217,6 @@ class Backtest(abc.ABC):
         # allocate weights
         for current_bar, row in self.port.avail_amount.iterrows():
             # weight = self.port value / entry
-
             prev_bar = self.port.avail_amount.index.get_loc(current_bar) - 1
 
             # not -1 cuz it will replace last value
@@ -568,7 +567,7 @@ class TradeSignal:
         atr = ATR(rep.data, 14)
 
         self._apply_stop("buy", self.buyCond, rep, atr()*2)
-        self._apply_stop("short", self.buyCond, rep, atr()*2)
+        self._apply_stop("short", self.shortCond, rep, atr()*2)
 
         self.sellCond = _find_signals(rep.allCond["Sell"])
         self.coverCond = _find_signals(rep.allCond["Cover"])
@@ -591,13 +590,14 @@ class TradeSignal:
         # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
         #         self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
         #         self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
-
-        cond = [(self._buy_shift == 1), (self._sell_shift == 1)]
-        out = ["Buy", "Sell"]
+        # ! In case of buy and sell signal occuring on the same candle, Sell/Cover signal is prefered over Buy/Short
+        # ! might create signal problems in the future
+        cond = [(self._sell_shift == 1), (self._buy_shift == 1)]
+        out = ["Sell", "Buy"]
         self.long = self._merge_signals(cond, out, rep, self._buy_shift, "Long")
 
-        cond = [(self._short_shift == 1), (self._cover_shift == 1)]
-        out = ["Short", "Cover"]
+        cond = [(self._cover_shift == 1), (self._short_shift == 1)]
+        out = ["Cover", "Short"]
         self.short = self._merge_signals(cond, out, rep, self._short_shift, "Short")
 
         self.all_merged = pd.concat([self.long, self.short], axis=1)
@@ -754,7 +754,7 @@ class Trades:
         long = trans_prices.buyPrice.reset_index()
         sell = trans_prices.sellPrice.reset_index()
         short = trans_prices.shortPrice.reset_index()
-        cover = trans_prices.coverPrice.reset_index()     
+        cover = trans_prices.coverPrice.reset_index()
 
         long["Direction"] = "Long"
         short["Direction"] = "Short"
