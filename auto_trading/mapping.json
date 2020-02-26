@@ -1,12 +1,12 @@
 {
     "forex": {
-        "EURGBP": {
+        "EUR.GBP": {
             "symbol":"EUR",
             "secType":"CASH",
             "currency":"GBP",
             "exchange":"IDEALPRO"
         },
-        "EURUSD": {
+        "EUR.USD": {
             "symbol":"EUR",
             "secType":"CASH",
             "currency":"USD",
@@ -15,7 +15,7 @@
     },
     "stock": {
         "note": "In the API side, NASDAQ is always defined as ISLAND in the exchange field!!!",
-        "AMZN":{
+        "AMZN.USD":{
             "symbol":"AMZN",
             "secType":"STK",
             "currency":"USD",
@@ -24,3 +24,4 @@
         }
     }
 }
+
