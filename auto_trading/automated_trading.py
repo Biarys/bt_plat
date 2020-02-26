@@ -81,13 +81,13 @@ def _setup_log(name, level=logging.INFO):
 class IBContract:
 
     @staticmethod
-    def stock(symbol, secType, currency, exchange, primaryExchange):
+    def stock(ticker):
         contract = Contract()
-        contract.symbol = symbol
-        contract.secType = secType        
-        contract.currency = currency
-        contract.exchange = exchange
-        contract.primaryExchange = primaryExchange
+        contract.symbol = ticker["symbol"]
+        contract.secType = ticker["secType"]        
+        contract.currency = ticker["currency"]
+        contract.exchange = ticker["exchange"]
+        contract.primaryExchange = ticker["primaryExchange"]
         return contract
 
     @staticmethod
