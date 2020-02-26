@@ -72,23 +72,6 @@ class Backtest(abc.ABC):
         pass
 
     def run(self, data):
-        # self.con, self.meta = db.connect(config.user, config.password,
-        #                                  config.db)
-        # self.meta.reflect(bind=self.con)
-
-        # self.id = self.con.execute(
-        #     "INSERT INTO \"backtests\" (name) VALUES ('{}') RETURNING backtest_id"
-        #     .format(self.name)).fetchall()[0][0]  # fetchall() to get the tuple
-
-        # print(f"Backtest #{self.id} is running")
-
-        # self.data.readDB(self.con, self.meta, index_col="Date")
-        # if self.settings.read_from=="csvFiles":
-        #     self.data.readCSVFiles(self.settings.read_from_csv_path)
-        # elif self.settings.read_from=="csvFile":
-        #     self.data.readCSV(self.settings.read_from_csv_path)
-        # elif self.settings.read_from=="ib":
-        #     self.data.readIB(self)
         try:   
             self.runs_at = dt.now()
             self._prepare_data(data)
@@ -115,7 +98,7 @@ class Backtest(abc.ABC):
             temp["Close"] = data[name]["Close"].groupby("Date").nth(-1)
 
             # TODO:
-            # volume need to be chage for forex, etc cuz gives volume of -1
+            # volume need to be change for forex, etc cuz gives volume of -1
             # because of that, summing volume will produce wrong result
             temp["Volume"] = data[name]["Volume"].groupby("Date").sum()
 
@@ -268,36 +251,7 @@ class Backtest(abc.ABC):
             self._update_for_fluct(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
             self._update_for_fluct(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
 
-        # self.agg_trans_prices.priceFluctuation_dollar.fillna(0, inplace=True)
-        # # find daily fluc per asset
-        # self.port.profit_daily_fluc_per_asset = self.port.weights * self.agg_trans_prices.priceFluctuation_dollar
-        # # find daily fluc for that day for all assets (sum of fluc for that day)
-        # self.port.equity_curve = self.port.profit_daily_fluc_per_asset.sum(1)
-        # # set starting amount
-        # self.port.equity_curve.iloc[0] = self.settings.start_amount
-        # # apply fluctuation to equity curve
-        # self.port.equity_curve = self.port.equity_curve.cumsum()
-        # # self.port.equity_curve.columns
-        # self.port.equity_curve.name = "Equity"
-
         self._generate_equity_curve()
-
-        # testing
-        # self.port.value = self.port.equity_curve.sum()
-        # ! doesnt do anything
-        # self.port.weights.columns = ["w_" + col for col in self.port.weights.columns]
-
-        # self.port.equity_curve.to_sql("equity_curve", self.con, if_exists="replace")
-        # df_all = pd.concat([self.port.avail_amount, self.port.equity_curve], axis=1)
-        # df_all.to_sql("df_all", self.con, if_exists="replace")
-        # self.port.weights.to_sql("t_weights", self.con, if_exists="replace")
-        # self.port.avail_amount.to_sql(
-        #     "port_avail_amount", self.con, if_exists="replace")
-        # self.port.invested.to_sql("port_invested", self.con, if_exists="replace")
-
-        # profit = weight * chg
-        # portfolio value += profit
-
         self._generate_trade_list()
 
     def _execute_buy(self, current_bar):
@@ -623,21 +577,7 @@ class TradeSignal:
 
         self.all_merged = pd.concat([self.long, self.short], axis=1)
         self.all_merged.index.name = "Date"
-        
-        # old logic
-        # cond = [(self._buy_shift == 1), (self._sell_shift == 1)]
-        # out = ["Buy", "Sell"]
-        # self.all = np.select(cond, out, default=0)
-        # self.all = pd.DataFrame(self.all, index=rep.data.index, columns=[rep.name])
-        # self.all = self.all.replace("0", np.NAN)
-
-        # # find where first buy occured
-        # first_buy = self._buy_shift.dropna().index[0]
-
-        # # drop all sell signals that come before first buy
-        # self.all = self.all[first_buy:]
-
-        # # ? might not be needed cuz TransPrice drops na and removes dups
+    
         # # remove all extra signals
         # # https://stackoverflow.com/questions/19463985/pandas-drop-consecutive-duplicates
         # # alternative, possibly faster solution ^
@@ -922,44 +862,6 @@ class Cond:
 
         # self.all = pd.concat([self.buy, self.sell, self.short, self.cover], axis=1)
 
-# class Settings:
-#     """
-#     Defines backtest settings
-#     """
-
-#     def __init__(self):
-#         self.start_amount = 10000
-
-#         # which col to use for calc buy/sell price
-#         self.buy_on = "Close"
-#         self.sell_on = "Close"
-#         self.short_on = "Close"
-#         self.cover_on = "Close"
-
-#         # number of bars to delay entry/exit
-#         self.buy_delay = 0
-#         self.sell_delay = 0
-#         self.short_delay = 0
-#         self.cover_delay = 0
-#         # self.min_bars_hold
-#         # self.max_bars_hold or self.exit_after_bars ?
-
-#         # ? replace with dict?
-#         self.pct_invest = 0.1
-#         self.round_to_decimals = 0
-
-#         # not implemented yet
-#         # self.max_open_positions = None
-#         # self.max_open_long = None
-#         # self.max_open_short = None
-#         # self.set_margin = 100
-
-#         # # position size
-#         # self.min_shares = 0
-#         # self.min_position_value = 0
-#         # self.max_shares = 0
-#         # self.max_position_value = 0
-
 
 # ? ##################
 # ? Helper functions #
@@ -978,6 +880,9 @@ def _find_signals(df):
     return df.where(df != df.shift(1).fillna(df[0])).shift(0)
 
 if __name__ == "__main__":
+    print("=======================")
+    print("Run from main.py file!")
+    print("=======================")
     Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data\AA.csv"
     Settings.read_from = "csvFile"
     Settings.buy_delay = 0
