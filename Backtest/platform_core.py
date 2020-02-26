@@ -50,7 +50,26 @@ class Backtest(abc.ABC):
         self.log = logging.getLogger("Backtester")
         self.log.info("Backtester started!")
         self.in_trade = {"long":0, "short":0}
-        
+        self.universe_ranking = pd.DataFrame()
+
+    def preprocessing(self, data):
+        """
+        Called once before running through the data.
+        Should be used to generate values that need to be known prior running logic such as ranking among asset classes.
+        For example, if we want to know top 10 momentum stocks every month or stocks above 200 MA, this data can be generated at this stage.
+
+        Inputs: self + all data that will be used for the backtest
+        """
+        pass
+
+    def postprocessing(self, data):
+        """
+        Called right after logic.
+        Should be used to generated values that depend on buy/sell/short/cover signal such as stops/take profits.
+
+        Inputs: self + all data that will be used for the backtest
+        """
+        pass
 
     def run(self, data):
         # self.con, self.meta = db.connect(config.user, config.password,
@@ -73,6 +92,7 @@ class Backtest(abc.ABC):
         try:   
             self.runs_at = dt.now()
             self._prepare_data(data)
+            self.preprocessing(data)
             self._run_portfolio()
         except Exception as e:
             print(e)
@@ -121,7 +141,8 @@ class Backtest(abc.ABC):
             # strategy logic
             # buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
             self.cond = Cond()
-            self.logic(current_asset)
+            self.logic(name)
+            self.postprocessing(name)
             self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
             self.cond._combine() # combine all conds into all
             # if buyCond is None and shortCond is None:
