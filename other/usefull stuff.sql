@@ -50,3 +50,6 @@ SELECT pg_cancel_backend(<pid>)
 --If the process cannot be killed, try:
 
 SELECT pg_terminate_backend(<pid>)
+
+--size of table
+SELECT pg_size_pretty(pg_total_relation_size('"year_2020"'));
