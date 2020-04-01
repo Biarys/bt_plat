@@ -6,13 +6,13 @@ import threading
 import time
 from queue import Queue
 
-from Backtest import Settings as settings
-
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
 from ibapi.order import Order
 
+from auto_trading.other import send_email
+from Backtest import Settings as settings
 
 # ! CLIENT                      # Client Cancel             # WRAPPER
 # ? IsConnected()               
@@ -357,29 +357,68 @@ class IBApp(_IBWrapper, _IBClient):
             self.nextValidOrderId += 1
             return oid
         
+    def cancel_open_positions(self):
+        self.reqPositions()
+
+        while not self.open_positions_received:
+            time.sleep(0.5)
+
+        for ix, pos in self.open_positions.iterrows():
+            self.placeOrder(self.nextOrderId(), IBContract.stock(file["stock"][pos["symbol_currency"]]), IBOrder.MarketOrder("SELL", pos["quantity"]))
+
+    def submit_orders(self, trades):
+        self.reqPositions()
+        self.reqOpenOrders()
+        bt_orders = trades[trades["Date_exit"] == "Open"]
+
+        while (not self.open_orders_received) and (not self.open_positions_received):
+            time.sleep(0.5)
+            
+        current_orders = self.open_orders
+        current_positions = self.open_positions[self.open_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
+
+        if len(bt_orders) == 0:
+            # close all positions and orders
+            self.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
+            self.cancel_open_positions()
+            send_email(f"Orders has been cancelled: {self.open_orders}. Positions have been cancelled {self.open_positions}")
+        else:
+            # buy logic
+            for ix, order in bt_orders.iterrows():
+                # _buy_or_sell = "BUY" if order["Direction"] == "Long" else "SELL"
+                asset = order["Symbol"]
+                # _asset = order["Symbol"].split(".")
+                # _asset = "".join(_asset)
+                
+                # simple check to see if current order has already been submitted
+                if (asset not in current_orders["symbol_currency"].values) and (asset not in current_positions["symbol_currency"].values):
+                    self.placeOrder(self.nextOrderId(), IBContract.stock(file["stock"][asset]), IBOrder.MarketOrder("BUY", order["Position_value"]))
+                    send_email(f"BUY - {asset} - {order['Position_value']}")
+            # sell logic
+            for ix, order in current_positions.iterrows():
+                asset = order["symbol_currency"]
+                if (asset not in bt_orders["Symbol"].values) and (asset not in current_orders["symbol_currency"].values):
+                    self.placeOrder(self.nextOrderId(), IBContract.stock(file["stock"][asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
+                    send_email(f"SELL - {asset} - {order['quantity']}")
+
+    def run_every_min(self, data):
+        prev_min = None
+        while True:
+            now = dt.now()
+            recent_min = now.minute
+            if now.second == 5 and recent_min != prev_min:
+                prev_min = recent_min
+                # TODO: replaced hardcoded Strategy. Gotta find a way to invoke new object each run/appen to previoius one (prob better)
+                strat = Strategy("Test_SMA") # gotta create new object, otherwise it duplicates previous results
+                print("Running strategy")
+                strat.run(data)
+                self.submit_orders(strat.trade_list)
+
     # def place_order(self):
     #     self.simplePlaceOid = self.nextValidId()
     #     self.placeOrder(self.simplePlaceOid, ContractSamples.USStock(),
     #                     OrderSamples.LimitOrder("SELL", 1, 50))
 
-def main():
-    app = IBApp()
-    app.connect("127.0.0.1", 7497, 0) #4002 for gateway, 7497 for TWS
-    
-    # contract.symbol = "AAPL"
-    #     contract.secType = "STK"
-    #     contract.exchange = "SMART"
-    #     contract.currency = "USD"
-    #     contract.primaryExchange = "NASDAQ"
-    # app.reqContractDetails(10, contract)
-    # app.queryDisplayGroups(9006)
-    #app.reqAccountSummary(9006, "All", "AccountType")
-    #app.reqPositions()
-    app.start()
-    # app.run()
-    # # app.place_order()
-    # app.reqAccountSummary(tags=["AccountType", "TotalCashValue"])
-    
 
 if __name__ == "__main__":
-    main()
+    print("You are not running from the main script!")
