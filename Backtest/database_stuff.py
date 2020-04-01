@@ -13,9 +13,9 @@ from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, 
 
 # TODO: needs to be moved/changed
 import os
-if not os.path.exists("Backtest/config.py"):
-    with open("Backtest/config.py", "w+") as config_file:
-        config_file.write("user='TestUser' \npassword='TestPass'\ndb='testDB'")
+# if not os.path.exists("Backtest/config.py"):
+#     with open("Backtest/config.py", "w+") as config_file:
+#         config_file.write("user='TestUser' \npassword='TestPass'\ndb='testDB'")
 # own files
 from . import config
 

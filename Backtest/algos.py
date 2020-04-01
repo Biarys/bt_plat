@@ -44,3 +44,16 @@ def stop_time(df, hour=0, minute=0, second=0):
     stop = df.index.time == dt.time(hour, minute, second)
     stop = pd.Series(stop, index=df.index)
     return stop
+
+# def apply_stop(buy_or_short, indic, stop_type="fixed"):
+#     if stop_type.lower()=="fixed":
+#         # if buy -> sell_cond = C - indic <- since entry <- need to expand entry till exit
+#         # if short -> cover_cond = C + indic <- since entry <- need to expand entry till exit
+#         pass
+
+# class Stop:
+#     def __init__(self, buy_or_short, indic, stop_type="fixed"):
+#         self.type = stop_type.lower()
+#         self.buy_or_short = buy_or_short
+#         self.values = indic
+        
