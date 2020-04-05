@@ -33,7 +33,7 @@ class TestSMA(TestStocks):
         path = os.getcwd()
         for name in self.stock_list:
             print(f"RUNNING TEST FOR {name}")
-            baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_{name}.xlsx'.format(name=name), sheet_name="Tests")
+            baseline = pd.read_excel(path + r'\Tests\Long\baseline_sma_5_25_{name}.xlsx'.format(name=name), sheet_name="Tests")
             baseline["Ex. date"] = baseline["Ex. date"].astype(str)
             Settings.read_from_csv_path = path + r"\stock_data\{name}.csv".format(
                 name=name)
@@ -86,7 +86,7 @@ class TestSMA(TestStocks):
         path = os.getcwd()
         for name in self.stock_list:
             print(f"RUNNING TEST FOR {name}")
-            baseline = pd.read_excel(path + r'\Tests\baseline_short_sma_5_25_{name}.xlsx'.format(name=name), sheet_name="Tests")
+            baseline = pd.read_excel(path + r'\Tests\Short\baseline_short_sma_5_25_{name}.xlsx'.format(name=name), sheet_name="Tests")
             baseline["Ex. date"] = baseline["Ex. date"].astype(str)
             Settings.read_from_csv_path = path + r"\stock_data\{name}.csv".format(
                 name=name)
@@ -138,7 +138,7 @@ class TestSMA(TestStocks):
     def test_portfolio_long(self):
         print("RUNNING PORTFOLIO TEST - LONG")
         path = os.getcwd()
-        baseline = pd.read_excel(path + r'\Tests\baseline_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
+        baseline = pd.read_excel(path + r'\Tests\Long\baseline_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
         baseline["Ex. date"] = baseline["Ex. date"].astype(str)
         Settings.read_from_csv_path = path + r"\stock_data"
         Settings.read_from = "csvFiles"
@@ -192,7 +192,7 @@ class TestSMA(TestStocks):
     def test_portfolio_short(self):
         print("RUNNING PORTFOLIO TEST - SHORT")
         path = os.getcwd()
-        baseline = pd.read_excel(path + r'\Tests\baseline_short_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
+        baseline = pd.read_excel(path + r'\Tests\Short\baseline_short_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
         baseline["Ex. date"] = baseline["Ex. date"].astype(str)
         Settings.read_from_csv_path = path + r"\stock_data"
         Settings.read_from = "csvFiles"
@@ -295,8 +295,8 @@ def compdf(x,y):
 
 def suite():
     suite = unittest.TestSuite()
-    # suite.addTest(TestSMA('test_stock_long'))
-    suite.addTest(TestSMA('test_portfolio_long'))
+    suite.addTest(TestSMA('test_stock_long'))
+    # suite.addTest(TestSMA('test_portfolio_long'))
     # suite.addTest(TestSMA('test_stock_short'))
     # suite.addTest(TestSMA('test_portfolio_short'))
     return suite
