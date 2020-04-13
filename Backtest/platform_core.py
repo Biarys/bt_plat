@@ -124,8 +124,8 @@ class Backtest(abc.ABC):
             # strategy logic
             # buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
             self.cond = Cond()
-            self.logic(name)
-            self.postprocessing(name)
+            self.logic(current_asset)
+            self.postprocessing(current_asset)
             self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
             self.cond._combine() # combine all conds into all
             # if buyCond is None and shortCond is None:
@@ -377,16 +377,16 @@ class Backtest(abc.ABC):
         self.port.weights.loc[current_bar, affected_assets] = 0
 
     def _execute_trades(self, current_bar):
-        if (current_bar in self.agg_trans_prices.buyPrice.index) and (self.in_trade["long"]==0):
+        if (current_bar in self.agg_trans_prices.buyPrice.index):# and (self.in_trade["long"]==0):
             self._execute_buy(current_bar)            
 
-        if (current_bar in self.agg_trans_prices.sellPrice.index) and (self.in_trade["long"]==1):
+        if (current_bar in self.agg_trans_prices.sellPrice.index):# and (self.in_trade["long"]==1):
             self._execute_sell(current_bar)
 
-        if (current_bar in self.agg_trans_prices.shortPrice.index) and (self.in_trade["short"]==0):
+        if (current_bar in self.agg_trans_prices.shortPrice.index):# and (self.in_trade["short"]==0):
             self._execute_short(current_bar)
 
-        if (current_bar in self.agg_trans_prices.coverPrice.index) and (self.in_trade["short"]==1):
+        if (current_bar in self.agg_trans_prices.coverPrice.index):# and (self.in_trade["short"]==1):
             self._execute_cover(current_bar)
 
     def _check_trade_list(self):
@@ -538,11 +538,11 @@ class TradeSignal:
         self.shortCond = _find_signals(rep.allCond["Short"])
 
         # keeping it here for now
-        from Backtest.indicators import ATR
-        atr = ATR(rep.data, 14)
+        # from Backtest.indicators import ATR
+        # atr = ATR(rep.data, 14)
 
-        self._apply_stop("buy", self.buyCond, rep, atr()*2)
-        self._apply_stop("short", self.shortCond, rep, atr()*2)
+        # self._apply_stop("buy", self.buyCond, rep, atr()*2)
+        # self._apply_stop("short", self.shortCond, rep, atr()*2)
 
         self.sellCond = _find_signals(rep.allCond["Sell"])
         self.coverCond = _find_signals(rep.allCond["Cover"])

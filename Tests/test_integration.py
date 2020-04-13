@@ -296,9 +296,9 @@ def compdf(x,y):
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(TestSMA('test_stock_long'))
-    # suite.addTest(TestSMA('test_portfolio_long'))
-    # suite.addTest(TestSMA('test_stock_short'))
-    # suite.addTest(TestSMA('test_portfolio_short'))
+    suite.addTest(TestSMA('test_portfolio_long'))
+    suite.addTest(TestSMA('test_stock_short'))
+    suite.addTest(TestSMA('test_portfolio_short'))
     return suite
 
 if __name__=="__main__":
