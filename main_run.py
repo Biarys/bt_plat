@@ -93,8 +93,8 @@ def run_every_min(data):
 
 
 if __name__ == "__main__":
-    # Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data\XOM.csv"
-    # Settings.read_from = "csvFile"
+    Settings.read_from_csv_path = r"D:\HDF5\stocks_test.h5"
+    # Settings.read_from = "hdf"
     
     # Settings.buy_delay = 0
     # Settings.sell_delay = 0
@@ -105,64 +105,68 @@ if __name__ == "__main__":
             sma5 = SMA(current_asset, ["Close"], 5)
             sma25 = SMA(current_asset, ["Close"], 25)
 
-            buyCond = sma5() > sma25()
-            sellCond = sma5() < sma25()
+            self.cond.buy = sma5() > sma25()
+            self.cond.sell = sma5() < sma25()
             
-            shortCond = None
-            coverCond = None
+            # self.cond.shortCond = None
+            # self.cond.coverCond = None
 
-            return buyCond, sellCond, shortCond, coverCond
+            # return buyCond, sellCond, shortCond, coverCond
     
-    # s = Strategy("Test_SMA")
-    # s.run()
+    # ! current run takes 86 seconds
+    data = DataReader()
+    data.read_hdf_pd(Settings.read_from_csv_path)
+    
+    s = Strategy("Test_SMA")
+    s.run(data.data)
     # s.trade_list = s.trade_list.round(2)
     # s.trade_list.to_csv("trades.csv")
     # s.port.value.round(2).to_csv("avail_amount.csv")
 
-    # data = DataReader()
 
-    with open(Settings.path_to_mapping, "r") as f:
-        file = json.loads(f.read())
 
-    app = at.IBApp()
-    app.connect("127.0.0.1", 7497, 0) #4002 for gateway, 7497 for TWS
-    app.start()
-    #app.reqAccountSummary(9006, "All", "AccountType")
+    # with open(Settings.path_to_mapping, "r") as f:
+    #     file = json.loads(f.read())
 
-    # app.reqIds(-1)
-    #app.placeOrder(app.nextOrderId(), at.IBContract.EurGbpFx(), at.IBOrder.MarketOrder("BUY", 500))
-    # app.nextOrderId()
-    # app.placeOrder(app.nextOrderId(), at.IBContract.EurGbpFx(), at.IBOrder.LimitOrder("BUY", 500, 0.85))
-    # app.placeOrder(app.nextOrderId(), at.IBContract.EurGbpFx(), at.IBOrder.Stop("BUY", 500, 0.87))
-    # print(app.nextValidOrderId)
-    # app.reqOpenOrders()
-    # app.cancelOrder(10)
-    # app.reqPositions()
-    app.reqHistoricalData(reqId=app.nextOrderId(), 
-                        contract=at.IBContract.forex(file["forex"]["EUR.GBP"]),
-                        #endDateTime="20191125 00:00:00",
-                        endDateTime="",
-                        durationStr="1 D", 
-                        barSizeSetting="1 min",
-                        whatToShow="MIDPOINT",
-                        useRTH=1,
-                        formatDate=1,
-                        keepUpToDate=True,
-                        chartOptions=[]
-                        )
-    app.reqHistoricalData(reqId=app.nextOrderId(), 
-                        contract=at.IBContract.forex(file["forex"]["EUR.USD"]),
-                        #endDateTime="20191125 00:00:00",
-                        endDateTime="",
-                        durationStr="1 D", 
-                        barSizeSetting="1 min",
-                        whatToShow="MIDPOINT",
-                        useRTH=1,
-                        formatDate=1,
-                        keepUpToDate=True,
-                        chartOptions=[]
-                        )
-    # print(app.data_tracker)
-    # print(app.data)
-    # s.run(app.data)
-    run_every_min(app.data)
+    # app = at.IBApp()
+    # app.connect("127.0.0.1", 7497, 0) #4002 for gateway, 7497 for TWS
+    # app.start()
+    # #app.reqAccountSummary(9006, "All", "AccountType")
+
+    # # app.reqIds(-1)
+    # #app.placeOrder(app.nextOrderId(), at.IBContract.EurGbpFx(), at.IBOrder.MarketOrder("BUY", 500))
+    # # app.nextOrderId()
+    # # app.placeOrder(app.nextOrderId(), at.IBContract.EurGbpFx(), at.IBOrder.LimitOrder("BUY", 500, 0.85))
+    # # app.placeOrder(app.nextOrderId(), at.IBContract.EurGbpFx(), at.IBOrder.Stop("BUY", 500, 0.87))
+    # # print(app.nextValidOrderId)
+    # # app.reqOpenOrders()
+    # # app.cancelOrder(10)
+    # # app.reqPositions()
+    # app.reqHistoricalData(reqId=app.nextOrderId(), 
+    #                     contract=at.IBContract.forex(file["forex"]["EUR.GBP"]),
+    #                     #endDateTime="20191125 00:00:00",
+    #                     endDateTime="",
+    #                     durationStr="1 D", 
+    #                     barSizeSetting="1 min",
+    #                     whatToShow="MIDPOINT",
+    #                     useRTH=1,
+    #                     formatDate=1,
+    #                     keepUpToDate=True,
+    #                     chartOptions=[]
+    #                     )
+    # app.reqHistoricalData(reqId=app.nextOrderId(), 
+    #                     contract=at.IBContract.forex(file["forex"]["EUR.USD"]),
+    #                     #endDateTime="20191125 00:00:00",
+    #                     endDateTime="",
+    #                     durationStr="1 D", 
+    #                     barSizeSetting="1 min",
+    #                     whatToShow="MIDPOINT",
+    #                     useRTH=1,
+    #                     formatDate=1,
+    #                     keepUpToDate=True,
+    #                     chartOptions=[]
+    #                     )
+    # # print(app.data_tracker)
+    # # print(app.data)
+    # # s.run(app.data)
+    # run_every_min(app.data)

@@ -188,12 +188,16 @@ class Backtest(abc.ABC):
             index=self.agg_trades.priceFluctuation_dollar.index,
              columns=["Portfolio value"])
         self.port.value.iloc[0] = self.settings.start_amount
+        # self.port.value = np.array([0]*len(self.agg_trades.priceFluctuation_dollar.index))
+        # self.port.value[0] = self.settings.start_amount
 
         # copy index and set column name for avail amount
         self.port.avail_amount = pd.DataFrame(
             index=self.agg_trades.priceFluctuation_dollar.index,
             columns=["Available amount"])
         self.port.avail_amount.iloc[0] = self.settings.start_amount
+        # self.port.avail_amount = np.array([0]*self.agg_trades.priceFluctuation_dollar.index)
+        # self.port.avail_amount[0] = self.settings.start_amount
         # self.port.avail_amount.ffill(inplace=True)
 
         # copy index and column names for invested amount
@@ -431,7 +435,7 @@ class Backtest(abc.ABC):
                 df.loc[current_bar] += daily_adj
 
         if current_bar in self.agg_trans_prices.coverPrice.index:            
-            # if cover_on open, then should record today's gains/losses
+            # if cover_on close, then should record today's gains/losses
             if Settings.cover_on.capitalize()=="Close": 
                 # find assets that were entered today
                 affected_assets = self.agg_trans_prices.coverPrice.loc[current_bar].dropna().index.values
