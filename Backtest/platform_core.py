@@ -184,12 +184,12 @@ class Backtest(abc.ABC):
 
         # prepare value, avail amount, invested
         # copy index and column names for portfolio change
-        self.port.value = pd.DataFrame(
-            index=self.agg_trades.priceFluctuation_dollar.index,
-             columns=["Portfolio value"])
-        self.port.value.iloc[0] = self.settings.start_amount
-        # self.port.value = np.array([0]*len(self.agg_trades.priceFluctuation_dollar.index))
-        # self.port.value[0] = self.settings.start_amount
+        # self.port.value = pd.DataFrame(
+        #     index=self.agg_trades.priceFluctuation_dollar.index,
+        #      columns=["Portfolio value"])
+        # self.port.value.iloc[0] = self.settings.start_amount
+        self.port.value = np.array([0]*len(self.agg_trades.priceFluctuation_dollar.index), dtype=np.float)
+        self.port.value[0] = self.settings.start_amount
 
         # copy index and set column name for avail amount
         self.port.avail_amount = pd.DataFrame(
@@ -226,6 +226,7 @@ class Backtest(abc.ABC):
         for current_bar, row in self.port.avail_amount.iterrows():
             # weight = self.port value / entry
             prev_bar = self.port.avail_amount.index.get_loc(current_bar) - 1
+            current_bar_int = prev_bar + 1
 
             # not -1 cuz it will replace last value
             if prev_bar != -1:
@@ -233,7 +234,7 @@ class Backtest(abc.ABC):
                 _roll_prev_value(self.port.avail_amount, current_bar, prev_bar)
 
                 # update port value (roll)
-                _roll_prev_value(self.port.value, current_bar, prev_bar)
+                _roll_prev_value_np(self.port.value, current_bar_int, prev_bar)
 
                 # update invested amount (roll)
                 _roll_prev_value(self.port.invested, current_bar, prev_bar)
@@ -244,7 +245,7 @@ class Backtest(abc.ABC):
             # if there was an entry on that date
             # allocate weight
             # update avail amount (subtract)
-            self._execute_trades(current_bar)            
+            self._execute_trades(current_bar, current_bar_int)            
 
             # POST STEPS
             # record unrealized gains/losses
@@ -253,18 +254,17 @@ class Backtest(abc.ABC):
 
             # update avail amount for day's gain/loss            
             self._update_for_fluct(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
-            self._update_for_fluct(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
+            self._update_for_fluct_np(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar, current_bar_int)
 
         self._generate_equity_curve()
         self._generate_trade_list()
 
-    def _execute_buy(self, current_bar):
+    def _execute_buy(self, current_bar, current_bar_int):
         self.in_trade["long"] = 1
         # find amount to be invested
         # to_invest = self.port.avail_amount.loc[
         #     current_bar, "Available amount"] * self.settings.pct_invest
-        to_invest = self.port.value.loc[current_bar, "Portfolio value"
-            ] * self.settings.pct_invest
+        to_invest = self.port.value[current_bar_int] * self.settings.pct_invest
 
         # find assets that need allocation
         # those that dont have buyPrice for that day wil have NaN
@@ -294,7 +294,7 @@ class Backtest(abc.ABC):
         # update portfolio avail amount -= sum of all invested money that day
         self.port.avail_amount.loc[current_bar] -= self.port.invested.loc[current_bar, affected_assets].sum()
 
-    def _execute_sell(self, current_bar):
+    def _execute_sell(self, current_bar, current_bar_int):
         """
         if there was an exit on that date
         set weight to 0
@@ -319,13 +319,12 @@ class Backtest(abc.ABC):
         # set weight to 0
         self.port.weights.loc[current_bar, affected_assets] = 0
 
-    def _execute_short(self, current_bar):
+    def _execute_short(self, current_bar, current_bar_int):
         self.in_trade["short"] = 1
         # find amount to be invested
         # to_invest = self.port.avail_amount.loc[
         #     current_bar, "Available amount"] * self.settings.pct_invest
-        to_invest = self.port.value.loc[current_bar, "Portfolio value"
-            ] * self.settings.pct_invest
+        to_invest = self.port.value[current_bar_int] * self.settings.pct_invest
 
         # find assets that need allocation
         # those that dont have shortPrice for that day wil have NaN
@@ -355,7 +354,7 @@ class Backtest(abc.ABC):
         # update portfolio avail amount -= sum of all invested money that day
         self.port.avail_amount.loc[current_bar] += self.port.invested.loc[current_bar, affected_assets].sum()
 
-    def _execute_cover(self, current_bar):
+    def _execute_cover(self, current_bar, current_bar_int):
         """
         if there was an exit on that date
         set weight to 0
@@ -380,18 +379,18 @@ class Backtest(abc.ABC):
         # set weight to 0
         self.port.weights.loc[current_bar, affected_assets] = 0
 
-    def _execute_trades(self, current_bar):
+    def _execute_trades(self, current_bar, current_bar_int):
         if (current_bar in self.agg_trans_prices.buyPrice.index):# and (self.in_trade["long"]==0):
-            self._execute_buy(current_bar)            
+            self._execute_buy(current_bar, current_bar_int)            
 
         if (current_bar in self.agg_trans_prices.sellPrice.index):# and (self.in_trade["long"]==1):
-            self._execute_sell(current_bar)
+            self._execute_sell(current_bar, current_bar_int)
 
         if (current_bar in self.agg_trans_prices.shortPrice.index):# and (self.in_trade["short"]==0):
-            self._execute_short(current_bar)
+            self._execute_short(current_bar, current_bar_int)
 
         if (current_bar in self.agg_trans_prices.coverPrice.index):# and (self.in_trade["short"]==1):
-            self._execute_cover(current_bar)
+            self._execute_cover(current_bar, current_bar_int)
 
     def _check_trade_list(self):
         pass
@@ -443,6 +442,54 @@ class Backtest(abc.ABC):
                 daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
                                 self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
                 df.loc[current_bar] += daily_adj
+
+    def _update_for_fluct_np(self, df, in_trade_adjust, current_bar, prev_bar, current_bar_int):
+        """
+        Update for today's gains and losses
+        """        
+        # By default does not record daily's P&L when stock position is closed that day
+        # This happens because sell/cover execution comes before _update_for_fluct
+        # Hence in_trade_adjust.loc[current_bar].sum() == 0 for the stocks that were closed
+        # because of this we need to manually adj P&L for that day
+        df[current_bar_int] += in_trade_adjust.loc[current_bar].sum()
+
+        if current_bar in self.agg_trans_prices.buyPrice.index:
+            # if buy_on close, then should not record today's gains/losses
+            if Settings.buy_on.capitalize()=="Close":            
+                # find assets that were entered today
+                affected_assets = self.agg_trans_prices.buyPrice.loc[current_bar].dropna().index.values
+                # deduct the amount for that asset
+                df[current_bar_int] -= in_trade_adjust.loc[current_bar, affected_assets].sum()
+
+        if current_bar in self.agg_trans_prices.shortPrice.index:
+            # if short_on close, then should not record today's gains/losses
+            if Settings.short_on.capitalize()=="Close":
+                # find assets that were entered today
+                affected_assets = self.agg_trans_prices.shortPrice.loc[current_bar].dropna().index.values
+                # deduct the amount for that asset
+                df[current_bar_int] -= in_trade_adjust.loc[current_bar, affected_assets].sum()
+
+        # for position close (sell/cover) we add daily_adj instead of subtracting because of signs of the values 
+        # that we get needs is different from what is stored in in_trade_adjust.loc[current_bar, affected_assets]
+        if current_bar in self.agg_trans_prices.sellPrice.index:
+            # if sell_on close, then should record today's gains/losses
+            if Settings.sell_on.capitalize()=="Close":
+                # find assets that were entered today
+                affected_assets = self.agg_trans_prices.sellPrice.loc[current_bar].dropna().index.values
+                # deduct the amount for that asset
+                daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
+                                self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
+                df[current_bar_int] += daily_adj
+
+        if current_bar in self.agg_trans_prices.coverPrice.index:            
+            # if cover_on close, then should record today's gains/losses
+            if Settings.cover_on.capitalize()=="Close": 
+                # find assets that were entered today
+                affected_assets = self.agg_trans_prices.coverPrice.loc[current_bar].dropna().index.values
+                # deduct the amount for that asset
+                daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
+                                self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
+                df[current_bar_int] += daily_adj
 
     def _generate_trade_list(self):
         self.trade_list = self.agg_trades.trades.copy()
@@ -874,6 +921,9 @@ def _roll_prev_value(df, current_bar, prev_bar):
     # might wanna return, just to be sure?
     df.loc[current_bar] = df.iloc[prev_bar]
     
+def _roll_prev_value_np(df, current_bar, prev_bar):
+    # might wanna return, just to be sure?
+    df[current_bar] = df[prev_bar]
 
 def _remove_dups(data):
     data = data.ffill()
