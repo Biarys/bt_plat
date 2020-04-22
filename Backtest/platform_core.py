@@ -192,12 +192,12 @@ class Backtest(abc.ABC):
         self.port.value[0] = self.settings.start_amount
 
         # copy index and set column name for avail amount
-        self.port.avail_amount = pd.DataFrame(
-            index=idx,
-            columns=["Available amount"])
-        self.port.avail_amount.iloc[0] = self.settings.start_amount
-        # self.port.avail_amount = np.array([0]*len(idx), dtype=np.float)
-        # self.port.avail_amount[0] = self.settings.start_amount
+        # self.port.avail_amount = pd.DataFrame(
+        #     index=idx,
+        #     columns=["Available amount"])
+        # self.port.avail_amount.iloc[0] = self.settings.start_amount
+        self.port.avail_amount = np.array([0]*len(idx), dtype=np.float)
+        self.port.avail_amount[0] = self.settings.start_amount
         # self.port.avail_amount.ffill(inplace=True)
 
         # copy index and column names for invested amount
@@ -223,15 +223,15 @@ class Backtest(abc.ABC):
 
         # run portfolio level
         # allocate weights
-        for current_bar, row in self.port.avail_amount.iterrows():
+        for current_bar in idx:
             # weight = self.port value / entry
-            prev_bar = self.port.avail_amount.index.get_loc(current_bar) - 1
+            prev_bar = idx.get_loc(current_bar) - 1
             current_bar_int = prev_bar + 1
 
             # not -1 cuz it will replace last value
             if prev_bar != -1:
                 # update avail amount (roll)
-                _roll_prev_value(self.port.avail_amount, current_bar, prev_bar)
+                _roll_prev_value_np(self.port.avail_amount, current_bar_int, prev_bar)
 
                 # update port value (roll)
                 _roll_prev_value_np(self.port.value, current_bar_int, prev_bar)
@@ -253,7 +253,7 @@ class Backtest(abc.ABC):
                 current_bar_int] * self.port.weights.loc[current_bar])
 
             # update avail amount for day's gain/loss            
-            self._update_for_fluct(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar)
+            self._update_for_fluct_np(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar, current_bar_int)
             self._update_for_fluct_np(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar, current_bar_int)
 
         self._generate_equity_curve()
@@ -293,7 +293,7 @@ class Backtest(abc.ABC):
 
         # update portfolio avail amount -= sum of all invested money that day
         # self.port.avail_amount.loc[current_bar] -= self.port.invested.loc[current_bar, affected_assets].sum()
-        self.port.avail_amount.loc[current_bar] -= actually_invested
+        self.port.avail_amount[current_bar_int] -= actually_invested.sum()
 
     def _execute_sell(self, current_bar, current_bar_int):
         """
@@ -310,7 +310,7 @@ class Backtest(abc.ABC):
         affected_assets = self.agg_trans_prices.sellPrice.loc[
             current_bar].dropna().index.values
         # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
-        self.port.avail_amount.loc[current_bar] += (self.port.weights.loc[
+        self.port.avail_amount[current_bar_int] += (self.port.weights.loc[
                 current_bar, affected_assets] * self.agg_trans_prices.sellPrice.loc[
                 current_bar, affected_assets]).sum()
 
@@ -354,7 +354,7 @@ class Backtest(abc.ABC):
 
         # update portfolio avail amount -= sum of all invested money that day
         # self.port.avail_amount.loc[current_bar] += self.port.invested.loc[current_bar, affected_assets].sum()
-        self.port.avail_amount.loc[current_bar] += actually_invested
+        self.port.avail_amount[current_bar_int] += actually_invested.sum()
 
     def _execute_cover(self, current_bar, current_bar_int):
         """
@@ -371,7 +371,7 @@ class Backtest(abc.ABC):
         affected_assets = self.agg_trans_prices.coverPrice.loc[
             current_bar].dropna().index.values
         # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
-        self.port.avail_amount.loc[current_bar] += (self.port.weights.loc[
+        self.port.avail_amount[current_bar_int] += (self.port.weights.loc[
                 current_bar, affected_assets] * self.agg_trans_prices.coverPrice.loc[
                 current_bar, affected_assets]).sum()
 
