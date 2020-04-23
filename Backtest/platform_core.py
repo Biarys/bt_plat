@@ -16,9 +16,6 @@ from Backtest import Settings
 # for testing
 from datetime import datetime as dt
 
-# ! opporunities for improvement
-# ! _execute trade to numpy - currently takes 24.23% of exec time
-# ! port.weights to numpy - currently takes 18.07% of exec time
 
 #############################################
 # Data reading
@@ -46,7 +43,7 @@ class Backtest(abc.ABC):
         self.data = {}
         self.runs_at = dt.now() # for logging and data prep purposes. Gets updated when self.run() is called
         self.port = Portfolio()
-        self.agg_trade_signals = Agg_TradeSingal()
+        # self.agg_trade_signals = Agg_TradeSingal()
         self.agg_trans_prices = Agg_TransPrice()
         self.agg_trades = Agg_Trades()
         self.trade_list = None
@@ -158,7 +155,7 @@ class Backtest(abc.ABC):
             self.agg_trades.priceFluctuation_dollar = self._aggregate(self.agg_trades.priceFluctuation_dollar,
                                                                     trades_current_asset.priceFluctuation_dollar)
             self.agg_trades.trades = self._aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
-            # self.agg_trades.inTradePrice = self._aggregate(self.agg_trades.inTradePrice, trades_current_asset.inTradePrice)
+            # self. = self._aggregate(self.agg_trades.inTradePrice, trades_current_asset.inTradePrice)
 
     @staticmethod
     def _aggregate(agg_df, df, ax=1):
@@ -170,14 +167,16 @@ class Backtest(abc.ABC):
         """
         # prepare data for portfolio
         self._prepricing()
-        idx = self.agg_trades.priceFluctuation_dollar.index
+        self.idx = self.agg_trades.priceFluctuation_dollar.index
+        num_of_cols = len(self.data.keys())
         # prepare portfolio level
         # copy index and column names for weights
-        self.port.weights = pd.DataFrame(
-            index=idx,
-            columns=self.agg_trades.priceFluctuation_dollar.columns)
-        self.port.weights.iloc[0] = 0  # set starting weight to 0
-        self.port.weights = self.port.weights.astype(np.float)
+        # self.port.weights = pd.DataFrame(
+        #     index=idx,
+        #     columns=self.agg_trades.priceFluctuation_dollar.columns)
+        # self.port.weights.iloc[0] = 0  # set starting weight to 0
+        # self.port.weights = self.port.weights.astype(np.float)
+        self.port.weights = np.zeros((len(self.idx), num_of_cols))
 
         # nan in the beg cuz of .shift while finding priceFluctuation
         # to avoid nan in the beg
@@ -192,7 +191,7 @@ class Backtest(abc.ABC):
         #     index=self.agg_trades.priceFluctuation_dollar.index,
         #      columns=["Portfolio value"])
         # self.port.value.iloc[0] = self.settings.start_amount
-        self.port.value = np.array([0]*len(idx), dtype=np.float)
+        self.port.value = np.array([0]*len(self.idx), dtype=np.float)
         self.port.value[0] = self.settings.start_amount
 
         # copy index and set column name for avail amount
@@ -200,7 +199,7 @@ class Backtest(abc.ABC):
         #     index=idx,
         #     columns=["Available amount"])
         # self.port.avail_amount.iloc[0] = self.settings.start_amount
-        self.port.avail_amount = np.array([0]*len(idx), dtype=np.float)
+        self.port.avail_amount = np.array([0]*len(self.idx), dtype=np.float)
         self.port.avail_amount[0] = self.settings.start_amount
         # self.port.avail_amount.ffill(inplace=True)
 
@@ -214,7 +213,7 @@ class Backtest(abc.ABC):
         #     index=idx,
         #     columns=self.port.weights.columns
         # )
-        self.agg_trades.in_trade_price_fluc = np.zeros((len(idx), len(self.port.weights.columns))) # float by default
+        self.agg_trades.in_trade_price_fluc = np.zeros((len(self.idx), num_of_cols)) # float by default
         # put trades in chronological order
         # self.agg_trades.trades.sort_values("Date_entry", inplace=True)
         # self.agg_trades.trades.reset_index(drop=True, inplace=True)
@@ -228,9 +227,9 @@ class Backtest(abc.ABC):
 
         # run portfolio level
         # allocate weights
-        for current_bar in idx:
+        for current_bar in self.idx:
             # weight = self.port value / entry
-            prev_bar = idx.get_loc(current_bar) - 1
+            prev_bar = self.idx.get_loc(current_bar) - 1
             current_bar_int = prev_bar + 1
 
             # not -1 cuz it will replace last value
@@ -245,7 +244,7 @@ class Backtest(abc.ABC):
                 # _roll_prev_value(self.port.invested, current_bar, prev_bar)
 
                 # update weight anyway cuz if buy, the wont roll for other stocks (roll)
-                _roll_prev_value(self.port.weights, current_bar, prev_bar)
+                _roll_prev_value_np(self.port.weights, current_bar_int, prev_bar)
 
             # if there was an entry on that date
             # allocate weight
@@ -255,7 +254,7 @@ class Backtest(abc.ABC):
             # POST STEPS
             # record unrealized gains/losses
             self.agg_trades.in_trade_price_fluc[current_bar_int] = (self.agg_trades.priceFluctuation_dollar.iloc[
-                current_bar_int] * self.port.weights.loc[current_bar]).values
+                current_bar_int] * self.port.weights[current_bar_int]).values
 
             # update avail amount for day's gain/loss            
             self._update_for_fluct_np(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar, current_bar_int)
@@ -283,13 +282,12 @@ class Backtest(abc.ABC):
         rounded_weights = rounded_weights.mul(
             10**self.settings.round_to_decimals).apply(np.floor).div(
                 10**self.settings.round_to_decimals)
-        self.port.weights.loc[current_bar, affected_assets] = rounded_weights
+        self.port.weights[current_bar_int][affected_assets] = rounded_weights
 
         # find actualy amount invested
         # TODO: adjust amount invested. Right now assumes all intended amount is allocated.
         # ? avail amount doesnt get adjusted for daily fluc?
-        actually_invested = self.port.weights.loc[
-            current_bar, affected_assets] * self.agg_trans_prices.buyPrice.loc[
+        actually_invested = self.port.weights[current_bar_int][affected_assets] * self.agg_trans_prices.buyPrice.loc[
                 current_bar, affected_assets]
 
         # update portfolio invested amount
@@ -313,15 +311,15 @@ class Backtest(abc.ABC):
         # drop them, keep those that have values
         affected_assets = _find_affected_assets(self.agg_trans_prices.sellPrice, current_bar)
         # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
-        self.port.avail_amount[current_bar_int] += (self.port.weights.loc[
-                current_bar, affected_assets] * self.agg_trans_prices.sellPrice.loc[
+        self.port.avail_amount[current_bar_int] += (self.port.weights[current_bar_int][
+            affected_assets] * self.agg_trans_prices.sellPrice.loc[
                 current_bar, affected_assets]).sum()
 
         # set invested amount of the assets to 0
         # self.port.invested.loc[current_bar, affected_assets] = 0
 
         # set weight to 0
-        self.port.weights.loc[current_bar, affected_assets] = 0
+        self.port.weights[current_bar_int][affected_assets] = 0
 
     def _execute_short(self, current_bar, current_bar_int):
         self.in_trade["short"] = 1
@@ -342,13 +340,12 @@ class Backtest(abc.ABC):
         rounded_weights = rounded_weights.mul(
             10**self.settings.round_to_decimals).apply(np.floor).div(
                 10**self.settings.round_to_decimals)
-        self.port.weights.loc[current_bar, affected_assets] = -rounded_weights
+        self.port.weights[current_bar_int][affected_assets] = -rounded_weights
 
         # find actualy amount invested
         # TODO: adjust amount invested. Right now assumes all intended amount is allocated.
         # ? avail amount doesnt get adjusted for daily fluc?
-        actually_invested = self.port.weights.loc[
-            current_bar, affected_assets] * self.agg_trans_prices.shortPrice.loc[
+        actually_invested = self.port.weights[current_bar_int][affected_assets] * self.agg_trans_prices.shortPrice.loc[
                 current_bar, affected_assets]
 
         # update portfolio invested amount
@@ -372,15 +369,15 @@ class Backtest(abc.ABC):
         # drop them, keep those that have values
         affected_assets = _find_affected_assets(self.agg_trans_prices.coverPrice, current_bar)
         # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
-        self.port.avail_amount[current_bar_int] += (self.port.weights.loc[
-                current_bar, affected_assets] * self.agg_trans_prices.coverPrice.loc[
+        self.port.avail_amount[current_bar_int] += (self.port.weights[current_bar_int][
+            affected_assets] * self.agg_trans_prices.coverPrice.loc[
                 current_bar, affected_assets]).sum()
 
         # set invested amount of the assets to 0
         # self.port.invested.loc[current_bar, affected_assets] = 0
 
         # set weight to 0
-        self.port.weights.loc[current_bar, affected_assets] = 0
+        self.port.weights[current_bar_int][affected_assets] = 0
 
     def _execute_trades(self, current_bar, current_bar_int):
         if (current_bar in self.agg_trans_prices.buyPrice.index):# and (self.in_trade["long"]==0):
@@ -482,7 +479,7 @@ class Backtest(abc.ABC):
                 # find assets that were entered today
                 affected_assets = _find_affected_assets(self.agg_trans_prices.sellPrice, current_bar)
                 # deduct the amount for that asset
-                daily_adj = (self.port.weights.iloc[prev_bar][affected_assets] * 
+                daily_adj = (self.port.weights[prev_bar][affected_assets] * 
                                 self.agg_trades.priceFluctuation_dollar.iloc[current_bar_int][affected_assets]).sum()
                 df[current_bar_int] += daily_adj
 
@@ -492,7 +489,7 @@ class Backtest(abc.ABC):
                 # find assets that were entered today
                 affected_assets = _find_affected_assets(self.agg_trans_prices.coverPrice, current_bar)
                 # deduct the amount for that asset
-                daily_adj = (self.port.weights.iloc[prev_bar][affected_assets] * 
+                daily_adj = (self.port.weights[prev_bar][affected_assets] * 
                                 self.agg_trades.priceFluctuation_dollar.iloc[current_bar_int][affected_assets]).sum()
                 df[current_bar_int] += daily_adj
 
@@ -513,10 +510,12 @@ class Backtest(abc.ABC):
             idx = self.trade_list[self.trade_list["Symbol"] ==
                                   asset]["Date_entry"].index
             # grab all weights for the asset on entry date
+            dates_locs = np.searchsorted(self.idx, dates)
+            asset_loc = list(self.data.keys()).index(asset)
             # ? might have probems with scaling (probably will)
-            weights = self.port.weights[asset].loc[dates]
+            weights = self.port.weights[dates_locs, asset_loc]
 
-            self.trade_list.loc[idx, "Weight"] = weights.values
+            self.trade_list.loc[idx, "Weight"] = weights
         # change values to display positive for short trades (isntead of negative shares)
         self.trade_list["Weight"] = np.where(self.trade_list.Direction=="Long", 
                                     self.trade_list["Weight"], -self.trade_list["Weight"])
@@ -822,7 +821,7 @@ class Agg_Trades:
         self.trades = pd.DataFrame()
         # self.inTrade = pd.DataFrame()
         self.weights = pd.DataFrame()
-        self.inTradePrice = pd.DataFrame()
+        # self.inTradePrice = pd.DataFrame()
         self.priceFluctuation_dollar = pd.DataFrame()
         self.in_trade_price_fluc = pd.DataFrame()
 

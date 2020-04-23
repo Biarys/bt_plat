@@ -13,6 +13,7 @@ import json
 from datetime import datetime as dt
 import time
 import smtplib, ssl 
+import numpy as np
 # from email.mime.text import MIMEText
 
 def send_email(message):
@@ -113,7 +114,7 @@ if __name__ == "__main__":
 
             # return buyCond, sellCond, shortCond, coverCond
     
-    # ! current run takes 86 seconds
+
     data = DataReader()
     data.read_hdf_pd(Settings.read_from_csv_path)
     
@@ -122,7 +123,7 @@ if __name__ == "__main__":
     # s.trade_list = s.trade_list.round(2)
     # s.trade_list.to_csv("trades.csv")
     # s.port.value.round(2).to_csv("avail_amount.csv")
-
+    # np.savetxt("avail_amount.csv", s.port.value, delimiter=",")
 
 
     # with open(Settings.path_to_mapping, "r") as f:
