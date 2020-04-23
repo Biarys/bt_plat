@@ -16,6 +16,10 @@ from Backtest import Settings
 # for testing
 from datetime import datetime as dt
 
+# ! opporunities for improvement
+# ! _execute trade to numpy - currently takes 24.23% of exec time
+# ! port.weights to numpy - currently takes 18.07% of exec time
+
 #############################################
 # Data reading
 # Construct indicator
@@ -270,8 +274,7 @@ class Backtest(abc.ABC):
         # find assets that need allocation
         # those that dont have buyPrice for that day wil have NaN
         # drop them, keep those that have values
-        affected_assets = self.agg_trans_prices.buyPrice.loc[
-            current_bar].dropna().index.values
+        affected_assets = _find_affected_assets(self.agg_trans_prices.buyPrice, current_bar)
 
         # find current bar, affected assets
         # allocate shares to all assets = invested amount/buy price
@@ -308,8 +311,7 @@ class Backtest(abc.ABC):
         # find assets that need allocation
         # those that dont have sellPrice for that day wil have NaN
         # drop them, keep those that have values
-        affected_assets = self.agg_trans_prices.sellPrice.loc[
-            current_bar].dropna().index.values
+        affected_assets = _find_affected_assets(self.agg_trans_prices.sellPrice, current_bar)
         # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
         self.port.avail_amount[current_bar_int] += (self.port.weights.loc[
                 current_bar, affected_assets] * self.agg_trans_prices.sellPrice.loc[
@@ -331,8 +333,7 @@ class Backtest(abc.ABC):
         # find assets that need allocation
         # those that dont have shortPrice for that day wil have NaN
         # drop them, keep those that have values
-        affected_assets = self.agg_trans_prices.shortPrice.loc[
-            current_bar].dropna().index.values
+        affected_assets = _find_affected_assets(self.agg_trans_prices.shortPrice, current_bar)
 
         # find current bar, affected assets
         # allocate shares to all assets = invested amount/buy price
@@ -369,8 +370,7 @@ class Backtest(abc.ABC):
         # find assets that need allocation
         # those that dont have coverPrice for that day wil have NaN
         # drop them, keep those that have values
-        affected_assets = self.agg_trans_prices.coverPrice.loc[
-            current_bar].dropna().index.values
+        affected_assets = _find_affected_assets(self.agg_trans_prices.coverPrice, current_bar)
         # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
         self.port.avail_amount[current_bar_int] += (self.port.weights.loc[
                 current_bar, affected_assets] * self.agg_trans_prices.coverPrice.loc[
