@@ -140,11 +140,11 @@ class TestSMA(TestStocks):
         path = os.getcwd()
         baseline = pd.read_excel(path + r'\Tests\Long\baseline_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
         baseline["Ex. date"] = baseline["Ex. date"].astype(str)
-        Settings.read_from_csv_path = path + r"\stock_data"
-        Settings.read_from = "csvFiles"
+        Settings.read_from_csv_path = r"D:\HDF5\stocks_test.h5"
+        # Settings.read_from = "csvFiles"
 
         data = DataReader()
-        data.readCSVFiles(Settings.read_from_csv_path)
+        data.read_hdf_pd(Settings.read_from_csv_path)
 
         s = StrategySMALong("Test_SMA")
         s.run(data.data)
@@ -295,7 +295,7 @@ def compdf(x,y):
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(TestSMA('test_stock_long'))
+    # suite.addTest(TestSMA('test_stock_long'))
     suite.addTest(TestSMA('test_portfolio_long'))
     suite.addTest(TestSMA('test_stock_short'))
     suite.addTest(TestSMA('test_portfolio_short'))
