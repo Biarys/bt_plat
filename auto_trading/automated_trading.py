@@ -5,6 +5,8 @@ import os
 import threading
 import time
 from queue import Queue
+import json
+import smtplib, ssl 
 
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
@@ -13,6 +15,7 @@ from ibapi.order import Order
 
 from auto_trading.other import send_email
 from Backtest import Settings as settings
+import Backtest.config as config
 
 # ! CLIENT                      # Client Cancel             # WRAPPER
 # ? IsConnected()               
@@ -338,6 +341,11 @@ class IBApp(_IBWrapper, _IBClient):
  
         # self.reqAllOpenOrders()
         # self.reqCurrentTime()
+        self.reqPositions()
+        self.reqOpenOrders()
+
+        with open(settings.path_to_mapping, "r") as f:
+            self.asset_map = json.loads(f.read())
         
         ib_thread = threading.Thread(target=self.run, name="Interactive Broker Client Thread", )
         ib_thread.start()
@@ -364,11 +372,52 @@ class IBApp(_IBWrapper, _IBClient):
             time.sleep(0.5)
 
         for ix, pos in self.open_positions.iterrows():
-            self.placeOrder(self.nextOrderId(), IBContract.stock(file["stock"][pos["symbol_currency"]]), IBOrder.MarketOrder("SELL", pos["quantity"]))
+            self.placeOrder(self.nextOrderId(), IBContract.stock(self.asset_map["stock"][pos["symbol_currency"]]), IBOrder.MarketOrder("SELL", pos["quantity"]))
+
+    def run_every_min(self, data, strat):
+        prev_min = None
+        while True:
+            now = dt.now()
+            recent_min = now.minute
+            if now.second == 5 and recent_min != prev_min:
+                prev_min = recent_min
+                # TODO: replaced hardcoded Strategy. Gotta find a way to invoke new object each run/appen to previoius one (prob better)
+                # strat = Strategy("Test_SMA") # gotta create new object, otherwise it duplicates previous results
+                print("Running strategy")
+                s = strat()
+                s.run(data)
+                self.submit_orders(s.trade_list)
+
+    @staticmethod
+    def send_email(message):
+        port = 465 # for SSL
+        password = config.password
+        smtp_server = "smtp.gmail.com"
+        sender_email = config.sender_email  # Enter your address
+        receiver_email = config.receiver_email  # Enter receiver address
+
+        # msg = MIMEText("""body""")
+        # msg['To'] = ", ".join(receiver_email)
+        # msg['Subject'] = "subject line"
+        # msg['From'] = sender_email
+
+        context = ssl.create_default_context() # Create a secure SSL context
+        with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
+            server.login(sender_email, password)
+            for email in receiver_email:
+                server.sendmail(sender_email, email, message)
+
+    def cancelOpenPositions(self):
+        self.reqPositions()
+
+        while not self.open_positions_received:
+            time.sleep(0.5)
+
+        for ix, pos in self.open_positions.iterrows():
+            self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][pos["symbol_currency"]]), IBOrder.MarketOrder("SELL", pos["quantity"]))
 
     def submit_orders(self, trades):
-        self.reqPositions()
-        self.reqOpenOrders()
+
         bt_orders = trades[trades["Date_exit"] == "Open"]
 
         while (not self.open_orders_received) and (not self.open_positions_received):
@@ -380,10 +429,11 @@ class IBApp(_IBWrapper, _IBClient):
         if len(bt_orders) == 0:
             # close all positions and orders
             self.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
-            self.cancel_open_positions()
-            send_email(f"Orders has been cancelled: {self.open_orders}. Positions have been cancelled {self.open_positions}")
+            self.cancelOpenPositions()
+            # ! need to find a better way of notifying open pos cancelled. Right now send email unless we have open positions
+            # self.send_email(f"Subject: Open Positions Cancelled. \n\n Orders has been cancelled: {self.open_orders}. Positions have been cancelled {self.open_positions}")
         else:
-            # buy logic
+            # entry logic
             for ix, order in bt_orders.iterrows():
                 # _buy_or_sell = "BUY" if order["Direction"] == "Long" else "SELL"
                 asset = order["Symbol"]
@@ -392,27 +442,16 @@ class IBApp(_IBWrapper, _IBClient):
                 
                 # simple check to see if current order has already been submitted
                 if (asset not in current_orders["symbol_currency"].values) and (asset not in current_positions["symbol_currency"].values):
-                    self.placeOrder(self.nextOrderId(), IBContract.stock(file["stock"][asset]), IBOrder.MarketOrder("BUY", order["Position_value"]))
-                    send_email(f"BUY - {asset} - {order['Position_value']}")
-            # sell logic
+                    self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("BUY", order["Position_value"]))
+                    self.send_email(f"Subject: Buy signals. \n\n BUY - {asset} - {order['Position_value']}")
+            # exit logic
             for ix, order in current_positions.iterrows():
                 asset = order["symbol_currency"]
                 if (asset not in bt_orders["Symbol"].values) and (asset not in current_orders["symbol_currency"].values):
-                    self.placeOrder(self.nextOrderId(), IBContract.stock(file["stock"][asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
-                    send_email(f"SELL - {asset} - {order['quantity']}")
+                    self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
+                    self.send_email(f"Subject: Sell signals. \n\n SELL - {asset} - {order['quantity']}")
 
-    def run_every_min(self, data):
-        prev_min = None
-        while True:
-            now = dt.now()
-            recent_min = now.minute
-            if now.second == 5 and recent_min != prev_min:
-                prev_min = recent_min
-                # TODO: replaced hardcoded Strategy. Gotta find a way to invoke new object each run/appen to previoius one (prob better)
-                strat = Strategy("Test_SMA") # gotta create new object, otherwise it duplicates previous results
-                print("Running strategy")
-                strat.run(data)
-                self.submit_orders(strat.trade_list)
+    
 
     # def place_order(self):
     #     self.simplePlaceOid = self.nextValidId()
