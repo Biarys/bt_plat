@@ -37,7 +37,7 @@ _setup_log("Backtester")
 #############################################
 class Backtest(abc.ABC):
 
-    def __init__(self, name):
+    def __init__(self, name="Test"):
         self.name = name
         # self.data = DataReader()  #data_reader.DataReader()
         self.data = {}
