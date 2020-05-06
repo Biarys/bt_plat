@@ -425,7 +425,7 @@ class IBApp(_IBWrapper, _IBClient):
             
         current_orders = self.open_orders
         current_positions = self.open_positions[self.open_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
-
+        print(self.open_positions)
         if len(bt_orders) == 0:
             # close all positions and orders
             self.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
@@ -442,14 +442,27 @@ class IBApp(_IBWrapper, _IBClient):
                 
                 # simple check to see if current order has already been submitted
                 if (asset not in current_orders["symbol_currency"].values) and (asset not in current_positions["symbol_currency"].values):
-                    self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("BUY", order["Position_value"]))
-                    self.send_email(f"Subject: Buy signals. \n\n BUY - {asset} - {order['Position_value']}")
+                    print("Calling entry logic")
+                    if bt_orders[bt_orders["Symbol"]==asset]["Direction"].iloc[0] == "Long":
+                        self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("BUY", order["Position_value"]))
+                        self.send_email(f"Subject: Buy signal {asset} \n\n BUY - {asset} - {order['Position_value']}")
+                    
+                    elif bt_orders[bt_orders["Symbol"]==asset]["Direction"].iloc[0] == "Short":
+                        self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("SELL", abs(order["Position_value"])))
+                        self.send_email(f"Subject: Short signal {asset} \n\n SHORT - {asset} - {order['Position_value']}")
             # exit logic
             for ix, order in current_positions.iterrows():
                 asset = order["symbol_currency"]
                 if (asset not in bt_orders["Symbol"].values) and (asset not in current_orders["symbol_currency"].values):
-                    self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
-                    self.send_email(f"Subject: Sell signals. \n\n SELL - {asset} - {order['quantity']}")
+                    print("Calling exit logic")
+                    if order["quantity"] > 0:
+                        self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
+                        self.send_email(f"Subject: Sell signal {asset} \n\n SELL - {asset} - {order['quantity']}")
+
+                    elif order["quantity"] < 0:
+                        self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
+                        self.send_email(f"Subject: Cover signal {asset} \n\n COVER - {asset} - {order['quantity']}")
+
 
     
 
