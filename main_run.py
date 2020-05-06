@@ -24,8 +24,8 @@ if __name__ == "__main__":
             sma5 = SMA(current_asset, ["Close"], 2)
             sma25 = SMA(current_asset, ["Close"], 3)
 
-            self.cond.buy = sma5() > sma25()
-            self.cond.sell = sma5() < sma25()
+            self.cond.short = sma5() > sma25()
+            self.cond.cover = sma5() < sma25()
             
             # self.cond.shortCond = None
             # self.cond.coverCond = None
