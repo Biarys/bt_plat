@@ -157,7 +157,8 @@ class Backtest():
         #                                                         trades_current_asset.priceFluctuation_dollar)
         # self.agg_trades.trades = self._aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
         
-        return trans_prices, trades_current_asset
+        return trans_prices.buyPrice, trans_prices.sellPrice, trans_prices.shortPrice, trans_prices.coverPrice, \
+            trades_current_asset.priceFluctuation_dollar, trades_current_asset.trades
 
     @staticmethod
     def _aggregate(agg_df, df, ax=1):
@@ -165,12 +166,25 @@ class Backtest():
 
     def _run_portfolio(self):
         """
-        Calculate profit and loss for the stretegy
+        Calculate profit and loss for the strategy
         """
         sc = pyspark.SparkContext('local[*]')
         rdd = sc.parallelize(self.data) # change to kafka
         res = rdd.map(self._prepricing)
-        
+        _buy_prices = res.map(lambda a: a[0])
+        _sell_prices = res.map(lambda a: a[1])
+        _short_prices = res.map(lambda a: a[2])
+        _cover_prices = res.map(lambda a: a[3])
+        _price_flucs = res.map(lambda a: a[4])
+        _trades = res.map(lambda a: a[5])
+
+        self.agg_trades.buyPrice = _buy_prices.reduce(self._aggregate)
+        self.agg_trades.sellPrice = _sell_prices.reduce(self._aggregate)
+        self.agg_trades.shortPrice = _short_prices.reduce(self._aggregate)
+        self.agg_trades.coverPrice = _cover_prices.reduce(self._aggregate)
+        self.agg_trades.priceFluctuation_dollar = _price_flucs.reduce(self._aggregate)
+        self.agg_trades.trades = _trades.reduce(lambda a, b: self._aggregate(a, b, 0)) #using lambda because need to pass ax=0
+
         print(res)
         # to create spark df
         # spark = pyspark.sql.SparkSession.builder.master("local").appName("test").getOrCreate()
