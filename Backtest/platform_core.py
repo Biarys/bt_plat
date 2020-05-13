@@ -169,7 +169,17 @@ class Backtest():
         sc = pyspark.SparkContext('local[*]')
         rdd = sc.parallelize(self.data) # change to kafka
         res = rdd.flatMap(self._prepricing)
-        res_reduced = res.reduceByKey(_aggregate)
+        res_reduced = res.reduceByKey(_aggregate).collect()
+
+        self.agg_trades.buyPrice = _find_df(res_reduced, "buy_price")
+        self.agg_trades.sellPrice = _find_df(res_reduced, "sell_price")
+        self.agg_trades.shortPrice = _find_df(res_reduced, "short_price")
+        self.agg_trades.coverPrice = _find_df(res_reduced, "cover_price")
+        self.agg_trades.priceFluctuation_dollar = _find_df(res_reduced, "price_fluc_dollar")
+        self.agg_trades.trades = _find_df(res_reduced, "trades").T # need to transpose the result
+
+        # res_zip = res.map(zip)
+        
 
         print(res)
         # to create spark df
@@ -954,6 +964,11 @@ def _find_affected_assets(df, current_bar):
 
 def _aggregate(agg_df, df, ax=1):
     return pd.concat([agg_df, df], axis=ax)  
+
+def _find_df(df, name):
+    for i in range(len(df)):
+        if name == df[i][0]:
+            return df[i][1]
 
 if __name__ == "__main__":
     print("=======================")
