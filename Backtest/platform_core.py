@@ -157,12 +157,10 @@ class Backtest():
         #                                                         trades_current_asset.priceFluctuation_dollar)
         # self.agg_trades.trades = self._aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
         
-        return trans_prices.buyPrice, trans_prices.sellPrice, trans_prices.shortPrice, trans_prices.coverPrice, \
-            trades_current_asset.priceFluctuation_dollar, trades_current_asset.trades
+        return ("buy_price", trans_prices.buyPrice), ("sell_price",trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
+                ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
 
-    @staticmethod
-    def _aggregate(agg_df, df, ax=1):
-        return pd.concat([agg_df, df], axis=ax)        
+      
 
     def _run_portfolio(self):
         """
@@ -170,20 +168,8 @@ class Backtest():
         """
         sc = pyspark.SparkContext('local[*]')
         rdd = sc.parallelize(self.data) # change to kafka
-        res = rdd.map(self._prepricing)
-        _buy_prices = res.map(lambda a: a[0])
-        _sell_prices = res.map(lambda a: a[1])
-        _short_prices = res.map(lambda a: a[2])
-        _cover_prices = res.map(lambda a: a[3])
-        _price_flucs = res.map(lambda a: a[4])
-        _trades = res.map(lambda a: a[5])
-
-        self.agg_trades.buyPrice = _buy_prices.reduce(self._aggregate)
-        self.agg_trades.sellPrice = _sell_prices.reduce(self._aggregate)
-        self.agg_trades.shortPrice = _short_prices.reduce(self._aggregate)
-        self.agg_trades.coverPrice = _cover_prices.reduce(self._aggregate)
-        self.agg_trades.priceFluctuation_dollar = _price_flucs.reduce(self._aggregate)
-        self.agg_trades.trades = _trades.reduce(lambda a, b: self._aggregate(a, b, 0)) #using lambda because need to pass ax=0
+        res = rdd.flatMap(self._prepricing)
+        res_reduced = res.reduceByKey(_aggregate)
 
         print(res)
         # to create spark df
@@ -193,6 +179,7 @@ class Backtest():
         # prepare data for portfolio 
         # self._prepricing()
         self.idx = self.agg_trades.priceFluctuation_dollar.index
+        self.idx = pd.Index(self.idx, dtype=object)
         num_of_cols = len(self.data.keys())
         # prepare portfolio level
         # copy index and column names for weights
@@ -964,6 +951,9 @@ def _find_signals(df):
 
 def _find_affected_assets(df, current_bar):
     return df.loc[current_bar].notna().values
+
+def _aggregate(agg_df, df, ax=1):
+    return pd.concat([agg_df, df], axis=ax)  
 
 if __name__ == "__main__":
     print("=======================")
