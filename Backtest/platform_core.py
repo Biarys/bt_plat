@@ -177,14 +177,6 @@ class Backtest():
         self.agg_trades.coverPrice = _find_df(res_reduced, "cover_price")
         self.agg_trades.priceFluctuation_dollar = _find_df(res_reduced, "price_fluc_dollar")
         self.agg_trades.trades = _find_df(res_reduced, "trades").T # need to transpose the result
-
-        # res_zip = res.map(zip)
-        
-
-        print(res)
-        # to create spark df
-        # spark = pyspark.sql.SparkSession.builder.master("local").appName("test").getOrCreate()
-        # sdf1 = spark.createDataFrame(df1, FloatType()) # need to specify type, otherwise error
         
         # prepare data for portfolio 
         # self._prepricing()
