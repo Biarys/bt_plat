@@ -160,26 +160,74 @@ class Backtest():
         return ("buy_price", trans_prices.buyPrice), ("sell_price",trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
                 ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
 
-      
+    def _prepricing_pd(self):
+        """
+        Loop through files
+        Generate signals
+        Find transaction prices
+        Match buys and sells
+        Save them into common classes agg_*
+        """
+                                                           
+        for name in self.data:
+            current_asset = self.data[name]
+            
+            # strategy logic
+            # buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
+            self.cond = Cond()
+            self.logic(current_asset)
+            self.postprocessing(current_asset)
+            self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
+            self.cond._combine() # combine all conds into all
+            # if buyCond is None and shortCond is None:
+            #     raise Exception("You have to specify buy or short condition. Neither was specified.")
+            ################################
+
+            rep = Repeater(current_asset, name, self.cond.all)
+
+            # find trade_signals and trans_prices for an asset
+            trade_signals = TradeSignal(rep)
+            trans_prices = TransPrice(rep, trade_signals)
+            trades_current_asset = Trades(rep, trade_signals, trans_prices)
+
+            # save trade_signals for portfolio level
+            # self.agg_trade_signals.buys = self._aggregate(self.agg_trade_signals.buys, trade_signals.buyCond)
+            # self.agg_trade_signals.sells = self._aggregate(self.agg_trade_signals.sells, trade_signals.sellCond)
+            # self.agg_trade_signals.shorts = self._aggregate(self.agg_trade_signals.shorts, trade_signals.shortCond)
+            # self.agg_trade_signals.covers = self._aggregate(self.agg_trade_signals.covers, trade_signals.coverCond)
+            # self.agg_trade_signals.all = self._aggregate(self.agg_trade_signals.all, trade_signals.all)
+
+            # save trans_prices for portfolio level
+            self.agg_trans_prices.buyPrice = _aggregate(self.agg_trans_prices.buyPrice, trans_prices.buyPrice)
+            self.agg_trans_prices.sellPrice = _aggregate(self.agg_trans_prices.sellPrice, trans_prices.sellPrice)
+            self.agg_trans_prices.shortPrice = _aggregate(self.agg_trans_prices.shortPrice, trans_prices.shortPrice)
+            self.agg_trans_prices.coverPrice = _aggregate(self.agg_trans_prices.coverPrice, trans_prices.coverPrice)
+            self.agg_trades.priceFluctuation_dollar = _aggregate(self.agg_trades.priceFluctuation_dollar,
+                                                                    trades_current_asset.priceFluctuation_dollar)
+            self.agg_trades.trades = _aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
+            # self. = self._aggregate(self.agg_trades.inTradePrice, trades_current_asset.inTradePrice)  
 
     def _run_portfolio(self):
         """
         Calculate profit and loss for the strategy
         """
-        sc = pyspark.SparkContext('local[*]')
-        rdd = sc.parallelize(self.data) # change to kafka
-        res = rdd.flatMap(self._prepricing)
-        res_reduced = res.reduceByKey(_aggregate).collect()
+        if self.settings.backtest_engine.lower() == "pandas":
+            self._prepricing_pd()
 
-        self.agg_trans_prices.buyPrice = _find_df(res_reduced, "buy_price")
-        self.agg_trans_prices.sellPrice = _find_df(res_reduced, "sell_price")
-        self.agg_trans_prices.shortPrice = _find_df(res_reduced, "short_price")
-        self.agg_trans_prices.coverPrice = _find_df(res_reduced, "cover_price")
-        self.agg_trades.priceFluctuation_dollar = _find_df(res_reduced, "price_fluc_dollar")
-        self.agg_trades.trades = _find_df(res_reduced, "trades").T # need to transpose the result
+        elif self.settings.backtest_engine.lower() == "spark":
+            sc = pyspark.SparkContext('local[*]')
+            rdd = sc.parallelize(self.data) # change to kafka
+            res = rdd.flatMap(self._prepricing)
+            res_reduced = res.reduceByKey(_aggregate).collect()
+
+            self.agg_trans_prices.buyPrice = _find_df(res_reduced, "buy_price")
+            self.agg_trans_prices.sellPrice = _find_df(res_reduced, "sell_price")
+            self.agg_trans_prices.shortPrice = _find_df(res_reduced, "short_price")
+            self.agg_trans_prices.coverPrice = _find_df(res_reduced, "cover_price")
+            self.agg_trades.priceFluctuation_dollar = _find_df(res_reduced, "price_fluc_dollar")
+            self.agg_trades.trades = _find_df(res_reduced, "trades").T # need to transpose the result
         
         # prepare data for portfolio 
-        # self._prepricing()
         self.idx = self.agg_trades.priceFluctuation_dollar.index
         self.idx = pd.Index(self.idx, dtype=object)
         num_of_cols = len(self.data.keys())

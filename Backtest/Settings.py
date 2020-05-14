@@ -41,3 +41,5 @@ log_folder = r"D:\bt_plat_logs"
 log_name = "test.log"
 
 path_to_mapping = r"auto_trading/mapping.json"
+
+backtest_engine = "pandas"
