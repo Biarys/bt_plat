@@ -171,10 +171,10 @@ class Backtest():
         res = rdd.flatMap(self._prepricing)
         res_reduced = res.reduceByKey(_aggregate).collect()
 
-        self.agg_trades.buyPrice = _find_df(res_reduced, "buy_price")
-        self.agg_trades.sellPrice = _find_df(res_reduced, "sell_price")
-        self.agg_trades.shortPrice = _find_df(res_reduced, "short_price")
-        self.agg_trades.coverPrice = _find_df(res_reduced, "cover_price")
+        self.agg_trans_prices.buyPrice = _find_df(res_reduced, "buy_price")
+        self.agg_trans_prices.sellPrice = _find_df(res_reduced, "sell_price")
+        self.agg_trans_prices.shortPrice = _find_df(res_reduced, "short_price")
+        self.agg_trans_prices.coverPrice = _find_df(res_reduced, "cover_price")
         self.agg_trades.priceFluctuation_dollar = _find_df(res_reduced, "price_fluc_dollar")
         self.agg_trades.trades = _find_df(res_reduced, "trades").T # need to transpose the result
         
