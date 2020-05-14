@@ -48,7 +48,6 @@ class Backtest():
         self.agg_trans_prices = Agg_TransPrice()
         self.agg_trades = Agg_Trades()
         self.trade_list = None
-        self.settings = Settings
         self.log = logging.getLogger("Backtester")
         self.log.info("Backtester started!")
         self.in_trade = {"long":0, "short":0}
@@ -211,10 +210,10 @@ class Backtest():
         """
         Calculate profit and loss for the strategy
         """
-        if self.settings.backtest_engine.lower() == "pandas":
+        if Settings.backtest_engine.lower() == "pandas":
             self._prepricing_pd()
 
-        elif self.settings.backtest_engine.lower() == "spark":
+        elif Settings.backtest_engine.lower() == "spark":
             sc = pyspark.SparkContext('local[*]')
             rdd = sc.parallelize(self.data) # change to kafka
             res = rdd.flatMap(self._prepricing)
@@ -252,17 +251,17 @@ class Backtest():
         # self.port.value = pd.DataFrame(
         #     index=self.agg_trades.priceFluctuation_dollar.index,
         #      columns=["Portfolio value"])
-        # self.port.value.iloc[0] = self.settings.start_amount
+        # self.port.value.iloc[0] = Settings.start_amount
         self.port.value = np.array([0]*len(self.idx), dtype=np.float)
-        self.port.value[0] = self.settings.start_amount
+        self.port.value[0] = Settings.start_amount
 
         # copy index and set column name for avail amount
         # self.port.avail_amount = pd.DataFrame(
         #     index=idx,
         #     columns=["Available amount"])
-        # self.port.avail_amount.iloc[0] = self.settings.start_amount
+        # self.port.avail_amount.iloc[0] = Settings.start_amount
         self.port.avail_amount = np.array([0]*len(self.idx), dtype=np.float)
-        self.port.avail_amount[0] = self.settings.start_amount
+        self.port.avail_amount[0] = Settings.start_amount
         # self.port.avail_amount.ffill(inplace=True)
 
         # copy index and column names for invested amount
@@ -329,8 +328,8 @@ class Backtest():
         self.in_trade["long"] = 1
         # find amount to be invested
         # to_invest = self.port.avail_amount.loc[
-        #     current_bar, "Available amount"] * self.settings.pct_invest
-        to_invest = self.port.value[current_bar_int] * self.settings.pct_invest
+        #     current_bar, "Available amount"] * Settings.pct_invest
+        to_invest = self.port.value[current_bar_int] * Settings.pct_invest
 
         # find assets that need allocation
         # those that dont have buyPrice for that day wil have NaN
@@ -342,8 +341,8 @@ class Backtest():
         rounded_weights = to_invest / self.agg_trans_prices.buyPrice.loc[
             current_bar, affected_assets]
         rounded_weights = rounded_weights.mul(
-            10**self.settings.round_to_decimals).apply(np.floor).div(
-                10**self.settings.round_to_decimals)
+            10**Settings.round_to_decimals).apply(np.floor).div(
+                10**Settings.round_to_decimals)
         self.port.weights[current_bar_int][affected_assets] = rounded_weights
 
         # find actualy amount invested
@@ -387,8 +386,8 @@ class Backtest():
         self.in_trade["short"] = 1
         # find amount to be invested
         # to_invest = self.port.avail_amount.loc[
-        #     current_bar, "Available amount"] * self.settings.pct_invest
-        to_invest = self.port.value[current_bar_int] * self.settings.pct_invest
+        #     current_bar, "Available amount"] * Settings.pct_invest
+        to_invest = self.port.value[current_bar_int] * Settings.pct_invest
 
         # find assets that need allocation
         # those that dont have shortPrice for that day wil have NaN
@@ -400,8 +399,8 @@ class Backtest():
         rounded_weights = to_invest / self.agg_trans_prices.shortPrice.loc[
             current_bar, affected_assets]
         rounded_weights = rounded_weights.mul(
-            10**self.settings.round_to_decimals).apply(np.floor).div(
-                10**self.settings.round_to_decimals)
+            10**Settings.round_to_decimals).apply(np.floor).div(
+                10**Settings.round_to_decimals)
         self.port.weights[current_bar_int][affected_assets] = -rounded_weights
 
         # find actualy amount invested
@@ -602,7 +601,7 @@ class Backtest():
 
         # Port value
         self.trade_list["Portfolio_value"] = self.trade_list["Dollar_profit"].cumsum()
-        self.trade_list["Portfolio_value"] += self.settings.start_amount
+        self.trade_list["Portfolio_value"] += Settings.start_amount
 
         # Position value
         self.trade_list["Position_value"] = self.trade_list["Weight"] * self.trade_list["Entry_price"]
@@ -624,7 +623,7 @@ class Backtest():
         self.port.equity_curve = self.port.profit_daily_fluc_per_asset.sum(1)
 
         # set starting amount
-        self.port.equity_curve.iloc[0] = self.settings.start_amount
+        self.port.equity_curve.iloc[0] = Settings.start_amount
 
         # apply fluctuation to equity curve
         self.port.equity_curve = self.port.equity_curve.cumsum()
