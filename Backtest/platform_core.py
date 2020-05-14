@@ -110,7 +110,7 @@ class Backtest():
             self.data[name] = temp     
             
 
-    def _prepricing(self, name):
+    def _prepricing_spark(self, name):
         """
         Loop through files
         Generate signals
@@ -216,7 +216,7 @@ class Backtest():
         elif Settings.backtest_engine.lower() == "spark":
             sc = pyspark.SparkContext('local[*]')
             rdd = sc.parallelize(self.data) # change to kafka
-            res = rdd.flatMap(self._prepricing)
+            res = rdd.flatMap(self._prepricing_spark)
             res_reduced = res.reduceByKey(_aggregate).collect()
 
             self.agg_trans_prices.buyPrice = _find_df(res_reduced, "buy_price")
