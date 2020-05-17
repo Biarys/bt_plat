@@ -7,9 +7,17 @@ from . import database_stuff as db
 from . import config
 from . import Settings
 
+# TODO: add support for csv/db
 class DataReader:
-    def __init__(self):
+    def __init__(self, file_type, path):
         self.data = {}
+        self.type = file_type.lower()
+        self.keys = None
+
+        if self.type == "hdf":
+            self.get_hdf_keys(path)
+        elif self.type == "csv_files":
+            self.get_csv_keys(path)
         
     def readCSV(self, path):
         assert os.path.isfile(
@@ -20,6 +28,10 @@ class DataReader:
             index_col="Date",
         )
         self.data[_fileName].index = pd.to_datetime(self.data[_fileName].index)
+    
+    def get_csv_keys(self, path):
+        assert os.path.isdir(path), "You need to specify a folder or the path doesnt exist."
+        self.keys = os.listdir(path)
 
     def readCSVFiles(self, path):
         assert os.path.isdir(
@@ -74,7 +86,14 @@ class DataReader:
         for stock in stocks:
             self.data[stock] = pd.read_hdf(path, stock)
 
-        # for key in 
+    def get_hdf_keys(self, path):
+        import h5py
+        data = h5py.File(path, "r")
+        self.keys = list(data.keys())
+
+    @staticmethod
+    def read_hdf_spark(path, stock):
+        return pd.read_hdf(path, stock)
 
 
 if __name__ == "__main__":
