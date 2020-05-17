@@ -17,21 +17,6 @@ from Backtest import Settings
 # for testing
 from datetime import datetime as dt
 
-
-#############################################
-# Data reading
-# Construct indicator
-# Generate signals
-# Find entries and exits
-# Calculate portfolio value
-# Generate portfolio statistics
-#############################################
-
-# TODO
-# change how self.port.invested is implemented. Currently invests given ammount without round downs
-# find common index for portflio. Should be a range of datetimes. Currently useing self.agg_trans_prices.priceFluctuation_dollar.index
-# need to set/pass configs
-
 _setup_log("Backtester")
 #############################################
 # Core starts
@@ -40,11 +25,9 @@ class Backtest():
 
     def __init__(self, name="Test"):
         self.name = name
-        # self.data = DataReader()  #data_reader.DataReader()
         self.data = {}
         self.runs_at = dt.now() # for logging and data prep purposes. Gets updated when self.run() is called
         self.port = Portfolio()
-        # self.agg_trade_signals = Agg_TradeSingal()
         self.agg_trans_prices = Agg_TransPrice()
         self.agg_trades = Agg_Trades()
         self.trade_list = None
@@ -83,8 +66,6 @@ class Backtest():
             traceback.print_exc()
             self.log.error(e, stack_info=True)
             
-
-    # @abc.abstractmethod
     def logic(self, current_asset):
         pass
 
@@ -123,14 +104,11 @@ class Backtest():
         current_asset = self.data[name]
 
         # strategy logic
-        # buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
         self.cond = Cond()
         self.logic(current_asset)
         self.postprocessing(current_asset)
         self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
         self.cond._combine() # combine all conds into all
-        # if buyCond is None and shortCond is None:
-        #     raise Exception("You have to specify buy or short condition. Neither was specified.")
         ################################
         
         rep = Repeater(current_asset, name, self.cond.all)
@@ -139,22 +117,6 @@ class Backtest():
         trade_signals = TradeSignal(rep)
         trans_prices = TransPrice(rep, trade_signals)
         trades_current_asset = Trades(rep, trade_signals, trans_prices)
-
-        # save trade_signals for portfolio level
-        # self.agg_trade_signals.buys = self._aggregate(self.agg_trade_signals.buys, trade_signals.buyCond)
-        # self.agg_trade_signals.sells = self._aggregate(self.agg_trade_signals.sells, trade_signals.sellCond)
-        # self.agg_trade_signals.shorts = self._aggregate(self.agg_trade_signals.shorts, trade_signals.shortCond)
-        # self.agg_trade_signals.covers = self._aggregate(self.agg_trade_signals.covers, trade_signals.coverCond)
-        # self.agg_trade_signals.all = self._aggregate(self.agg_trade_signals.all, trade_signals.all)
-
-        # save trans_prices for portfolio level
-        # self.agg_trans_prices.buyPrice = self._aggregate(self.agg_trans_prices.buyPrice, trans_prices.buyPrice)
-        # self.agg_trans_prices.sellPrice = self._aggregate(self.agg_trans_prices.sellPrice, trans_prices.sellPrice)
-        # self.agg_trans_prices.shortPrice = self._aggregate(self.agg_trans_prices.shortPrice, trans_prices.shortPrice)
-        # self.agg_trans_prices.coverPrice = self._aggregate(self.agg_trans_prices.coverPrice, trans_prices.coverPrice)
-        # self.agg_trades.priceFluctuation_dollar = self._aggregate(self.agg_trades.priceFluctuation_dollar,
-        #                                                         trades_current_asset.priceFluctuation_dollar)
-        # self.agg_trades.trades = self._aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
         
         return ("buy_price", trans_prices.buyPrice), ("sell_price",trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
                 ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
@@ -166,20 +128,16 @@ class Backtest():
         Find transaction prices
         Match buys and sells
         Save them into common classes agg_*
-        """
-                                                           
+        """                                                           
         for name in self.data:
             current_asset = self.data[name]
             
-            # strategy logic
-            # buyCond, sellCond, shortCond, coverCond = self.logic(current_asset)
             self.cond = Cond()
+            # strategy logic
             self.logic(current_asset)
             self.postprocessing(current_asset)
             self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
             self.cond._combine() # combine all conds into all
-            # if buyCond is None and shortCond is None:
-            #     raise Exception("You have to specify buy or short condition. Neither was specified.")
             ################################
 
             rep = Repeater(current_asset, name, self.cond.all)
@@ -189,13 +147,6 @@ class Backtest():
             trans_prices = TransPrice(rep, trade_signals)
             trades_current_asset = Trades(rep, trade_signals, trans_prices)
 
-            # save trade_signals for portfolio level
-            # self.agg_trade_signals.buys = self._aggregate(self.agg_trade_signals.buys, trade_signals.buyCond)
-            # self.agg_trade_signals.sells = self._aggregate(self.agg_trade_signals.sells, trade_signals.sellCond)
-            # self.agg_trade_signals.shorts = self._aggregate(self.agg_trade_signals.shorts, trade_signals.shortCond)
-            # self.agg_trade_signals.covers = self._aggregate(self.agg_trade_signals.covers, trade_signals.coverCond)
-            # self.agg_trade_signals.all = self._aggregate(self.agg_trade_signals.all, trade_signals.all)
-
             # save trans_prices for portfolio level
             self.agg_trans_prices.buyPrice = _aggregate(self.agg_trans_prices.buyPrice, trans_prices.buyPrice)
             self.agg_trans_prices.sellPrice = _aggregate(self.agg_trans_prices.sellPrice, trans_prices.sellPrice)
@@ -204,7 +155,6 @@ class Backtest():
             self.agg_trades.priceFluctuation_dollar = _aggregate(self.agg_trades.priceFluctuation_dollar,
                                                                     trades_current_asset.priceFluctuation_dollar)
             self.agg_trades.trades = _aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
-            # self. = self._aggregate(self.agg_trades.inTradePrice, trades_current_asset.inTradePrice)  
 
     def _run_portfolio(self):
         """
@@ -215,7 +165,7 @@ class Backtest():
 
         elif Settings.backtest_engine.lower() == "spark":
             sc = pyspark.SparkContext('local[*]')
-            rdd = sc.parallelize(self.data) # change to kafka
+            rdd = sc.parallelize(self.data) # change to Flume (kafka not supported in python)/something more flexible
             res = rdd.flatMap(self._prepricing_spark)
             res_reduced = res.reduceByKey(_aggregate).collect()
 
@@ -230,66 +180,27 @@ class Backtest():
         self.idx = self.agg_trades.priceFluctuation_dollar.index
         self.idx = pd.Index(self.idx, dtype=object)
         num_of_cols = len(self.data.keys())
+        
         # prepare portfolio level
-        # copy index and column names for weights
-        # self.port.weights = pd.DataFrame(
-        #     index=idx,
-        #     columns=self.agg_trades.priceFluctuation_dollar.columns)
-        # self.port.weights.iloc[0] = 0  # set starting weight to 0
-        # self.port.weights = self.port.weights.astype(np.float)
         self.port.weights = np.zeros((len(self.idx), num_of_cols))
 
         # nan in the beg cuz of .shift while finding priceFluctuation
         # to avoid nan in the beg
         self.agg_trades.priceFluctuation_dollar.iloc[0] = 0
 
-        # Fill with 0s, otherwise results in NaN for self.port.avail_amount
-        # self.agg_trades.priceChange.fillna(0, inplace=True)
-
         # prepare value, avail amount, invested
-        # copy index and column names for portfolio change
-        # self.port.value = pd.DataFrame(
-        #     index=self.agg_trades.priceFluctuation_dollar.index,
-        #      columns=["Portfolio value"])
-        # self.port.value.iloc[0] = Settings.start_amount
         self.port.value = np.array([0]*len(self.idx), dtype=np.float)
         self.port.value[0] = Settings.start_amount
 
         # copy index and set column name for avail amount
-        # self.port.avail_amount = pd.DataFrame(
-        #     index=idx,
-        #     columns=["Available amount"])
-        # self.port.avail_amount.iloc[0] = Settings.start_amount
         self.port.avail_amount = np.array([0]*len(self.idx), dtype=np.float)
         self.port.avail_amount[0] = Settings.start_amount
-        # self.port.avail_amount.ffill(inplace=True)
 
-        # copy index and column names for invested amount
-        # self.port.invested = pd.DataFrame(
-        #     index=idx,
-        #     columns=self.port.weights.columns)
-        # self.port.invested.iloc[0] = 0
-
-        # self.agg_trades.in_trade_price_fluc = pd.DataFrame(
-        #     index=idx,
-        #     columns=self.port.weights.columns
-        # )
         self.agg_trades.in_trade_price_fluc = np.zeros((len(self.idx), num_of_cols)) # float by default
-        # put trades in chronological order
-        # self.agg_trades.trades.sort_values("Date_entry", inplace=True)
-        # self.agg_trades.trades.reset_index(drop=True, inplace=True)
-        # trades_current_asset.trades.sort_values("Date_entry", inplace=True)
-        # trades_current_asset.trades.reset_index(drop=True, inplace=True)
-
-        # ! doesnt do anything
-        # change column names to avoid error
-        # self.agg_trans_prices.buyPrice.columns = self.port.weights.columns
-        # self.agg_trans_prices.sellPrice.columns = self.port.weights.columns
 
         # run portfolio level
         # allocate weights
         for current_bar in self.idx:
-            # weight = self.port value / entry
             prev_bar = self.idx.get_loc(current_bar) - 1
             current_bar_int = prev_bar + 1
 
@@ -300,9 +211,6 @@ class Backtest():
 
                 # update port value (roll)
                 _roll_prev_value_np(self.port.value, current_bar_int, prev_bar)
-
-                # update invested amount (roll)
-                # _roll_prev_value(self.port.invested, current_bar, prev_bar)
 
                 # update weight anyway cuz if buy, the wont roll for other stocks (roll)
                 _roll_prev_value_np(self.port.weights, current_bar_int, prev_bar)
@@ -327,8 +235,6 @@ class Backtest():
     def _execute_buy(self, current_bar, current_bar_int):
         self.in_trade["long"] = 1
         # find amount to be invested
-        # to_invest = self.port.avail_amount.loc[
-        #     current_bar, "Available amount"] * Settings.pct_invest
         to_invest = self.port.value[current_bar_int] * Settings.pct_invest
 
         # find assets that need allocation
@@ -351,11 +257,6 @@ class Backtest():
         actually_invested = self.port.weights[current_bar_int][affected_assets] * self.agg_trans_prices.buyPrice.loc[
                 current_bar, affected_assets]
 
-        # update portfolio invested amount
-        # self.port.invested.loc[current_bar, affected_assets] = actually_invested
-
-        # update portfolio avail amount -= sum of all invested money that day
-        # self.port.avail_amount.loc[current_bar] -= self.port.invested.loc[current_bar, affected_assets].sum()
         self.port.avail_amount[current_bar_int] -= actually_invested.sum()
 
     def _execute_sell(self, current_bar, current_bar_int):
@@ -371,13 +272,9 @@ class Backtest():
         # those that dont have sellPrice for that day wil have NaN
         # drop them, keep those that have values
         affected_assets = _find_affected_assets(self.agg_trans_prices.sellPrice, current_bar)
-        # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
         self.port.avail_amount[current_bar_int] += (self.port.weights[current_bar_int][
             affected_assets] * self.agg_trans_prices.sellPrice.loc[
                 current_bar, affected_assets]).sum()
-
-        # set invested amount of the assets to 0
-        # self.port.invested.loc[current_bar, affected_assets] = 0
 
         # set weight to 0
         self.port.weights[current_bar_int][affected_assets] = 0
@@ -385,8 +282,6 @@ class Backtest():
     def _execute_short(self, current_bar, current_bar_int):
         self.in_trade["short"] = 1
         # find amount to be invested
-        # to_invest = self.port.avail_amount.loc[
-        #     current_bar, "Available amount"] * Settings.pct_invest
         to_invest = self.port.value[current_bar_int] * Settings.pct_invest
 
         # find assets that need allocation
@@ -409,11 +304,6 @@ class Backtest():
         actually_invested = self.port.weights[current_bar_int][affected_assets] * self.agg_trans_prices.shortPrice.loc[
                 current_bar, affected_assets]
 
-        # update portfolio invested amount
-        # self.port.invested.loc[current_bar, affected_assets] = actually_invested
-
-        # update portfolio avail amount -= sum of all invested money that day
-        # self.port.avail_amount.loc[current_bar] += self.port.invested.loc[current_bar, affected_assets].sum()
         self.port.avail_amount[current_bar_int] += actually_invested.sum()
 
     def _execute_cover(self, current_bar, current_bar_int):
@@ -429,13 +319,9 @@ class Backtest():
         # those that dont have coverPrice for that day wil have NaN
         # drop them, keep those that have values
         affected_assets = _find_affected_assets(self.agg_trans_prices.coverPrice, current_bar)
-        # amountRecovered = self.port.weights.loc[current_bar, affected_assets] * self.agg_trans_prices.buyPrice2.loc[current_bar, affected_assets]
         self.port.avail_amount[current_bar_int] += (self.port.weights[current_bar_int][
             affected_assets] * self.agg_trans_prices.coverPrice.loc[
                 current_bar, affected_assets]).sum()
-
-        # set invested amount of the assets to 0
-        # self.port.invested.loc[current_bar, affected_assets] = 0
 
         # set weight to 0
         self.port.weights[current_bar_int][affected_assets] = 0
@@ -455,54 +341,6 @@ class Backtest():
 
     def _check_trade_list(self):
         pass
-
-    # def _update_for_fluct(self, df, in_trade_adjust, current_bar, prev_bar):
-    #     """
-    #     Update for today's gains and losses
-    #     """        
-    #     # By default does not record daily's P&L when stock position is closed that day
-    #     # This happens because sell/cover execution comes before _update_for_fluct
-    #     # Hence in_trade_adjust.loc[current_bar].sum() == 0 for the stocks that were closed
-    #     # because of this we need to manually adj P&L for that day
-    #     df.loc[current_bar] += in_trade_adjust.loc[current_bar].sum()
-
-    #     if current_bar in self.agg_trans_prices.buyPrice.index:
-    #         # if buy_on close, then should not record today's gains/losses
-    #         if Settings.buy_on.capitalize()=="Close":            
-    #             # find assets that were entered today
-    #             affected_assets = self.agg_trans_prices.buyPrice.loc[current_bar].dropna().index.values
-    #             # deduct the amount for that asset
-    #             df.loc[current_bar] -= in_trade_adjust.loc[current_bar, affected_assets].sum()
-
-    #     if current_bar in self.agg_trans_prices.shortPrice.index:
-    #         # if short_on close, then should not record today's gains/losses
-    #         if Settings.short_on.capitalize()=="Close":
-    #             # find assets that were entered today
-    #             affected_assets = self.agg_trans_prices.shortPrice.loc[current_bar].dropna().index.values
-    #             # deduct the amount for that asset
-    #             df.loc[current_bar] -= in_trade_adjust.loc[current_bar, affected_assets].sum()
-
-    #     # for position close (sell/cover) we add daily_adj instead of subtracting because of signs of the values 
-    #     # that we get needs is different from what is stored in in_trade_adjust.loc[current_bar, affected_assets]
-    #     if current_bar in self.agg_trans_prices.sellPrice.index:
-    #         # if sell_on close, then should record today's gains/losses
-    #         if Settings.sell_on.capitalize()=="Close":
-    #             # find assets that were entered today
-    #             affected_assets = self.agg_trans_prices.sellPrice.loc[current_bar].dropna().index.values
-    #             # deduct the amount for that asset
-    #             daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
-    #                             self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
-    #             df.loc[current_bar] += daily_adj
-
-    #     if current_bar in self.agg_trans_prices.coverPrice.index:            
-    #         # if cover_on close, then should record today's gains/losses
-    #         if Settings.cover_on.capitalize()=="Close": 
-    #             # find assets that were entered today
-    #             affected_assets = self.agg_trans_prices.coverPrice.loc[current_bar].dropna().index.values
-    #             # deduct the amount for that asset
-    #             daily_adj = (self.port.weights[affected_assets].iloc[prev_bar] * 
-    #                             self.agg_trades.priceFluctuation_dollar.loc[current_bar, affected_assets]).sum()
-    #             df.loc[current_bar] += daily_adj
 
     def _update_for_fluct_np(self, df, in_trade_adjust, current_bar, prev_bar, current_bar_int):
         """
@@ -643,11 +481,6 @@ class TradeSignal:
         - sellCond: sell results where signals switch from 1 to 0, 0 to 1, etc
         - all: all results with Buy and Sell
     """
-
-    # not using self because the need to pass buy and sell cond
-    # buyCond = buyCond.where(buyCond != buyCond.shift(1).fillna(buyCond[0])).shift(1)
-    # sellCond = sellCond.where(sellCond != sellCond.shift(1).fillna(sellCond[0])).shift(1)
-
     def __init__(self, rep):
         # buy/sell/short/cover/all signals
         self.buyCond = _find_signals(rep.allCond["Buy"])
@@ -663,11 +496,6 @@ class TradeSignal:
         self.sellCond = _find_signals(rep.allCond["Sell"])
         self.coverCond = _find_signals(rep.allCond["Cover"])
 
-        # self.buyCond.name = "Buy"
-        # self.sellCond.name = "Sell"
-        # self.shortCond.name = "Short"
-        # self.coverCond.name = "Cover"
-
         # delay implementation
         self._buy_shift = self.buyCond.shift(Settings.buy_delay)
         self._sell_shift = self.sellCond.shift(Settings.sell_delay)
@@ -679,8 +507,8 @@ class TradeSignal:
         self.all.index.name = "Date"
         # might be a better solution cuz might not create copy - need to test it
         # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
-        #         self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
-        #         self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
+        # self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
+        # self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
         # ! In case of buy and sell signal occuring on the same candle, Sell/Cover signal is prefered over Buy/Short
         # ! might create signal problems in the future
         cond = [(self._sell_shift == 1), (self._buy_shift == 1)]
@@ -694,11 +522,11 @@ class TradeSignal:
         self.all_merged = pd.concat([self.long, self.short], axis=1)
         self.all_merged.index.name = "Date"
     
-        # # remove all extra signals
-        # # https://stackoverflow.com/questions/19463985/pandas-drop-consecutive-duplicates
-        # # alternative, possibly faster solution ^
-        # # or using pd.ne()
-        # # or self.all = self.all[self.all != self.all.shift()]
+        # remove all extra signals
+        # https://stackoverflow.com/questions/19463985/pandas-drop-consecutive-duplicates
+        # alternative, possibly faster solution ^
+        # or using pd.ne()
+        # or self.all = self.all[self.all != self.all.shift()]
         # self.all = _remove_dups(self.all)
     
     def _apply_stop(self, buy_or_short, cond, rep, ind):
@@ -745,7 +573,6 @@ class Agg_TradeSingal:
     """
     Aggregate version of TradeSignal that keeps trade signals for all stocks
     """
-
     def __init__(self):
         self.buys = pd.DataFrame()
         self.sells = pd.DataFrame()
@@ -770,14 +597,8 @@ class TransPrice:
         - buyIndex: dates of buyPrice
         - sellIndex: dates of sellPrice
     """
-
     def __init__(self, rep, trade_signals):
         self.all = trade_signals.all_merged
-
-        # to get rid of duplicates
-        # self.all = self.all.dropna()
-        # self.all = _remove_dups(self.all)
-        # self.all = self.all.where(self.all != self.all.shift(1))
 
         self.buyIndex = self.all[self.all["Long"]=="Buy"].index
         self.sellIndex = self.all[self.all["Long"]=="Sell"].index
@@ -799,7 +620,6 @@ class Agg_TransPrice:
     """
     Aggregate version of TransPrice that keeps transaction price for all stocks
     """
-
     def __init__(self):
         self.buyPrice = pd.DataFrame()
         self.sellPrice = pd.DataFrame()
@@ -818,7 +638,6 @@ class Trades:
         - inTrade: DataFrame that shows time spent in trade for current asset
         - inTradePrice: Close price for the time while inTrade
     """
-
     def __init__(self, rep, trade_signals, trans_prices):
         self.trades = pd.DataFrame()
         self.inTrade = pd.DataFrame()
@@ -836,23 +655,22 @@ class Trades:
         long["Direction"] = "Long"
         short["Direction"] = "Short"
 
-        # self.trades = long.join(sell, how="outer", lsuffix="_entry", rsuffix="_exit")
         long = long.join(sell, how="outer", lsuffix="_entry", rsuffix="_exit")
         short = short.join(cover, how="outer", lsuffix="_entry", rsuffix="_exit")
 
         self.trades = pd.concat([long, short])
         # NAs should only be last values that are still open
-        # self.trades["Date_exit"].fillna(rep.data.iloc[-1].name, inplace=True)
         self.trades["Date_exit"].fillna("Open", inplace=True)
 
         # hardcoded Close cuz if still in trade, needs latest quote
         self.trades[trans_prices.sellPrice.name + "_exit"].fillna(
             rep.data.iloc[-1]["Close"], inplace=True)
+
         # alternative way
-        #         u = self.trades.select_dtypes(exclude=['datetime'])
-        #         self.trades[u.columns] = u.fillna(4)
-        #         u = self.trades.select_dtypes(include=['datetime'])
-        #         self.trades[u.columns] = u.fillna(5)
+        # u = self.trades.select_dtypes(exclude=['datetime'])
+        # self.trades[u.columns] = u.fillna(4)
+        # u = self.trades.select_dtypes(include=['datetime'])
+        # self.trades[u.columns] = u.fillna(5)
 
         self.trades["Symbol"] = rep.name
 
@@ -877,60 +695,16 @@ class Agg_Trades:
     """
     Aggregate version of Trades. Contains trades, weights, inTradePrice, priceFluctuation in dollars
     """
-
     def __init__(self):
         self.trades = pd.DataFrame()
-        # self.inTrade = pd.DataFrame()
         self.weights = pd.DataFrame()
-        # self.inTradePrice = pd.DataFrame()
         self.priceFluctuation_dollar = pd.DataFrame()
         self.in_trade_price_fluc = pd.DataFrame()
-
-
-# ! not used
-class Returns(TransPrice):
-    """
-    Calculates returns for the strategy
-    """
-
-    def __init__(self, rep):
-        trans_prices = TransPrice(rep)
-        self.index = rep.data.index
-        self.returns = pd.DataFrame(index=self.index, columns=[rep.name])
-        # might result in errors tradesignal/execution is shifted
-        self.returns[rep.name].loc[
-            trans_prices.buyPrice.index] = trans_prices.buyPrice
-        self.returns[rep.name].loc[
-            trans_prices.sellPrice.index] = trans_prices.sellPrice
-        self.returns = self.returns.dropna().pct_change()
-        # works for now
-        for i in self.returns.index:
-            if trans_prices.inTrade.loc[i][0] == "Buy":
-                self.returns.loc[i] = -self.returns.loc[i]
-
-
-# ! not used
-class Stats:
-    """
-    Calculate various trade statistics based on returns
-    """
-
-    def __init__(self, rep):
-        r = Returns(rep)
-        self.posReturns = r.returns[r.returns > 0].dropna()
-        self.negReturns = r.returns[r.returns < 0].dropna()
-        self.posTrades = len(self.posReturns)
-        self.negTrades = len(self.negReturns)
-        self.meanReturns = r.returns.mean()
-        self.hitRatio = self.posTrades / (self.posTrades + self.negTrades)
-        self.totalTrades = self.posTrades + self.negTrades
-
 
 class Portfolio:
     """
     Initial settings and what to calculate
     """
-
     def __init__(self):
         self.weights = pd.DataFrame()
         self.value = pd.DataFrame()
@@ -940,7 +714,6 @@ class Portfolio:
         self.ror = pd.DataFrame()
         self.capUsed = pd.DataFrame()
         self.equity_curve = pd.DataFrame()
-
         self.start_amount = Settings.start_amount
         self.avail_amount = self.start_amount
 
@@ -949,13 +722,8 @@ class Repeater:
     """
     Common class to avoid repetition
     """
-
     def __init__(self, data, name, allCond):
         self.data = data
-        # self.buyCond = buyCond
-        # self.sellCond = sellCond
-        # self.shortCond = shortCond
-        # self.coverCond = coverCond
         self.name = name
         self.allCond = allCond
 
@@ -975,9 +743,6 @@ class Cond:
         for df in [self.buy, self.sell, self.short, self.cover]:
             if df.name not in self.all.columns:
                 self.all[df.name] = False
-
-        # self.all = pd.concat([self.buy, self.sell, self.short, self.cover], axis=1)
-
 
 # ? ##################
 # ? Helper functions #
