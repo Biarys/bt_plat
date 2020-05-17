@@ -23,7 +23,7 @@ _setup_log("Backtester")
 #############################################
 class Backtest():
 
-    def __init__(self, name="Test"):
+    def __init__(self, name="Test", real_time=False):
         self.name = name
         self.data = {}
         self.runs_at = dt.now() # for logging and data prep purposes. Gets updated when self.run() is called
@@ -35,6 +35,7 @@ class Backtest():
         self.log.info("Backtester started!")
         self.in_trade = {"long":0, "short":0}
         self.universe_ranking = pd.DataFrame()
+        self.real_time = real_time
 
     def preprocessing(self, data):
         """
@@ -49,7 +50,7 @@ class Backtest():
     def postprocessing(self, data):
         """
         Called right after logic.
-        Should be used to generated values that depend on buy/sell/short/cover signal such as stops/take profits.
+        Should be used to generated values that depend on buy/sell/short/cover signals such as stops/take profits.
 
         Inputs: self + all data that will be used for the backtest
         """
@@ -58,7 +59,9 @@ class Backtest():
     def run(self, data):
         try:   
             self.runs_at = dt.now()
-            self._prepare_data(data)
+            if self.real_time:
+                self._prepare_data(data)
+                
             self.preprocessing(data)
             self._run_portfolio()
         except Exception as e:
@@ -98,8 +101,7 @@ class Backtest():
         Find transaction prices
         Match buys and sells
         Save them into common classes agg_*
-        """
-                                               
+        """                                               
         # for name in self.data:
         current_asset = self.data[name]
 
