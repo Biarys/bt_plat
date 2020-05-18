@@ -16,34 +16,48 @@ class DataReader:
         self.path = path
 
         if self.type == "hdf":
-            self.get_hdf_keys(path)
+            self.get_hdf_keys()
+        elif self.type == "csv":
+            self.get_csv_key()
         elif self.type == "csv_files":
-            self.get_csv_keys(path)
+            self.get_csv_keys()
+
+    def read_data(self, stock):
+        if self.type == "hdf":
+            return self.read_hdf(self.path, stock)
+        elif self.type == "csv":
+            return self.readCSV(self.path)
+        elif self.type == "csv_files":
+            return self.readCSVFiles(self.path, stock)
         
+    def get_csv_key(self):
+        assert os.path.isfile(self.path), "You need to specify a file or the path doesnt exist."
+        self.keys = [os.path.basename(self.path).split(".")[0]]
+    
+    def get_csv_keys(self):
+        assert os.path.isdir(self.path), "You need to specify a folder or the path doesnt exist."
+        self.keys = os.listdir(self.path)
+
+    def get_hdf_keys(self):
+        import h5py
+        data = h5py.File(self.path, "r")
+        self.keys = list(data.keys())
+
     def readCSV(self, path):
-        assert os.path.isfile(
-            path), "You need to specify a file or the path doesnt exist."
-        _fileName = os.path.basename(path).split(".")[0] # gets file name for a given path; splitting by . to get the name
-        self.data[_fileName] = pd.read_csv(
+        _temp = pd.read_csv(
             path,
             index_col="Date",
         )
-        self.data[_fileName].index = pd.to_datetime(self.data[_fileName].index)
-    
-    def get_csv_keys(self, path):
-        assert os.path.isdir(path), "You need to specify a folder or the path doesnt exist."
-        self.keys = os.listdir(path)
+        _temp.index = pd.to_datetime(_temp.index)
+        return _temp
 
-    def readCSVFiles(self, path):
-        assert os.path.isdir(
-            path), "You need to specify a folder or the path doesnt exist."
-        for file in os.listdir(path):
-            _fileName = file.split(".txt")[0]
-            _temp = pd.read_csv(
-                path + "\\" + file, index_col="Date")
-            _temp.index.name = "Date"
-            _temp.index = pd.to_datetime(_temp.index)
-            self.data[_fileName] = _temp
+    def readCSVFiles(self, path, file):
+        _fileName = file.split(".txt")[0]
+        _temp = pd.read_csv(
+            path + "\\" + file, index_col="Date")
+        _temp.index.name = "Date"
+        _temp.index = pd.to_datetime(_temp.index)
+        self.data[_fileName] = _temp
 
     def readDB(self, con, meta, index_col):
         """
@@ -86,11 +100,6 @@ class DataReader:
     #     stocks = list(data.keys())
     #     for stock in stocks:
     #         self.data[stock] = pd.read_hdf(path, stock)
-
-    def get_hdf_keys(self, path):
-        import h5py
-        data = h5py.File(path, "r")
-        self.keys = list(data.keys())
 
     @staticmethod
     def read_hdf(path, stock):
