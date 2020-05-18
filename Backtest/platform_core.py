@@ -125,7 +125,7 @@ class Backtest():
         return ("buy_price", trans_prices.buyPrice), ("sell_price",trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
                 ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
 
-    def _prepricing_pd(self):
+    def _prepricing_pd(self, data):
         """
         Loop through files
         Generate signals
@@ -133,8 +133,10 @@ class Backtest():
         Match buys and sells
         Save them into common classes agg_*
         """                                                           
-        for name in self.data:
-            current_asset = self.data[name]
+        for name in data.keys:
+            _current_asset_tuple = data.read_data(name)
+            name = _current_asset_tuple[0]
+            current_asset = _current_asset_tuple[1]
             
             self.cond = Cond()
             # strategy logic
@@ -165,11 +167,11 @@ class Backtest():
         Calculate profit and loss for the strategy
         """
         if Settings.backtest_engine.lower() == "pandas":
-            self._prepricing_pd()
+            self._prepricing_pd(data)
 
         elif Settings.backtest_engine.lower() == "spark":
             sc = pyspark.SparkContext('local[*]')
-            rdd = sc.parallelize(data.keys).map(lambda stock: data.read_hdf(data.path, stock)) # change to Flume (kafka not supported in python)/something more flexible
+            rdd = sc.parallelize(data.keys).map(data.read_data) # change to Flume (kafka not supported in python)/something more flexible
             res = rdd.flatMap(self._prepricing_spark)
             res_reduced = res.reduceByKey(_aggregate).collect()
 

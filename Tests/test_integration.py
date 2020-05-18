@@ -39,11 +39,11 @@ class TestSMA(TestStocks):
                 name=name)
             Settings.read_from = "csvFile"
             
-            data = DataReader()
-            data.readCSV(Settings.read_from_csv_path)
+            data = DataReader("csv", Settings.read_from_csv_path)
+            # data.readCSV(Settings.read_from_csv_path)
 
             s = StrategySMALong("Test_SMA")
-            s.run(data.data)
+            s.run(data)
             
             s.trade_list.rename(columns={
                 "Date_entry":"Date",
@@ -92,8 +92,8 @@ class TestSMA(TestStocks):
                 name=name)
             Settings.read_from = "csvFile"
             
-            data = DataReader()
-            data.readCSV(Settings.read_from_csv_path)
+            data = DataReader("csv", Settings.read_from_csv_path)
+            # data.readCSV(Settings.read_from_csv_path)
 
             s = StrategySMAShort("Test_SMA")
             s.run(data.data)
@@ -143,11 +143,11 @@ class TestSMA(TestStocks):
         Settings.read_from_csv_path = r"D:\HDF5\stocks_test.h5"
         # Settings.read_from = "csvFiles"
 
-        data = DataReader()
-        data.read_hdf_pd(Settings.read_from_csv_path)
+        data = DataReader("hdf", Settings.read_from_csv_path)
+        # data.read_hdf_pd(Settings.read_from_csv_path)
 
         s = StrategySMALong("Test_SMA")
-        s.run(data.data)
+        s.run(data)
         
         s.trade_list.rename(columns={
             "Date_entry":"Date",
@@ -197,11 +197,11 @@ class TestSMA(TestStocks):
         Settings.read_from_csv_path = path + r"\stock_data"
         Settings.read_from = "csvFiles"
 
-        data = DataReader()
-        data.readCSVFiles(Settings.read_from_csv_path)
+        data = DataReader("csv_files", Settings.read_from_csv_path)
+        # data.readCSVFiles(Settings.read_from_csv_path)
 
         s = StrategySMAShort("Test_SMA")
-        s.run(data.data)
+        s.run(data)
         
         s.trade_list.rename(columns={
             "Date_entry":"Date",
@@ -297,8 +297,8 @@ def suite():
     suite = unittest.TestSuite()
     # suite.addTest(TestSMA('test_stock_long'))
     suite.addTest(TestSMA('test_portfolio_long'))
-    suite.addTest(TestSMA('test_stock_short'))
-    suite.addTest(TestSMA('test_portfolio_short'))
+    # suite.addTest(TestSMA('test_stock_short'))
+    # suite.addTest(TestSMA('test_portfolio_short'))
     return suite
 
 if __name__=="__main__":
