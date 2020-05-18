@@ -36,6 +36,7 @@ class Backtest():
         self.in_trade = {"long":0, "short":0}
         self.universe_ranking = pd.DataFrame()
         self.real_time = real_time
+        self.keys = None
 
     def preprocessing(self, data):
         """
@@ -63,7 +64,7 @@ class Backtest():
                 self._prepare_data(data)
                 
             self.preprocessing(data)
-            self._run_portfolio()
+            self._run_portfolio(data)
         except Exception as e:
             print(e)
             traceback.print_exc()
@@ -94,7 +95,7 @@ class Backtest():
             self.data[name] = temp     
             
 
-    def _prepricing_spark(self, name):
+    def _prepricing_spark(self, data):
         """
         Loop through files
         Generate signals
@@ -103,7 +104,8 @@ class Backtest():
         Save them into common classes agg_*
         """                                               
         # for name in self.data:
-        current_asset = self.data[name]
+        name = data[0]
+        current_asset = data[1]
 
         # strategy logic
         self.cond = Cond()
@@ -158,7 +160,7 @@ class Backtest():
                                                                     trades_current_asset.priceFluctuation_dollar)
             self.agg_trades.trades = _aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
 
-    def _run_portfolio(self):
+    def _run_portfolio(self, data):
         """
         Calculate profit and loss for the strategy
         """
@@ -167,7 +169,7 @@ class Backtest():
 
         elif Settings.backtest_engine.lower() == "spark":
             sc = pyspark.SparkContext('local[*]')
-            rdd = sc.parallelize(self.data) # change to Flume (kafka not supported in python)/something more flexible
+            rdd = sc.parallelize(data.keys).map(lambda stock: data.read_hdf(data.path, stock)) # change to Flume (kafka not supported in python)/something more flexible
             res = rdd.flatMap(self._prepricing_spark)
             res_reduced = res.reduceByKey(_aggregate).collect()
 
@@ -181,7 +183,12 @@ class Backtest():
         # prepare data for portfolio 
         self.idx = self.agg_trades.priceFluctuation_dollar.index
         self.idx = pd.Index(self.idx, dtype=object)
-        num_of_cols = len(self.data.keys())
+        
+        self.keys = data.keys
+        # check to assure order of columns is the same among all dataframes. Otherwise results will be wrong
+        assert all(self.keys == self.agg_trans_prices.buyPrice.columns), "self.keys are not identical among dataframes"
+        num_of_cols = len(self.keys)
+        
         
         # prepare portfolio level
         self.port.weights = np.zeros((len(self.idx), num_of_cols))
@@ -412,7 +419,7 @@ class Backtest():
                                   asset]["Date_entry"].index
             # grab all weights for the asset on entry date
             dates_locs = np.searchsorted(self.idx, dates)
-            asset_loc = list(self.data.keys()).index(asset)
+            asset_loc = self.keys.index(asset)
             # ? might have probems with scaling (probably will)
             weights = self.port.weights[dates_locs, asset_loc]
 

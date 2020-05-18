@@ -13,6 +13,7 @@ class DataReader:
         self.data = {}
         self.type = file_type.lower()
         self.keys = None
+        self.path = path
 
         if self.type == "hdf":
             self.get_hdf_keys(path)
@@ -79,12 +80,12 @@ class DataReader:
         result = pd.read_sql(query, con)
         return result
 
-    def read_hdf_pd(self, path):
-        import h5py
-        data = h5py.File(path, "r")
-        stocks = list(data.keys())
-        for stock in stocks:
-            self.data[stock] = pd.read_hdf(path, stock)
+    # def read_hdf_pd(self, path):
+    #     import h5py
+    #     data = h5py.File(path, "r")
+    #     stocks = list(data.keys())
+    #     for stock in stocks:
+    #         self.data[stock] = pd.read_hdf(path, stock)
 
     def get_hdf_keys(self, path):
         import h5py
@@ -92,8 +93,8 @@ class DataReader:
         self.keys = list(data.keys())
 
     @staticmethod
-    def read_hdf_spark(path, stock):
-        return pd.read_hdf(path, stock)
+    def read_hdf(path, stock):
+        return (stock, pd.read_hdf(path, stock))
 
 
 if __name__ == "__main__":
