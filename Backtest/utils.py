@@ -28,7 +28,7 @@ def update_hdf5(hdf_path, csv_path):
     import h5py
     hdf_file = h5py.File(hdf_path, "r")
     existing_stocks = list(hdf_file.keys())
-    for stock in os.listdir(csv_path)[:2]:
+    for stock in os.listdir(csv_path):
         print(stock)
 
         df = pd.read_csv(csv_path+"\\"+stock, index_col="DateTime")
@@ -47,7 +47,7 @@ def update_hdf5(hdf_path, csv_path):
         else:
             df.to_hdf(hdf_file, stock_name, mode="a", format="table")
 
-hdf_path = r"D:\HDF5\test.h5"
+hdf_path = r"D:\HDF5\stocks.h5"
 csv_path = r"E:\Windows\Data"
 
 update_hdf5(hdf_path, csv_path)
