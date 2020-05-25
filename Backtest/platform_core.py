@@ -5,6 +5,10 @@ import abc
 import logging
 import traceback
 import pyspark
+import pyspark.sql.functions as pySqlFunc
+from pyspark.sql.functions import pandas_udf, PandasUDFType, col
+from pyspark.sql.window import Window
+from pyspark.sql.types import ArrayType
 
 # own files
 from Backtest.indicators import SMA
@@ -38,6 +42,7 @@ class Backtest():
         self.real_time = real_time
         self.keys = None
 
+    @staticmethod
     def preprocessing(self, data):
         """
         Called once before running through the data.
@@ -62,8 +67,7 @@ class Backtest():
             self.runs_at = dt.now()
             if self.real_time:
                 self._prepare_data(data)
-                
-            self.preprocessing(data)
+
             self._run_portfolio(data)
         except Exception as e:
             print(e)
@@ -132,46 +136,83 @@ class Backtest():
         Find transaction prices
         Match buys and sells
         Save them into common classes agg_*
-        """                                                           
-        for name in data.keys:
-            _current_asset_tuple = data.read_data(name)
-            name = _current_asset_tuple[0]
-            current_asset = _current_asset_tuple[1]
-            
-            self.cond = Cond()
-            # strategy logic
-            self.logic(current_asset)
-            self.postprocessing(current_asset)
-            self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
-            self.cond._combine() # combine all conds into all
-            ################################
+        """                                                
+        name = data[0]
+        current_asset = data[1]
+        
+        self.cond = Cond()
+        # strategy logic
+        self.logic(current_asset)
+        self.postprocessing(current_asset)
+        self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
+        self.cond._combine() # combine all conds into all
+        ################################
 
-            rep = Repeater(current_asset, name, self.cond.all)
+        rep = Repeater(current_asset, name, self.cond.all)
 
-            # find trade_signals and trans_prices for an asset
-            trade_signals = TradeSignal(rep)
-            trans_prices = TransPrice(rep, trade_signals)
-            trades_current_asset = Trades(rep, trade_signals, trans_prices)
+        # find trade_signals and trans_prices for an asset
+        trade_signals = TradeSignal(rep)
+        trans_prices = TransPrice(rep, trade_signals)
+        trades_current_asset = Trades(rep, trade_signals, trans_prices)
 
-            # save trans_prices for portfolio level
-            self.agg_trans_prices.buyPrice = _aggregate(self.agg_trans_prices.buyPrice, trans_prices.buyPrice)
-            self.agg_trans_prices.sellPrice = _aggregate(self.agg_trans_prices.sellPrice, trans_prices.sellPrice)
-            self.agg_trans_prices.shortPrice = _aggregate(self.agg_trans_prices.shortPrice, trans_prices.shortPrice)
-            self.agg_trans_prices.coverPrice = _aggregate(self.agg_trans_prices.coverPrice, trans_prices.coverPrice)
-            self.agg_trades.priceFluctuation_dollar = _aggregate(self.agg_trades.priceFluctuation_dollar,
-                                                                    trades_current_asset.priceFluctuation_dollar)
-            self.agg_trades.trades = _aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
+        # save trans_prices for portfolio level
+        self.agg_trans_prices.buyPrice = _aggregate(self.agg_trans_prices.buyPrice, trans_prices.buyPrice)
+        self.agg_trans_prices.sellPrice = _aggregate(self.agg_trans_prices.sellPrice, trans_prices.sellPrice)
+        self.agg_trans_prices.shortPrice = _aggregate(self.agg_trans_prices.shortPrice, trans_prices.shortPrice)
+        self.agg_trans_prices.coverPrice = _aggregate(self.agg_trans_prices.coverPrice, trans_prices.coverPrice)
+        self.agg_trades.priceFluctuation_dollar = _aggregate(self.agg_trades.priceFluctuation_dollar,
+                                                                trades_current_asset.priceFluctuation_dollar)
+        self.agg_trades.trades = _aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
 
     def _run_portfolio(self, data):
         """
         Calculate profit and loss for the strategy
         """
         if Settings.backtest_engine.lower() == "pandas":
-            self._prepricing_pd(data)
+            for name in data.keys:
+                _current_asset_tuple = data.read_data(name)
+                self.preprocessing(_current_asset_tuple)
+            for name in data.keys:    
+                _current_asset_tuple = data.read_data(name)
+                self._prepricing_pd(_current_asset_tuple)
 
         elif Settings.backtest_engine.lower() == "spark":
+            # initialize spark
             sc = pyspark.SparkContext('local[*]')
+            spark = pyspark.sql.SparkSession(sc)
+            sqlContext = pyspark.sql.SQLContext(sc)
+
+            # read data
             rdd = sc.parallelize(data.keys).map(data.read_data) # change to Flume (kafka not supported in python)/something more flexible
+
+            # run self.preprocessing. use collect to force action to save files
+            # rdd.map(self.preprocessing).collect()
+
+            rdd_p = sqlContext.read.parquet(Settings.save_temp_parquet + r"\value_*.parquet")
+
+            result = (rdd_p
+                .select(
+                    'DateTime',
+                    'Symbol',
+                    pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('Close')).alias('rank')
+                ))
+            result_desc = (result
+                .select(
+                    'DateTime',
+                    'Symbol',
+                    pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('rank')).alias('rank_desc')
+                )
+                .groupby('DateTime')
+                .pivot('Symbol')
+                .agg(pySqlFunc.first('rank_desc'))
+                .orderBy(pySqlFunc.col('DateTime').asc())
+                )
+            
+            result_desc.toPandas().to_csv(Settings.save_temp_parquet + "\\" + "ranks.csv")
+            
+            # df = spark.createDataFrame(rdd)
+            # preproc_results = rdd.flatMap(self.preprocessing)
+            # preproc_results
             res = rdd.flatMap(self._prepricing_spark)
             res_reduced = res.reduceByKey(_aggregate).collect()
 
@@ -190,7 +231,6 @@ class Backtest():
         # check to assure order of columns is the same among all dataframes. Otherwise results will be wrong
         assert all(self.keys == self.agg_trans_prices.buyPrice.columns), "self.keys are not identical among dataframes"
         num_of_cols = len(self.keys)
-        
         
         # prepare portfolio level
         self.port.weights = np.zeros((len(self.idx), num_of_cols))
@@ -277,7 +317,7 @@ class Backtest():
         update avail amount
         """
         self.in_trade["long"] = 0
-        # prob need to change this part for scaling implementation
+        #? prob need to change this part for scaling implementation
 
         # find assets that need allocation
         # those that dont have sellPrice for that day wil have NaN
@@ -324,7 +364,7 @@ class Backtest():
         update avail amount
         """
         self.in_trade["short"] = 0
-        # prob need to change this part for scaling implementation
+        #? prob need to change this part for scaling implementation
 
         # find assets that need allocation
         # those that dont have coverPrice for that day wil have NaN
