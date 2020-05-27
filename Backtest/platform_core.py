@@ -42,7 +42,6 @@ class Backtest():
         self.real_time = real_time
         self.keys = None
 
-    @staticmethod
     def preprocessing(self, data):
         """
         Called once before running through the data.
@@ -74,7 +73,7 @@ class Backtest():
             traceback.print_exc()
             self.log.error(e, stack_info=True)
             
-    def logic(self, current_asset):
+    def logic(self, current_asset, name=None):
         pass
 
     def _prepare_data(self, data):
@@ -106,28 +105,30 @@ class Backtest():
         Find transaction prices
         Match buys and sells
         Save them into common classes agg_*
-        """                                               
-        # for name in self.data:
+        """
         name = data[0]
         current_asset = data[1]
+        try:
+            # strategy logic
+            self.cond = Cond()
+            self.logic(current_asset, name)
+            self.postprocessing(current_asset)
+            self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
+            self.cond._combine() # combine all conds into all
+            ################################
+            
+            rep = Repeater(current_asset, name, self.cond.all)
 
-        # strategy logic
-        self.cond = Cond()
-        self.logic(current_asset)
-        self.postprocessing(current_asset)
-        self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
-        self.cond._combine() # combine all conds into all
-        ################################
-        
-        rep = Repeater(current_asset, name, self.cond.all)
-
-        # find trade_signals and trans_prices for an asset
-        trade_signals = TradeSignal(rep)
-        trans_prices = TransPrice(rep, trade_signals)
-        trades_current_asset = Trades(rep, trade_signals, trans_prices)
-        
-        return ("buy_price", trans_prices.buyPrice), ("sell_price",trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
-                ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
+            # find trade_signals and trans_prices for an asset
+            trade_signals = TradeSignal(rep)
+            trans_prices = TransPrice(rep, trade_signals)
+            trades_current_asset = Trades(rep, trade_signals, trans_prices)
+            
+            return ("buy_price", trans_prices.buyPrice), ("sell_price",trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
+                    ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
+        except Exception as e:
+            print(f"Failed for {name}")
+            print(e)
 
     def _prepricing_pd(self, data):
         """
@@ -142,7 +143,7 @@ class Backtest():
         
         self.cond = Cond()
         # strategy logic
-        self.logic(current_asset)
+        self.logic(current_asset, name)
         self.postprocessing(current_asset)
         self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
         self.cond._combine() # combine all conds into all
@@ -169,9 +170,9 @@ class Backtest():
         Calculate profit and loss for the strategy
         """
         if Settings.backtest_engine.lower() == "pandas":
-            for name in data.keys:
-                _current_asset_tuple = data.read_data(name)
-                self.preprocessing(_current_asset_tuple)
+            # for name in data.keys:
+            #     _current_asset_tuple = data.read_data(name)
+            #     self.preprocessing(_current_asset_tuple)
             for name in data.keys:    
                 _current_asset_tuple = data.read_data(name)
                 self._prepricing_pd(_current_asset_tuple)
@@ -538,11 +539,11 @@ class TradeSignal:
         self.shortCond = _find_signals(rep.allCond["Short"])
 
         # keeping it here for now
-        # from Backtest.indicators import ATR
-        # atr = ATR(rep.data, 14)
+        from Backtest.indicators import ATR
+        atr = ATR(rep.data, 14)
 
-        # self._apply_stop("buy", self.buyCond, rep, atr()*2)
-        # self._apply_stop("short", self.shortCond, rep, atr()*2)
+        self._apply_stop("buy", self.buyCond, rep, atr()*2)
+        self._apply_stop("short", self.shortCond, rep, atr()*2)
 
         self.sellCond = _find_signals(rep.allCond["Sell"])
         self.coverCond = _find_signals(rep.allCond["Cover"])
