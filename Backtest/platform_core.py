@@ -50,7 +50,7 @@ class Backtest():
 
         Inputs: self + all data that will be used for the backtest
         """
-        pass
+        return "break"
 
     def postprocessing(self, data):
         """
@@ -170,9 +170,12 @@ class Backtest():
         Calculate profit and loss for the strategy
         """
         if Settings.backtest_engine.lower() == "pandas":
-            # for name in data.keys:
-            #     _current_asset_tuple = data.read_data(name)
-            #     self.preprocessing(_current_asset_tuple)
+            for name in data.keys:
+                _current_asset_tuple = data.read_data(name)
+                self.preprocessing(_current_asset_tuple)
+                if self.preprocessing(_current_asset_tuple) == "break": # in case prepricessing is just pass
+                    break
+
             for name in data.keys:    
                 _current_asset_tuple = data.read_data(name)
                 self._prepricing_pd(_current_asset_tuple)
