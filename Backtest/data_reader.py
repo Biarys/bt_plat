@@ -9,7 +9,12 @@ from . import Settings
 
 # TODO: add support for csv/db
 class DataReader:
-    def __init__(self, file_type, path):
+    """
+    file_type : hdf, csv, csv_files, at (automated_trading)
+    If file_type == at, then submit app.data as path
+    If file_type == at, then data is stored in self.path (locally)
+    """
+    def __init__(self, file_type, path):        
         self.data = {}
         self.type = file_type.lower()
         self.keys = None
@@ -29,6 +34,8 @@ class DataReader:
             return self.readCSV(self.path)
         elif self.type == "csv_files":
             return self.readCSVFiles(self.path, stock)
+        elif self.type == "at":
+            return self.path[stock]
         
     def get_csv_key(self):
         assert os.path.isfile(self.path), "You need to specify a file or the path doesnt exist."
@@ -42,7 +49,7 @@ class DataReader:
         import h5py
         data = h5py.File(self.path, "r")
         self.keys = list(data.keys())
-
+    
     def readCSV(self, path):
         _temp = pd.read_csv(
             path,
@@ -50,14 +57,15 @@ class DataReader:
         )
         _temp.index = pd.to_datetime(_temp.index)
         return _temp
-
-    def readCSVFiles(self, path, file):
-        _fileName = file.split(".txt")[0]
+    
+    @staticmethod
+    def readCSVFiles(path, file):
+        _fileName = file.split(".csv")[0]
         _temp = pd.read_csv(
-            path + "\\" + file, index_col="Date")
-        _temp.index.name = "Date"
+            path + "\\" + file, index_col="DateTime")
+        _temp.index.name = "DateTime"
         _temp.index = pd.to_datetime(_temp.index)
-        self.data[_fileName] = _temp
+        return (_fileName, _temp)
 
     def readDB(self, con, meta, index_col):
         """
