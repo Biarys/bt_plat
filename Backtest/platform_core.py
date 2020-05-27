@@ -194,25 +194,36 @@ class Backtest():
 
             rdd_p = sqlContext.read.parquet(Settings.save_temp_parquet + r"\value_*.parquet")
 
-            result = (rdd_p
-                .select(
-                    'DateTime',
-                    'Symbol',
-                    pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('Close')).alias('rank')
-                ))
-            result_desc = (result
-                .select(
-                    'DateTime',
-                    'Symbol',
-                    pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('rank')).alias('rank_desc')
-                )
-                .groupby('DateTime')
-                .pivot('Symbol')
-                .agg(pySqlFunc.first('rank_desc'))
-                .orderBy(pySqlFunc.col('DateTime').asc())
-                )
-            
-            result_desc.toPandas().to_csv(Settings.save_temp_parquet + "\\" + "ranks.csv")
+            # TODO: replace with a function
+            if Settings.generate_ranks:
+                result = (rdd_p
+                            .select(
+                                'DateTime',
+                                'Symbol',
+                                pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('Close')).alias('rank')
+                            ))
+                if Settings.order_ranks_desc:
+                    result_desc = (result
+                                    .select(
+                                        'DateTime',
+                                        'Symbol',
+                                        pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('rank')).alias('rank_desc')
+                                    ))
+                    result_final = (result_desc
+                                    .groupby('DateTime')
+                                    .pivot('Symbol')
+                                    .agg(pySqlFunc.first('rank_desc'))
+                                    .orderBy(pySqlFunc.col('DateTime').asc())
+                                    )
+                else:
+                    result_final = (result
+                                    .groupby('DateTime')
+                                    .pivot('Symbol')
+                                    .agg(pySqlFunc.first('rank_desc'))
+                                    .orderBy(pySqlFunc.col('DateTime').asc())
+                                    )
+                
+                result_final.toPandas().to_csv(Settings.save_temp_parquet + "\\" + Settings.rank_file_name)
             
             # df = spark.createDataFrame(rdd)
             # preproc_results = rdd.flatMap(self.preprocessing)

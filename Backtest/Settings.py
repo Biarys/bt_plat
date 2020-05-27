@@ -1,6 +1,9 @@
 # run options
 read_from = "csvFiles"
 read_from_csv_path = ""
+log_folder = r"D:\bt_plat_logs"
+log_name = "test.log"
+save_temp_parquet = r"D:\parq\temp"
 
 # data_frequency = "D"
 
@@ -37,8 +40,9 @@ round_to_decimals = 0
 # max_shares = 0
 # max_position_value = 0
 
-log_folder = r"D:\bt_plat_logs"
-log_name = "test.log"
+generate_ranks = False
+rank_file_name = "rank.csv"
+order_ranks_desc = False
 
 path_to_mapping = r"auto_trading/mapping.json"
 
