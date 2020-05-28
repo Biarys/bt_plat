@@ -382,12 +382,14 @@ class IBApp(_IBWrapper, _IBClient):
                 if now.second == 5 and recent_min != prev_min:
                     prev_min = recent_min
                     print("Running strategy")
-                    s = strat() # gotta create new object, otherwise it duplicates previous results    
+                    s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
+                    data.keys = data.data.keys()  
                     s.run(data)
                     self.submit_orders(s.trade_list)
             except Exception as e:
                 print("An error occured")
                 print(e)
+
     @staticmethod
     def send_email(message):
         port = 465 # for SSL
@@ -477,6 +479,8 @@ class IBApp(_IBWrapper, _IBClient):
                     self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
                     self.send_email(f"Subject: Cover signal {asset} \n\n COVER - {asset} - {order['quantity']}")
 
+    def read_data(self, stock):
+        return (stock, self.data[stock])
 
     
 
