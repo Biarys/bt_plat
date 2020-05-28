@@ -6,9 +6,8 @@ import logging
 import traceback
 import pyspark
 import pyspark.sql.functions as pySqlFunc
-from pyspark.sql.functions import pandas_udf, PandasUDFType, col
+from pyspark.sql.functions import col
 from pyspark.sql.window import Window
-from pyspark.sql.types import ArrayType
 
 # own files
 from Backtest.indicators import SMA
@@ -65,7 +64,8 @@ class Backtest():
         try:   
             self.runs_at = dt.now()
             if self.real_time:
-                self._prepare_data(data)
+                for name in data.data:
+                    data.data[name] = self._prepare_data(data.data, name)
 
             self._run_portfolio(data)
         except Exception as e:
@@ -76,26 +76,27 @@ class Backtest():
     def logic(self, current_asset, name=None):
         pass
 
-    def _prepare_data(self, data):
+    def _prepare_data(self, data, name):
         self.log.info(f"Preparing data for {self.runs_at}")
-        for name in data:
-            temp = pd.DataFrame(columns=data[name].columns)
-            temp.index.name = "Date"
-            temp["Open"] = data[name]["Open"].groupby("Date").nth(0)
-            temp["High"] = data[name]["High"].groupby("Date").max()
-            temp["Low"] = data[name]["Low"].groupby("Date").min()
-            temp["Close"] = data[name]["Close"].groupby("Date").nth(-1)
+        # for name in data:
+        temp = pd.DataFrame(columns=data[name].columns)
+        temp.index.name = "Date"
+        temp["Open"] = data[name]["Open"].groupby("Date").nth(0)
+        temp["High"] = data[name]["High"].groupby("Date").max()
+        temp["Low"] = data[name]["Low"].groupby("Date").min()
+        temp["Close"] = data[name]["Close"].groupby("Date").nth(-1)
 
-            # TODO:
-            # volume need to be change for forex, etc cuz gives volume of -1
-            # because of that, summing volume will produce wrong result
-            temp["Volume"] = data[name]["Volume"].groupby("Date").sum()
+        # TODO:
+        # volume need to be change for forex, etc cuz gives volume of -1
+        # because of that, summing volume will produce wrong result
+        temp["Volume"] = data[name]["Volume"].groupby("Date").sum()
 
-            # getting all but last candle. This is done to avoid incomplete bars at runtime
-            if pd.Timestamp(self.runs_at.replace(second=0, microsecond=0)) == temp.iloc[-1].name:
-                temp = temp.loc[:self.runs_at].iloc[:-1]
-                self.log.warning(f"Last bars for {name} {self.runs_at} were cut during data prep")
-            self.data[name] = temp     
+        # getting all but last candle. This is done to avoid incomplete bars at runtime
+        if pd.Timestamp(self.runs_at.replace(second=0, microsecond=0)) == temp.iloc[-1].name:
+            temp = temp.loc[:self.runs_at].iloc[:-1]
+            self.log.warning(f"Last bars for {name} {self.runs_at} were cut during data prep")
+        # data[name] = temp
+        return temp 
             
 
     def _prepricing_spark(self, data):
@@ -190,12 +191,12 @@ class Backtest():
             rdd = sc.parallelize(data.keys).map(data.read_data) # change to Flume (kafka not supported in python)/something more flexible
 
             # run self.preprocessing. use collect to force action to save files
-            # rdd.map(self.preprocessing).collect()
-
-            rdd_p = sqlContext.read.parquet(Settings.save_temp_parquet + r"\value_*.parquet")
+            if self.preprocessing != "break":
+                rdd.map(self.preprocessing).collect()
 
             # TODO: replace with a function
             if Settings.generate_ranks:
+                rdd_p = sqlContext.read.parquet(Settings.save_temp_parquet + r"\value_*.parquet")
                 result = (rdd_p
                             .select(
                                 'DateTime',

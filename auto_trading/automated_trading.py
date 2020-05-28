@@ -375,6 +375,7 @@ class IBApp(_IBWrapper, _IBClient):
 
     def run_every_min(self, data, strat):
         prev_min = None
+        from Backtest.data_reader import DataReader
         while True:
             try:
                 now = dt.now()
@@ -383,8 +384,8 @@ class IBApp(_IBWrapper, _IBClient):
                     prev_min = recent_min
                     print("Running strategy")
                     s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
-                    data.keys = data.data.keys()  
-                    s.run(data)
+                    data_ = DataReader("at", data.data) 
+                    s.run(data_)
                     self.submit_orders(s.trade_list)
             except Exception as e:
                 print("An error occured")

@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import time
 # from functools import wraps
 
 # own files
@@ -15,10 +16,10 @@ class DataReader:
     If file_type == at, then data is stored in self.path (locally)
     """
     def __init__(self, file_type, path):        
-        self.data = {}
+        self.data = None
         self.type = file_type.lower()
         self.keys = None
-        self.path = path
+        self.path = None
 
         if self.type == "hdf":
             self.get_hdf_keys()
@@ -26,6 +27,9 @@ class DataReader:
             self.get_csv_key()
         elif self.type == "csv_files":
             self.get_csv_keys()
+        elif self.type == "at":
+            self.data = path.copy()
+            self.keys = self.data.keys()
 
     def read_data(self, stock):
         if self.type == "hdf":
@@ -35,7 +39,7 @@ class DataReader:
         elif self.type == "csv_files":
             return self.readCSVFiles(self.path, stock)
         elif self.type == "at":
-            return self.path[stock]
+            return (stock, self.data[stock])
         
     def get_csv_key(self):
         assert os.path.isfile(self.path), "You need to specify a file or the path doesnt exist."
