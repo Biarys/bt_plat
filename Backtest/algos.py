@@ -13,27 +13,37 @@ def time_frame_set(df, to):
 
     temp = pd.DataFrame(columns=df.columns)
     temp.index.name = "Date"
+    # ? mgiht need to change to calc single column only
     temp["Open"] = df["Open"].resample(to).first()
     temp["High"] = df["High"].resample(to).max()
     temp["Low"] = df["Low"].resample(to).min()
     temp["Close"] = df["Close"].resample(to).last()
 
+    temp.dropna(how="all", inplace=True)
     # TODO:
     # volume need to be chage for forex, etc cuz gives volume of -1
     # because of that, summing volume will produce wrong result
     temp["Volume"] = df["Volume"].resample(to).sum() 
 
-    temp.index = temp.index + pd.Timedelta(hours=9, minutes=30)
+    # temp.index = temp.index + pd.Timedelta(hours=9, minutes=30)
 
     return temp
 
 def time_frame_restore(current_asset, df_modif):
     restore_orig_index = pd.DataFrame(index=current_asset.index)
-    df_modif.name = "Column1"
-    restore_orig_index = restore_orig_index.join(df_modif, how="left").ffill()
-    restore_orig_index = restore_orig_index["Column1"]
-
-    return restore_orig_index
+    temp = pd.DataFrame(df_modif.values, index=df_modif.index.date)
+    temp.reset_index(inplace=True)
+    restore_orig_index["index"] = current_asset.index.date
+    restore_orig_index = restore_orig_index.merge(temp, how="left", on="index")
+    restore_orig_index.set_index(current_asset.index, inplace=True)
+    restore_orig_index.drop("index", axis=1, inplace=True)
+    if type(df_modif) == pd.Series:
+        # restore_orig_index.columns = [df_modif.name]
+        restore_orig_index = pd.Series(restore_orig_index[0])
+        return restore_orig_index
+    else:
+        restore_orig_index.columns = df_modif.columns
+        return restore_orig_index
 
 def stop_time(df, hour=0, minute=0, second=0):
     """
