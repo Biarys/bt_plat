@@ -243,7 +243,7 @@ class Backtest():
         self.idx = self.agg_trades.priceFluctuation_dollar.index
         self.idx = pd.Index(self.idx, dtype=object)
         
-        self.keys = data.keys
+        self.keys = [name.split(".csv")[0] for name in data.keys]
         # check to assure order of columns is the same among all dataframes. Otherwise results will be wrong
         assert all(self.keys == self.agg_trans_prices.buyPrice.columns), "self.keys are not identical among dataframes"
         num_of_cols = len(self.keys)
@@ -549,11 +549,13 @@ class TradeSignal:
         - all: all results with Buy and Sell
     """
     def __init__(self, rep):
+        # ? Can probably be optimized by smashing everything onto 1 series -> ffill() -> remove dups
         # buy/sell/short/cover/all signals
         self.buyCond = _find_signals(rep.allCond["Buy"])
         self.shortCond = _find_signals(rep.allCond["Short"])
 
         # keeping it here for now
+        # TODO: move it somewhere else (postprocess/logic)
         from Backtest.indicators import ATR
         atr = ATR(rep.data, 14)
 
@@ -620,18 +622,21 @@ class TradeSignal:
         
     @staticmethod
     def _merge_signals(cond, out, rep, entry, col_name):        
-        df = np.select(cond, out, default=0)
-        df = pd.DataFrame(df, index=rep.data.index, columns=[col_name])
-        df = df.replace("0", np.NAN)
-
-        # find where first buy occured
         temp = entry.dropna()
         if not temp.empty:
+            df = np.select(cond, out, default=0)
+            df = pd.DataFrame(df, index=rep.data.index, columns=[col_name])
+            df = df.replace("0", np.NAN)
+
+            # find where first buy occured
             first_entry = temp.index[0]
 
             df = df[first_entry:]
             df = _remove_dups(df)
-        
+        # if there are no position entries, return empty dataframe
+        else:
+            df = pd.DataFrame([], index=rep.data.index, columns=[col_name])
+
         return df
             
 
@@ -828,7 +833,7 @@ def _remove_dups(data):
     return data
 
 def _find_signals(df):
-    return df.where(df != df.shift(1).fillna(df[0])).shift(0)
+    return df.where(df != df.shift(1).fillna(df[0]))
 
 def _find_affected_assets(df, current_bar):
     return df.loc[current_bar].notna().values
