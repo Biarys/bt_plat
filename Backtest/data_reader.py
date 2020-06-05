@@ -22,13 +22,16 @@ class DataReader:
         self.path = None
 
         if self.type == "hdf":
+            self.path = path
             self.get_hdf_keys()
         elif self.type == "csv":
+            self.path = path
             self.get_csv_key()
         elif self.type == "csv_files":
+            self.path = path
             self.get_csv_keys()
         elif self.type == "at":
-            self.data = path.copy()
+            self.data = path.copy() # in this case, path is a dataframe with data received from app
             self.keys = self.data.keys()
 
     def read_data(self, stock):
