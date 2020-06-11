@@ -1,20 +1,13 @@
-{% extends "base.html" %} {% block meta %}
-<!-- Bootstrap -->
-<link
-    rel="stylesheet"
-    href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
-    integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
-    crossorigin="anonymous"
-/>
+{% extends "base.html" %} 
+{% block meta %}
 <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.1.1.js"></script>
 <!-- High charts -->
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-{% endblock %} {% block content %}
+{% endblock %} 
+{% block content %}
 <h1>Charts</h1>
-<div id="container" style="height: 100vh"></div>
-<!-- <script type="text/javascript"> document.addEventListener('DOMContentLoaded', function() { var options = { chart: { type: 'spline' }, series: [{}] }; Highcharts.ajax({ url: 'charts', success: function(data) { options.series[0].data = data;
-        Highcharts.Chart('container', options); } }); }); </script> -->
+<div id="container"></div>
 <h1>Backtest info</h1>
 <div class="container">
     <div class="row">
@@ -42,76 +35,33 @@
     </div>
 </div>
 <script type="text/javascript">
-    $(document).ready(function() {
-        $.ajax({ url: 'chart', context: document.body }).done(function(data) {
-            var myData = '{{df|tojson}}';
-            var data = JSON.parse(myData);
-
-            var ohlc = [];
-            var volume = [];
-            var dataLength = data.length;
-            var i = 0;
-
-            for (i; i < dataLength; i += 1) {
-                var date = Date.parse(data[i]['Date']);
-                ohlc.push([
-                    date, // the date
-                    data[i]['Open'], // open
-                    data[i]['High'], // high
-                    data[i]['Low'], // low
-                    data[i]['Close'] // close
-                ]);
-
-                volume.push([
-                    data[i]['Date'], // the date
-                    data[i]['Volume'] // the volume
-                ]);
-            }
-
-            // console.log("Before; -------------------");
-            console.log(myData);
-            console.log(data);
-            console.log(ohlc);
-            // console.log("After: --------------------");
-            // Client side of changing date column to unix epoch time
-            // data = data.map(d => [
-            //     new Date(d[0]).getTime(),
-            //     parseFloat(d[1]),
-            //     parseFloat(d[2]),
-            //     parseFloat(d[3]),
-            //     parseFloat(d[4]),
-            //     parseFloat(d[5]),
-            // ])
-            // console.log(data[0]);
-            const chart = LightweightCharts.createChart(document.body, { width: 1200, height: 300 });
-    const lineSeries = chart.addLineSeries({priceScaleId: 'left',
-                                            title: 'Series title example',
-                                            scaleMargins: {
-                                                top: 0.5,
-                                                bottom: 0.6,
-                                            }},);
-    lineSeries.setData([
-        { time: '2019-04-11', value: 80.01 },
-        { time: '2019-04-12', value: 96.63 },
-        { time: '2019-04-13', value: 76.64 },
-        { time: '2019-04-14', value: 81.89 },
-        { time: '2019-04-15', value: 74.43 },
-        { time: '2019-04-16', value: 80.01 },
-        { time: '2019-04-17', value: 96.63 },
-        { time: '2019-04-18', value: 76.64 },
-        { time: '2019-04-19', value: 81.89 },
-        { time: '2019-04-20', value: 74.43 },
-        { time: '2019-04-21 00:00:00', value: 74.43 },
-        { time: '2019-04-22', value: 74.43 },
-        { time: '2019-04-23', value: 74.43 },
-        { time: '2019-04-24', value: 74.43 },
-        { time: '2019-04-25', value: 74.43 },
-        { time: '2019-04-26', value: 74.43 },
-        { time: '2019-04-27', value: 74.43 },
-        { time: '2019-04-28', value: 74.43 },
-        { time: '2019-04-29', value: 100.43 },
-    ]);
-        });
-    });
+            const chart = LightweightCharts.createChart("container", { width: 1200, height: 300 });
+            const lineSeries = chart.addLineSeries({priceScaleId: 'left',
+                                                    title: 'Series title example',
+                                                    scaleMargins: {
+                                                        top: 0.5,
+                                                        bottom: 0.6,
+                                                    }},);
+            lineSeries.setData([
+                { time: '2019-04-11', value: 80.01 },
+                { time: '2019-04-12', value: 96.63 },
+                { time: '2019-04-13', value: 76.64 },
+                { time: '2019-04-14', value: 81.89 },
+                { time: '2019-04-15', value: 74.43 },
+                { time: '2019-04-16', value: 80.01 },
+                { time: '2019-04-17', value: 96.63 },
+                { time: '2019-04-18', value: 76.64 },
+                { time: '2019-04-19', value: 81.89 },
+                { time: '2019-04-20', value: 74.43 },
+                { time: '2019-04-21 00:00:00', value: 74.43 },
+                { time: '2019-04-22', value: 74.43 },
+                { time: '2019-04-23', value: 74.43 },
+                { time: '2019-04-24', value: 74.43 },
+                { time: '2019-04-25', value: 74.43 },
+                { time: '2019-04-26', value: 74.43 },
+                { time: '2019-04-27', value: 74.43 },
+                { time: '2019-04-28', value: 74.43 },
+                { time: '2019-04-29', value: 100.43 },
+            ]);
 </script>
 {% endblock %}
