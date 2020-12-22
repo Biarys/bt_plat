@@ -1,8 +1,8 @@
-Core/config.py
+Backtest/config.py
 tests/temp_results
 tests/temp_data
-Core/karun.py
-Core/karun2.py
+Backtest/karun.py
+Backtest/karun2.py
 /.idea
 /.vscode
 __pycache__
