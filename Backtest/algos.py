@@ -2,7 +2,9 @@ import pandas as pd
 
 def time_frame_set(df, to):
     """
-    Converts dataframe to a desired frequency, then restores original indices, then ffill()
+    Converts dataframe to a desired frequency, then restores original indices, then ffill().
+
+    Supports formats defined by pandas.resample(). https://stackoverflow.com/questions/17001389/pandas-resample-documentation
     """
     # ! currently converting to weekly uses Friday as last day. Might give bugs if friday does not exist in original dataframe.
     # TODO: when converting minute to daily, time drops, which results in NaNs when restoring index. Gotta find better TimeFrameExpand
