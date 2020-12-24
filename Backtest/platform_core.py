@@ -325,7 +325,7 @@ class Backtest():
         else:
             to_invest = self.port.value[current_bar_int]
 
-        rounded_weights, affected_assets = _position_sizer(to_invest, self.agg_trans_prices.buyPrice, current_bar)
+        rounded_weights, affected_assets = self._position_sizer(to_invest, self.agg_trans_prices.buyPrice, current_bar)
 
         self.port.weights[current_bar_int][affected_assets] = rounded_weights        
 
@@ -417,6 +417,70 @@ class Backtest():
 
         if (current_bar in self.agg_trans_prices.coverPrice.index):# and (self.in_trade["short"]==1):
             self._execute_cover(current_bar, current_bar_int)
+
+    def _position_sizer(self, port_value, trans_prices, current_bar):
+        if Settings.position_size_type == "pct":
+            # $ amount
+            to_invest = port_value * Settings.pct_invest
+
+            affected_assets = _find_affected_assets(trans_prices, current_bar)
+
+            # find current bar, affected assets
+            # allocate shares to all assets = invested amount/buy price
+            rounded_weights = to_invest / trans_prices.loc[
+                current_bar, affected_assets]
+            rounded_weights = rounded_weights.mul(
+                10**Settings.round_to_decimals).apply(np.floor).div(
+                    10**Settings.round_to_decimals)
+
+            # actually_invested = rounded_weights * trans_prices.loc[current_bar, affected_assets]
+
+            return rounded_weights, affected_assets
+
+        elif Settings.position_size_type == "share":
+            # # of shares
+            affected_assets = _find_affected_assets(trans_prices, current_bar)
+
+            actually_invested = Settings.position_size_value * trans_prices.loc[
+                    current_bar, affected_assets]
+
+            return Settings.position_size_value, affected_assets
+
+        elif Settings.position_size_type == "amount":
+            # $ amount
+            to_invest = Settings.position_size_value
+
+            affected_assets = _find_affected_assets(trans_prices, current_bar)
+
+            # find current bar, affected assets
+            # allocate shares to all assets = invested amount/buy price
+            rounded_weights = to_invest / trans_prices.loc[
+                current_bar, affected_assets]
+            rounded_weights = rounded_weights.mul(
+                10**Settings.round_to_decimals).apply(np.floor).div(
+                    10**Settings.round_to_decimals)
+
+            actually_invested = rounded_weights * trans_prices.loc[current_bar, affected_assets]
+
+            return rounded_weights, affected_assets
+
+        elif Settings.position_size_type == "vanTharp":
+            # ! not finished.
+            affected_assets = _find_affected_assets(trans_prices, current_bar)
+            # affected_assets_tp = trans_prices.loc[current_bar, affected_assets]
+            # find current bar, affected assets
+            # allocate shares to all assets = invested amount/buy price
+            # 0.03 * 18 / 2 = 0.27 or 27%
+            # pct_equity_to_invest = (Settings.position_size_value * affected_assets_tp) / atr
+            # 0.27 * 90,000 = trade size of 24,300 / share price = #number of share
+            rounded_weights = (self.vanTharp_stop_size * port_value) / affected_assets
+            rounded_weights = rounded_weights.mul(
+                10**Settings.round_to_decimals).apply(np.floor).div(
+                    10**Settings.round_to_decimals)
+
+            actually_invested = rounded_weights * affected_assets
+            
+            return rounded_weights, affected_assets
 
     def _check_trade_list(self):
         pass
@@ -857,70 +921,6 @@ def _find_df(df, name):
     for i in range(len(df)):
         if name == df[i][0]:
             return df[i][1]
-
-def _position_sizer(port_value, trans_prices, current_bar):
-    if Settings.position_size_type == "pct":
-        # $ amount
-        to_invest = port_value * Settings.pct_invest
-
-        affected_assets = _find_affected_assets(trans_prices, current_bar)
-
-        # find current bar, affected assets
-        # allocate shares to all assets = invested amount/buy price
-        rounded_weights = to_invest / trans_prices.loc[
-            current_bar, affected_assets]
-        rounded_weights = rounded_weights.mul(
-            10**Settings.round_to_decimals).apply(np.floor).div(
-                10**Settings.round_to_decimals)
-
-        actually_invested = rounded_weights * trans_prices.loc[current_bar, affected_assets]
-
-        return rounded_weights, actually_invested
-
-    elif Settings.position_size_type == "share":
-        # # of shares
-        affected_assets = _find_affected_assets(trans_prices, current_bar)
-
-        actually_invested = Settings.position_size_value * trans_prices.loc[
-                current_bar, affected_assets]
-
-        return Settings.position_size_value, actually_invested
-
-    elif Settings.position_size_type == "amount":
-        # $ amount
-        to_invest = Settings.position_size_value
-
-        affected_assets = _find_affected_assets(trans_prices, current_bar)
-
-        # find current bar, affected assets
-        # allocate shares to all assets = invested amount/buy price
-        rounded_weights = to_invest / trans_prices.loc[
-            current_bar, affected_assets]
-        rounded_weights = rounded_weights.mul(
-            10**Settings.round_to_decimals).apply(np.floor).div(
-                10**Settings.round_to_decimals)
-
-        actually_invested = rounded_weights * trans_prices.loc[current_bar, affected_assets]
-
-        return rounded_weights, actually_invested
-
-    elif Settings.position_size_type == "vanTharp":
-        # ! not finished.
-        affected_assets = _find_affected_assets(trans_prices, current_bar)
-        affected_assets_tp = trans_prices.loc[current_bar, affected_assets]
-        # find current bar, affected assets
-        # allocate shares to all assets = invested amount/buy price
-        # 0.03 * 18 / 2 = 0.27 or 27%
-        pct_equity_to_invest = (Settings.position_size_value * affected_assets_tp) / atr
-        # 0.27 * 90,000 = trade size of 24,300 / share price = #number of share
-        rounded_weights = (pct_equity_to_invest * port_value) / affected_assets_tp
-        rounded_weights = rounded_weights.mul(
-            10**Settings.round_to_decimals).apply(np.floor).div(
-                10**Settings.round_to_decimals)
-
-        actually_invested = rounded_weights * affected_assets_tp
-        
-        return rounded_weights, actually_invested
 
 if __name__ == "__main__":
     print("=======================")
