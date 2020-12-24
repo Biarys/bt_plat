@@ -441,8 +441,8 @@ class Backtest():
             # # of shares
             affected_assets = _find_affected_assets(trans_prices, current_bar)
 
-            actually_invested = Settings.position_size_value * trans_prices.loc[
-                    current_bar, affected_assets]
+            # actually_invested = Settings.position_size_value * trans_prices.loc[
+            #         current_bar, affected_assets]
 
             return Settings.position_size_value, affected_assets
 
@@ -460,7 +460,7 @@ class Backtest():
                 10**Settings.round_to_decimals).apply(np.floor).div(
                     10**Settings.round_to_decimals)
 
-            actually_invested = rounded_weights * trans_prices.loc[current_bar, affected_assets]
+            # actually_invested = rounded_weights * trans_prices.loc[current_bar, affected_assets]
 
             return rounded_weights, affected_assets
 
@@ -478,7 +478,7 @@ class Backtest():
                 10**Settings.round_to_decimals).apply(np.floor).div(
                     10**Settings.round_to_decimals)
 
-            actually_invested = rounded_weights * affected_assets
+            # actually_invested = rounded_weights * affected_assets
             
             return rounded_weights, affected_assets
 
@@ -632,11 +632,11 @@ class TradeSignal:
 
         # keeping it here for now
         # TODO: move it somewhere else (postprocess/logic)
-        from Backtest.indicators import ATR
-        atr = ATR(rep.data, 14)
+        # from Backtest.indicators import ATR
+        # atr = ATR(rep.data, 14)
 
-        self._apply_stop("buy", self.buyCond, rep, atr()*2)
-        self._apply_stop("short", self.shortCond, rep, atr()*2)
+        # self._apply_stop("buy", self.buyCond, rep, atr()*2)
+        # self._apply_stop("short", self.shortCond, rep, atr()*2)
 
         self.sellCond = _find_signals(rep.allCond["Sell"])
         self.coverCond = _find_signals(rep.allCond["Cover"])
