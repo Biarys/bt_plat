@@ -38,7 +38,7 @@ class DataReader:
         if self.type == "hdf":
             return self.read_hdf(self.path, stock)
         elif self.type == "csv":
-            return self.readCSV(self.path)
+            return self.readCSV(self.path, stock)
         elif self.type == "csv_files":
             return self.readCSVFiles(self.path, stock)
         elif self.type == "at":
@@ -57,20 +57,20 @@ class DataReader:
         data = h5py.File(self.path, "r")
         self.keys = list(data.keys())
     
-    def readCSV(self, path):
+    def readCSV(self, path, stock):
         _temp = pd.read_csv(
             path,
             index_col="Date",
         )
         _temp.index = pd.to_datetime(_temp.index)
-        return _temp
+        return (stock, _temp)
     
     @staticmethod
     def readCSVFiles(path, file):
         _fileName = file.split(".csv")[0]
         _temp = pd.read_csv(
-            path + "\\" + file, index_col="DateTime")
-        _temp.index.name = "DateTime"
+            path + "\\" + file, index_col="Date")
+        _temp.index.name = "Date"
         _temp.index = pd.to_datetime(_temp.index)
         return (_fileName, _temp)
 
