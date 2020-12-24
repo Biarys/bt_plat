@@ -388,6 +388,7 @@ class IBApp(_IBWrapper, _IBClient):
                     print("Running strategy")
                     s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
                     data_ = DataReader("at", self.data) 
+                    settings.start_amount = self.avail_funds
                     s.run(data_)
                     self.submit_orders(s.trade_list)
             except Exception as e:
