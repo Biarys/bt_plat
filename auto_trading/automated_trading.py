@@ -306,9 +306,6 @@ class _IBWrapper(EWrapper):
                                                                   }
         print(f"ReqId: {reqId}, rank: {rank}, symbol: {symbol}, secType: {secType}, exchange: {exchange}, primaryExchange: {primaryExchange}, currency: {currency}")
 
-    def scannerDataEnd(self, reqId:int):
-        print(f"Finished executing scanner data reqID: {reqId}")
-
     def scannerParameters(self, xml:str):
         print(xml)
 
@@ -545,7 +542,11 @@ class IBApp(_IBWrapper, _IBClient):
     def read_data(self, stock):
         return (stock, self.data[stock])
 
-    
+    def scannerDataEnd(self, reqId:int):
+        # super().scannerDataEnd(self, reqId:int)
+        for symbol in self.scanner_instr.keys():
+            self.reqHistoricalData(reqId=self.nextOrderId(), contract=IBContract.stock(self.scanner_instr[symbol]))
+        print(f"Finished executing scanner data reqID: {reqId}")
 
     # def place_order(self):
     #     self.simplePlaceOid = self.nextValidId()
