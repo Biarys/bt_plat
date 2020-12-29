@@ -304,7 +304,7 @@ class _IBWrapper(EWrapper):
                                                                    "exchange": exchange,
                                                                    "primaryExchange": primaryExchange
                                                                   }
-        print(f"ReqId: {reqId}, rank: {rank}, symbol: {symbol}, secType: {secType}, exchange: {exchange}, primaryExchange: {primaryExchange}, currency: {currency}")
+            print(f"ReqId: {reqId}, rank: {rank}, symbol: {symbol}, secType: {secType}, exchange: {exchange}, primaryExchange: {primaryExchange}, currency: {currency}")
 
     def scannerParameters(self, xml:str):
         print(xml)
@@ -430,16 +430,16 @@ class IBApp(_IBWrapper, _IBClient):
         from Backtest.data_reader import DataReader
         while True:
             try:
-                now = dt.now()
-                recent_min = now.minute
-                if now.second == 5 and recent_min != prev_min:
-                    prev_min = recent_min
-                    print("Running strategy")
-                    s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
-                    data_ = DataReader("at", self.data) 
-                    settings.start_amount = self.avail_funds
-                    s.run(data_)
-                    self.submit_orders(s.trade_list)
+                # now = dt.now()
+                # recent_min = now.minute
+                # if now.second == 5 and recent_min != prev_min:
+                #     prev_min = recent_min
+                print("Running strategy")
+                s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
+                data_ = DataReader("at", self.data) 
+                settings.start_amount = self.avail_funds
+                s.run(data_)
+                self.submit_orders(s.trade_list)
             except Exception as e:
                 print("An error occured")
                 print(e)
@@ -539,14 +539,21 @@ class IBApp(_IBWrapper, _IBClient):
             except Exception as e:
                 print(f"Couldnt exit position for {asset}")
                 print(e)
+
     def read_data(self, stock):
         return (stock, self.data[stock])
 
     def scannerDataEnd(self, reqId:int):
         # super().scannerDataEnd(self, reqId:int)
         for symbol in self.scanner_instr.keys():
-            self.reqHistoricalData(reqId=self.nextOrderId(), contract=IBContract.stock(self.scanner_instr[symbol]))
+            # check if already requested & tracking data for the symbol
+            # Otherwise it will request multiples of the same symbol -> reach limit of 50 simultaneous API historical data requests
+            if symbol + "." + self.scanner_instr[symbol]["currency"] not in self.data_tracker.values():
+                print("SYMBOL NOT TRACKED: ", symbol + "." + self.scanner_instr[symbol]["currency"], self.data_tracker.values())
+                self.reqHistoricalData(reqId=self.nextOrderId(), contract=IBContract.stock(self.scanner_instr[symbol]))
         print(f"Finished executing scanner data reqID: {reqId}")
+        print(f"Stocks in self.scanner_instr.keys(): {self.scanner_instr.keys()}")
+        print(f"Currently tracking: {self.data_tracker.values()}")
 
     # def place_order(self):
     #     self.simplePlaceOid = self.nextValidId()
