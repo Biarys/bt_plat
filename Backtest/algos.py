@@ -1,4 +1,5 @@
 import pandas as pd
+import datetime as dt
 
 def time_frame_set(df, to):
     """
@@ -34,7 +35,9 @@ def time_frame_set(df, to):
 def time_frame_restore(current_asset, df_modif):
     restore_orig_index = pd.DataFrame(index=current_asset.index)
 
-    if df_modif.index.freq == "D":
+    # assuming that df_modif was set to daily data -> daily timestamp will have time 00:00:00.
+    # ? havent tested restore from weekly
+    if df_modif.index[0].time() == dt.time(0, 0): 
         # ? possibly worth adding pd.Timedelta(hours=9, minutes=30) when doing time_frame_set
         # ? then do ffill like in else part
         temp = pd.DataFrame(df_modif.values, index=df_modif.index.date)
@@ -66,7 +69,7 @@ def stop_time(df, hour=0, minute=0, second=0):
     For now supports only hour, minute, and second. 
     """
     # TODO: impove flexibility. Now requires all 3 parameters to be passed.
-    import datetime as dt
+    
     stop = df.index.time == dt.time(hour, minute, second)
     stop = pd.Series(stop, index=df.index)
     return stop
