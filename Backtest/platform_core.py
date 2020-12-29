@@ -464,7 +464,7 @@ class Backtest():
 
             return rounded_weights, affected_assets
 
-        elif Settings.position_size_type == "vanTharp":
+        elif Settings.position_size_type == "custom":
             # ! not finished.
             affected_assets = _find_affected_assets(trans_prices, current_bar)
             # affected_assets_tp = trans_prices.loc[current_bar, affected_assets]
@@ -473,7 +473,7 @@ class Backtest():
             # 0.03 * 18 / 2 = 0.27 or 27%
             # pct_equity_to_invest = (Settings.position_size_value * affected_assets_tp) / atr
             # 0.27 * 90,000 = trade size of 24,300 / share price = #number of share
-            rounded_weights = (self.vanTharp_stop_size * port_value) / affected_assets
+            rounded_weights = (self.custom_stop_size * port_value) / affected_assets
             rounded_weights = rounded_weights.mul(
                 10**Settings.round_to_decimals).apply(np.floor).div(
                     10**Settings.round_to_decimals)
