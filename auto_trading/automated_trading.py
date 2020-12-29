@@ -12,6 +12,7 @@ from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
 from ibapi.order import Order
+from ibapi.scanner import ScannerSubscription
 
 from auto_trading.other import send_email
 from Backtest import Settings as settings
@@ -158,12 +159,34 @@ class IBOrder:
         order.totalQuantity = quantity
         # ! [stop]
         return order
+
+class IBScanner:
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def HottestPennyStocks():
+        """
+        Subscribe to US stocks 1 < price < 10 and vol > 1M.
+        Scan code = TOP_PERC_GAIN
+        """
+        scanSub = ScannerSubscription()
+        scanSub.instrument = "STK"
+        scanSub.locationCode = "STK.US"
+        scanSub.scanCode = "TOP_PERC_GAIN"
+        scanSub.abovePrice = 1
+        scanSub.belowPrice = 10
+        scanSub.aboveVolume = 1000000
+
+        return scanSub
+    
     
 class _IBWrapper(EWrapper):
     def __init__(self):
         EWrapper.__init__(self)
         self.data = {}
         self.avail_funds = None
+        self.scanner_instr = {}
 
     def error(self, reqId, errorCode, errorString):
         print(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
@@ -258,7 +281,36 @@ class _IBWrapper(EWrapper):
         print(f"ReqID: {reqId}, start: {start}, end: {end}")
         # self.data = self.q.get()
 
+    def scannerData(self, reqId:int, rank:int, contractDetails, distance:str, benchmark:str, projection:str, legsStr:str):
+        """
+        Parameters
+            reqid	        the request's identifier.
+            rank	        the ranking within the response of this bar.
+            contractDetails	the data's ContractDetails
+            distance	    according to query.
+            benchmark	    according to query.
+            projection	    according to query.
+            legStr	        describes the combo legs when the scanner is returning EFP 
+        """
+        if contractDetails.contract.symbol not in self.scanner_instr.keys():
+            symbol = contractDetails.contract.symbol
+            secType = contractDetails.contract.secType
+            currency = contractDetails.contract.currency
+            exchange = contractDetails.contract.exchange
+            primaryExchange = contractDetails.contract.primaryExchange
+            self.scanner_instr[contractDetails.contract.symbol] = {"symbol": symbol,
+                                                                   "secType": secType,
+                                                                   "currency": currency,
+                                                                   "exchange": exchange,
+                                                                   "primaryExchange": primaryExchange
+                                                                  }
+        print(f"ReqId: {reqId}, rank: {rank}, symbol: {symbol}, secType: {secType}, exchange: {exchange}, primaryExchange: {primaryExchange}, currency: {currency}")
 
+    def scannerDataEnd(self, reqId:int):
+        print(f"Finished executing scanner data reqID: {reqId}")
+
+    def scannerParameters(self, xml:str):
+        print(xml)
 
     @printall
     def nextValidId(self, orderId):
