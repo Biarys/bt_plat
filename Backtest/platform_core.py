@@ -473,11 +473,8 @@ class Backtest():
         elif Settings.position_size_type == "custom":
             # ! not finished.
             # Naan == True
-            # aggregate custom stop sizes
-            # return single value, not array
-            # deal with inf
             affected_assets = _find_affected_assets(trans_prices, current_bar)
-            to_invest = self.custom_stop_size[current_bar, affected_assets] * port_value
+            to_invest = self.agg_custom_stop.loc[current_bar, affected_assets] * port_value
             # affected_assets_tp = trans_prices.loc[current_bar, affected_assets]
             # find current bar, affected assets
             # allocate shares to all assets = invested amount/buy price
