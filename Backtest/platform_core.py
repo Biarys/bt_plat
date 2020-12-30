@@ -368,7 +368,7 @@ class Backtest():
         if self.real_time:
             to_invest = Settings.start_amount
         else:
-            to_invest = self.port.value[current_bar_int] * Settings.pct_invest
+            to_invest = self.port.value[current_bar_int]
 
         # # find assets that need allocation
         # # those that dont have shortPrice for that day wil have NaN
