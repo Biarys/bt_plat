@@ -366,22 +366,24 @@ class Backtest():
         # self.in_trade["short"] = 1
         # find amount to be invested
         if self.real_time:
-            to_invest = self.port.value[current_bar_int] * Settings.pct_invest
+            to_invest = Settings.start_amount
         else:
             to_invest = self.port.value[current_bar_int] * Settings.pct_invest
 
-        # find assets that need allocation
-        # those that dont have shortPrice for that day wil have NaN
-        # drop them, keep those that have values
-        affected_assets = _find_affected_assets(self.agg_trans_prices.shortPrice, current_bar)
+        # # find assets that need allocation
+        # # those that dont have shortPrice for that day wil have NaN
+        # # drop them, keep those that have values
+        # affected_assets = _find_affected_assets(self.agg_trans_prices.shortPrice, current_bar)
 
-        # find current bar, affected assets
-        # allocate shares to all assets = invested amount/buy price
-        rounded_weights = to_invest / self.agg_trans_prices.shortPrice.loc[
-            current_bar, affected_assets]
-        rounded_weights = rounded_weights.mul(
-            10**Settings.round_to_decimals).apply(np.floor).div(
-                10**Settings.round_to_decimals)
+        # # find current bar, affected assets
+        # # allocate shares to all assets = invested amount/buy price
+        # rounded_weights = to_invest / self.agg_trans_prices.shortPrice.loc[
+        #     current_bar, affected_assets]
+        # rounded_weights = rounded_weights.mul(
+        #     10**Settings.round_to_decimals).apply(np.floor).div(
+        #         10**Settings.round_to_decimals)
+        rounded_weights, affected_assets = self._position_sizer(to_invest, self.agg_trans_prices.shortPrice, current_bar)
+
         self.port.weights[current_bar_int][affected_assets] = -rounded_weights
 
         # find actualy amount invested
