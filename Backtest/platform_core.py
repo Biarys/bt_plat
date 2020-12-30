@@ -171,11 +171,7 @@ class Backtest():
 
         # save custom stops
         if Settings.position_size_type == "custom":
-            self.custom_stop_size.name = name
-            # replace pos and neg inf that might result if C==L, in which case we dont want to allocate anything
-            self.custom_stop_size.replace(np.Inf, 0)
-            self.custom_stop_size.replace(-np.Inf, 0)
-            self.agg_custom_stop =  _aggregate(self.agg_custom_stop, self.custom_stop_size)
+            self.agg_custom_stop =  _prep_and_agg_custom_stops(self.agg_custom_stop, self.custom_stop_size, name)
 
     def _run_portfolio(self, data):
         """
@@ -931,6 +927,15 @@ def _find_affected_assets(df, current_bar):
 
 def _aggregate(agg_df, df, ax=1):
     return pd.concat([agg_df, df], axis=ax)  
+
+def _prep_and_agg_custom_stops(agg_df, df, name, ax=1):
+    df.name = name
+    # replace pos and neg inf that might result if C==L, in which case we dont want to allocate anything
+    df.replace(np.Inf, 0, inplace=True)
+    df.replace(-np.Inf, 0, inplace=True)
+    
+    df2 = _aggregate(agg_df, df, ax)
+    return df2
 
 def _find_df(df, name):
     for i in range(len(df)):
