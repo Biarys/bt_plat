@@ -7,3 +7,4 @@ Backtest/karun2.py
 /.vscode
 __pycache__
 /other
+/.main_run.py
