@@ -548,7 +548,7 @@ class IBApp(_IBWrapper, _IBClient):
         for symbol in self.scanner_instr.keys():
             # check if already requested & tracking data for the symbol
             # Otherwise it will request multiples of the same symbol -> reach limit of 50 simultaneous API historical data requests
-            if symbol + "." + self.scanner_instr[symbol]["currency"] not in self.data_tracker.values():
+            if symbol not in self.data_tracker.values():
                 print("SYMBOL NOT TRACKED: ", symbol + "." + self.scanner_instr[symbol]["currency"], self.data_tracker.values())
                 self.reqHistoricalData(reqId=self.nextOrderId(), contract=IBContract.stock(self.scanner_instr[symbol]))
         print(f"Finished executing scanner data reqID: {reqId}")
