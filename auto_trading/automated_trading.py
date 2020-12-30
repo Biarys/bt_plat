@@ -298,7 +298,7 @@ class _IBWrapper(EWrapper):
             currency = contractDetails.contract.currency
             exchange = contractDetails.contract.exchange
             primaryExchange = contractDetails.contract.primaryExchange
-            self.scanner_instr[contractDetails.contract.symbol] = {"symbol": symbol,
+            self.scanner_instr[symbol + "." + currency] = {"symbol": symbol,
                                                                    "secType": secType,
                                                                    "currency": currency,
                                                                    "exchange": exchange,
@@ -475,11 +475,11 @@ class IBApp(_IBWrapper, _IBClient):
             asset = order["symbol_currency"]
 
             if order["quantity"] > 0:
-                self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
+                self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
                 self.send_email(f"Subject: Sell signal {asset} \n\n SELL - {asset} - {order['quantity']}")
 
             elif order["quantity"] < 0:
-                self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["forex"][asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
+                self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
                 self.send_email(f"Subject: Cover signal {asset} \n\n COVER - {asset} - {order['quantity']}")
 
            
@@ -514,11 +514,11 @@ class IBApp(_IBWrapper, _IBClient):
                 if (asset not in current_orders["symbol_currency"].values) and (asset not in current_positions["symbol_currency"].values):
                     print("Calling entry logic")
                     if bt_orders[bt_orders["Symbol"]==asset]["Direction"].iloc[0] == "Long":
-                        self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["stock"][asset]), IBOrder.MarketOrder("BUY", order["Weight"]))
+                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", order["Weight"]))
                         self.send_email(f"Subject: Buy signal {asset} \n\n BUY - {asset} - {order['Weight']}")
                     
                     elif bt_orders[bt_orders["Symbol"]==asset]["Direction"].iloc[0] == "Short":
-                        self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["stock"][asset]), IBOrder.MarketOrder("SELL", abs(order["Weight"])))
+                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("SELL", abs(order["Weight"])))
                         self.send_email(f"Subject: Short signal {asset} \n\n SHORT - {asset} - {order['Weight']}")
             except Exception as e:
                 print(f"Couldnt enter position for {asset}")
@@ -530,11 +530,11 @@ class IBApp(_IBWrapper, _IBClient):
                 if (asset not in bt_orders["Symbol"].values) and (asset not in current_orders["symbol_currency"].values):
                     print("Calling exit logic")
                     if order["quantity"] > 0:
-                        self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["stock"][asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
+                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
                         self.send_email(f"Subject: Sell signal {asset} \n\n SELL - {asset} - {order['quantity']}")
 
                     elif order["quantity"] < 0:
-                        self.placeOrder(self.nextOrderId(), IBContract.forex(self.asset_map["stock"][asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
+                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
                         self.send_email(f"Subject: Cover signal {asset} \n\n COVER - {asset} - {order['quantity']}")
             except Exception as e:
                 print(f"Couldnt exit position for {asset}")
