@@ -33,6 +33,8 @@ class Backtest():
         self.port = Portfolio()
         self.agg_trans_prices = Agg_TransPrice()
         self.agg_trades = Agg_Trades()
+        self.agg_custom_stop = pd.DataFrame()
+        self.custom_stop_size = None
         self.trade_list = None
         # self.in_trade = {"long":0, "short":0}
         self.universe_ranking = pd.DataFrame()
@@ -166,6 +168,14 @@ class Backtest():
         self.agg_trades.priceFluctuation_dollar = _aggregate(self.agg_trades.priceFluctuation_dollar,
                                                                 trades_current_asset.priceFluctuation_dollar)
         self.agg_trades.trades = _aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
+
+        # save custom stops
+        if Settings.position_size_type == "custom":
+            self.custom_stop_size.name = name
+            # replace pos and neg inf that might result if C==L, in which case we dont want to allocate anything
+            self.custom_stop_size.replace(np.Inf, 0)
+            self.custom_stop_size.replace(-np.Inf, 0)
+            self.agg_custom_stop =  _aggregate(self.agg_custom_stop, self.custom_stop_size)
 
     def _run_portfolio(self, data):
         """
@@ -466,14 +476,19 @@ class Backtest():
 
         elif Settings.position_size_type == "custom":
             # ! not finished.
+            # Naan == True
+            # aggregate custom stop sizes
+            # return single value, not array
+            # deal with inf
             affected_assets = _find_affected_assets(trans_prices, current_bar)
+            to_invest = self.custom_stop_size[current_bar, affected_assets] * port_value
             # affected_assets_tp = trans_prices.loc[current_bar, affected_assets]
             # find current bar, affected assets
             # allocate shares to all assets = invested amount/buy price
             # 0.03 * 18 / 2 = 0.27 or 27%
             # pct_equity_to_invest = (Settings.position_size_value * affected_assets_tp) / atr
             # 0.27 * 90,000 = trade size of 24,300 / share price = #number of share
-            rounded_weights = (self.custom_stop_size * port_value) / affected_assets
+            rounded_weights = to_invest / trans_prices.loc[current_bar, affected_assets]
             rounded_weights = rounded_weights.mul(
                 10**Settings.round_to_decimals).apply(np.floor).div(
                     10**Settings.round_to_decimals)
