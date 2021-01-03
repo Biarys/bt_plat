@@ -46,7 +46,6 @@ def printall(func):
         return func(*args, **kwargs)
     return inner
 
-# TODO:
 # def logall(logger):
 #     def outer(func):
 #         def inner(*args, **kwargs):
@@ -190,7 +189,7 @@ class _IBWrapper(EWrapper):
         self.scanner_instr = {}
 
     def error(self, reqId, errorCode, errorString):
-        self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
+        self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}", stack_info=True)
 
     #@printall
     def contractDetails(self, reqId, contractDetails):
@@ -433,7 +432,7 @@ class IBApp(_IBWrapper, _IBClient):
                 self.submit_orders(s.trade_list)
             except Exception as e:
                 self.logger.error("An error occured")
-                self.logger.error(e)
+                self.logger.error(e, stack_info=True)
 
     @staticmethod
     def send_email(message):
@@ -514,7 +513,7 @@ class IBApp(_IBWrapper, _IBClient):
                         self.send_email(f"Subject: Short signal {asset} \n\n SHORT - {asset} - {order['Weight']}")
             except Exception as e:
                 self.logger.error(f"Couldnt enter position for {asset}")
-                self.logger.error(e)
+                self.logger.error(e, stack_info=True)
         # exit logic
         for ix, order in current_positions.iterrows():
             try:
@@ -530,7 +529,7 @@ class IBApp(_IBWrapper, _IBClient):
                         self.send_email(f"Subject: Cover signal {asset} \n\n COVER - {asset} - {order['quantity']}")
             except Exception as e:
                 self.logger.error(f"Couldnt exit position for {asset}")
-                self.logger.error(e)
+                self.logger.error(e, stack_info=True)
 
     def read_data(self, stock):
         return (stock, self.data[stock])
