@@ -4,10 +4,8 @@ import os
 import abc
 import logging
 # import traceback
-import pyspark
-import pyspark.sql.functions as pySqlFunc
-from pyspark.sql.functions import col
-from pyspark.sql.window import Window
+# for testing
+from datetime import datetime as dt
 
 # own files
 from Backtest.indicators import SMA
@@ -15,8 +13,12 @@ from Backtest.data_reader import DataReader
 from auto_trading.log import setup_log
 from Backtest import Settings
 
-# for testing
-from datetime import datetime as dt
+if Settings.backtest_engine.lower() == "spark":
+    import pyspark
+    import pyspark.sql.functions as pySqlFunc
+    from pyspark.sql.functions import col
+    from pyspark.sql.window import Window
+    
 
 setup_log("Backtester")
 #############################################
