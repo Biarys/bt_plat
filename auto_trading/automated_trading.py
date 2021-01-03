@@ -15,6 +15,7 @@ from ibapi.order import Order
 from ibapi.scanner import ScannerSubscription
 
 from auto_trading.other import send_email
+from auto_trading import log
 from Backtest import Settings as settings
 import Backtest.config as config
 
@@ -55,32 +56,32 @@ def printall(func):
 #     return outer
 
 
-def _setup_log(name, level=logging.INFO):
-    if not os.path.exists(settings.log_folder):
-        try:
-            print(f"Creating log folder in {settings.log_folder}")
-            os.mkdir(settings.log_folder)
-        except Exception as e:
-            print(f"Failed to create log folder in {settings.log_folder}")
-            print(f"An error occured {e}")
+# def _setup_log(name, level=logging.INFO):
+#     if not os.path.exists(settings.log_folder):
+#         try:
+#             print(f"Creating log folder in {settings.log_folder}")
+#             os.mkdir(settings.log_folder)
+#         except Exception as e:
+#             print(f"Failed to create log folder in {settings.log_folder}")
+#             print(f"An error occured {e}")
 
 
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    formatter = logging.Formatter("%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s")
+#     logger = logging.getLogger(name)
+#     logger.setLevel(level)
+#     formatter = logging.Formatter("%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s")
 
-    handler_console = logging.StreamHandler()
-    handler_console.setLevel(level)
-    handler_console.setFormatter(formatter)
+#     handler_console = logging.StreamHandler()
+#     handler_console.setLevel(level)
+#     handler_console.setFormatter(formatter)
 
-    handler_file = logging.FileHandler(settings.log_folder + r"/" + settings.log_name, mode="w")
-    handler_file.setLevel(level)
-    handler_file.setFormatter(formatter)
+#     handler_file = logging.FileHandler(settings.log_folder + r"/" + settings.log_name, mode="w")
+#     handler_file.setLevel(level)
+#     handler_file.setFormatter(formatter)
     
-    logger.addHandler(handler_console)
-    logger.addHandler(handler_file)
+#     logger.addHandler(handler_console)
+#     logger.addHandler(handler_file)
 
-    logger.info("Started")
+#     logger.info("Started")
 
 class IBContract:
 
@@ -189,27 +190,28 @@ class _IBWrapper(EWrapper):
         self.scanner_instr = {}
 
     def error(self, reqId, errorCode, errorString):
-        print(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
+        # print(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
         self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
 
-    @printall
+    #@printall
     def contractDetails(self, reqId, contractDetails):
-        print(f"ReqID: {reqId}, Contract Details: {contractDetails}")
-        self.logger.info(f"ReqID: {reqId}, Contract Details: {contractDetails}")
+        # print(f"ReqID: {reqId}, Contract Details: {contractDetails}")
+        # self.logger.info(f"ReqID: {reqId}, Contract Details: {contractDetails}")
+        pass
 
-    @printall
+    #@printall
     def accountSummary(self, reqId, account, tag, value, currency):
         if tag=="NetLiquidation":
             self.avail_funds = float(value)
         # print(f"ReqID: {reqId}, Account: {account}, Tag: {tag}, Value: {value}, Currency: {currency}")
         # self.logger.info(f"ReqID: {reqId}, Account: {account}, Tag: {tag}, Value: {value}, Currency: {currency}")
 
-    @printall
+    #@printall
     def accountSummaryEnd(self, reqId: int):
-        print(f"AccountSummaryEnd. ReqId: {reqId}")
+        # print(f"AccountSummaryEnd. ReqId: {reqId}")
         self.logger.info(f"AccountSummaryEnd. ReqId: {reqId}")
 
-    @printall
+    #@printall
     def position(self, account, contract, pos, avg_cost):
         print(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
         self.logger.info(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
@@ -218,12 +220,12 @@ class _IBWrapper(EWrapper):
         self.open_positions = self.open_positions.append(_row)
 
     def positionEnd(self):
-        print("Finished executing reqPositions")
+        # print("Finished executing reqPositions")
         self.logger.info("Finished executing reqPositions")
         self.open_positions_received = True
 
 
-    @printall
+    #@printall
     def connectAck(self):
         # print("connectAck CALLED")
         if self.asynchronous:
@@ -237,7 +239,7 @@ class _IBWrapper(EWrapper):
         self.open_orders = self.open_orders.append(_row)
 
     def openOrderEnd(self):
-        print("Finished executing reqOpenOrders")
+        # print("Finished executing reqOpenOrders")
         self.logger.info("Finished executing reqOpenOrders")
         self.open_orders_received = True
 
@@ -304,12 +306,12 @@ class _IBWrapper(EWrapper):
                                                                    "exchange": exchange,
                                                                    "primaryExchange": primaryExchange
                                                                   }
-            print(f"ReqId: {reqId}, rank: {rank}, symbol: {symbol}, secType: {secType}, exchange: {exchange}, primaryExchange: {primaryExchange}, currency: {currency}")
+            # print(f"ReqId: {reqId}, rank: {rank}, symbol: {symbol}, secType: {secType}, exchange: {exchange}, primaryExchange: {primaryExchange}, currency: {currency}")
 
     def scannerParameters(self, xml:str):
         print(xml)
 
-    @printall
+    #@printall
     def nextValidId(self, orderId):
         """
         The nextValidId event provides the next valid identifier needed to place an order. 
@@ -330,7 +332,7 @@ class _IBWrapper(EWrapper):
         # print("nextValidId CALLED")
         # print(self.nextValidOrderId)
 
-        print(f"NextValidId: {orderId}")
+        # print(f"NextValidId: {orderId}")
         self.logger.info(f"NextValidId: {orderId}")
 
 
@@ -349,14 +351,14 @@ class _IBClient(EClient):
         print(self.data_tracker)
 
     def reqPositions(self):        
-        print("Requesting open positions")
+        # print("Requesting open positions")
         self.logger.info("Requesting open positions")
         super().reqPositions()
         self.open_positions_received = False
         self.open_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
 
     def reqOpenOrders(self):        
-        print("Requesting open orders")
+        # print("Requesting open orders")
         self.logger.info("Requesting open orders")
         super().reqOpenOrders()
         self.open_orders_received = False
@@ -386,8 +388,8 @@ class IBApp(_IBWrapper, _IBClient):
             return
 
         self.started = True
-        _setup_log("IBApp")
-        self.logger = logging.getLogger("IBApp")
+        # log.setup_log("IBApp")
+        # self.logger = logging.getLogger("IBApp")
 
         #self.reqIds(-1) # to make sure nextValidOrderId gets a value for sure
  
@@ -400,7 +402,7 @@ class IBApp(_IBWrapper, _IBClient):
         
         ib_thread = threading.Thread(target=self.run, name="Interactive Broker Client Thread", )
         ib_thread.start()
-        print("Waiting 1 second for nextValidID response")
+        # print("Waiting 1 second for nextValidID response")
         self.logger.info("Waiting 1 second for nextValidID response")
         time.sleep(1) 
            
@@ -412,7 +414,7 @@ class IBApp(_IBWrapper, _IBClient):
         else:
             oid = self.nextValidOrderId
             # print("nextOrderId CALLED")
-            print(self.nextValidOrderId)
+            self.logger.info(self.nextValidOrderId)
             self.nextValidOrderId += 1
             return oid
         
@@ -434,15 +436,15 @@ class IBApp(_IBWrapper, _IBClient):
                 # recent_min = now.minute
                 # if now.second == 5 and recent_min != prev_min:
                 #     prev_min = recent_min
-                print("Running strategy")
+                self.logger.info("Running strategy")
                 s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
                 data_ = DataReader("at", self.data) 
                 settings.start_amount = self.avail_funds
                 s.run(data_)
                 self.submit_orders(s.trade_list)
             except Exception as e:
-                print("An error occured")
-                print(e)
+                self.logger.error("An error occured")
+                self.logger.error(e)
 
     @staticmethod
     def send_email(message):
@@ -495,7 +497,8 @@ class IBApp(_IBWrapper, _IBClient):
             
         current_orders = self.open_orders
         current_positions = self.open_positions[self.open_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
-        print(self.open_positions)
+        print(f"Open positions: {current_positions}")
+        print(f"Open orders: {self.open_orders}")
         # if len(bt_orders) == 0:
         #     # close all positions and orders
         #     self.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
@@ -512,7 +515,7 @@ class IBApp(_IBWrapper, _IBClient):
             try:
                 # simple check to see if current order has already been submitted
                 if (asset not in current_orders["symbol_currency"].values) and (asset not in current_positions["symbol_currency"].values):
-                    print("Calling entry logic")
+                    self.logger.info("Calling entry logic")
                     if bt_orders[bt_orders["Symbol"]==asset]["Direction"].iloc[0] == "Long":
                         self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", order["Weight"]))
                         self.send_email(f"Subject: Buy signal {asset} \n\n BUY - {asset} - {order['Weight']}")
@@ -521,14 +524,14 @@ class IBApp(_IBWrapper, _IBClient):
                         self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("SELL", abs(order["Weight"])))
                         self.send_email(f"Subject: Short signal {asset} \n\n SHORT - {asset} - {order['Weight']}")
             except Exception as e:
-                print(f"Couldnt enter position for {asset}")
-                print(e)
+                self.logger.error(f"Couldnt enter position for {asset}")
+                self.logger.error(e)
         # exit logic
         for ix, order in current_positions.iterrows():
             try:
                 asset = order["symbol_currency"]
                 if (asset not in bt_orders["Symbol"].values) and (asset not in current_orders["symbol_currency"].values):
-                    print("Calling exit logic")
+                    self.logger.info("Calling exit logic")
                     if order["quantity"] > 0:
                         self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
                         self.send_email(f"Subject: Sell signal {asset} \n\n SELL - {asset} - {order['quantity']}")
@@ -537,8 +540,8 @@ class IBApp(_IBWrapper, _IBClient):
                         self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
                         self.send_email(f"Subject: Cover signal {asset} \n\n COVER - {asset} - {order['quantity']}")
             except Exception as e:
-                print(f"Couldnt exit position for {asset}")
-                print(e)
+                self.logger.error(f"Couldnt exit position for {asset}")
+                self.logger.error(e)
 
     def read_data(self, stock):
         return (stock, self.data[stock])
@@ -549,11 +552,12 @@ class IBApp(_IBWrapper, _IBClient):
             # check if already requested & tracking data for the symbol
             # Otherwise it will request multiples of the same symbol -> reach limit of 50 simultaneous API historical data requests
             if symbol not in self.data_tracker.values():
-                print("SYMBOL NOT TRACKED: ", symbol + "." + self.scanner_instr[symbol]["currency"], self.data_tracker.values())
+                self.logger.info("SYMBOL NOT TRACKED: ", symbol, self.data_tracker.values())
+                self.logger.info(f"Requesting data for: {symbol}")
                 self.reqHistoricalData(reqId=self.nextOrderId(), contract=IBContract.stock(self.scanner_instr[symbol]))
-        print(f"Finished executing scanner data reqID: {reqId}")
-        print(f"Stocks in self.scanner_instr.keys(): {self.scanner_instr.keys()}")
-        print(f"Currently tracking: {self.data_tracker.values()}")
+        self.logger.info(f"Finished executing scanner data reqID: {reqId}")
+        self.logger.info(f"Stocks in self.scanner_instr.keys(): {self.scanner_instr.keys()}")
+        self.logger.info(f"Currently tracking: {self.data_tracker.values()}")
 
     # def place_order(self):
     #     self.simplePlaceOid = self.nextValidId()
