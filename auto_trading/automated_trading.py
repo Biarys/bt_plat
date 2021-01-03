@@ -190,12 +190,10 @@ class _IBWrapper(EWrapper):
         self.scanner_instr = {}
 
     def error(self, reqId, errorCode, errorString):
-        # print(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
         self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
 
     #@printall
     def contractDetails(self, reqId, contractDetails):
-        # print(f"ReqID: {reqId}, Contract Details: {contractDetails}")
         # self.logger.info(f"ReqID: {reqId}, Contract Details: {contractDetails}")
         pass
 
@@ -203,12 +201,10 @@ class _IBWrapper(EWrapper):
     def accountSummary(self, reqId, account, tag, value, currency):
         if tag=="NetLiquidation":
             self.avail_funds = float(value)
-        # print(f"ReqID: {reqId}, Account: {account}, Tag: {tag}, Value: {value}, Currency: {currency}")
         # self.logger.info(f"ReqID: {reqId}, Account: {account}, Tag: {tag}, Value: {value}, Currency: {currency}")
 
     #@printall
     def accountSummaryEnd(self, reqId: int):
-        # print(f"AccountSummaryEnd. ReqId: {reqId}")
         self.logger.info(f"AccountSummaryEnd. ReqId: {reqId}")
 
     #@printall
@@ -220,14 +216,12 @@ class _IBWrapper(EWrapper):
         self.open_positions = self.open_positions.append(_row)
 
     def positionEnd(self):
-        # print("Finished executing reqPositions")
         self.logger.info("Finished executing reqPositions")
         self.open_positions_received = True
 
 
     #@printall
     def connectAck(self):
-        # print("connectAck CALLED")
         if self.asynchronous:
             self.startApi()
 
@@ -239,7 +233,6 @@ class _IBWrapper(EWrapper):
         self.open_orders = self.open_orders.append(_row)
 
     def openOrderEnd(self):
-        # print("Finished executing reqOpenOrders")
         self.logger.info("Finished executing reqOpenOrders")
         self.open_orders_received = True
 
@@ -280,7 +273,7 @@ class _IBWrapper(EWrapper):
         self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(self._data_all)
         
     def historicalDataEnd(self, reqId, start, end):
-        print(f"ReqID: {reqId}, start: {start}, end: {end}")
+        self.logger.info(f"Historical Data End. ReqID: {reqId}, start: {start}, end: {end}")
         # self.data = self.q.get()
 
     def scannerData(self, reqId:int, rank:int, contractDetails, distance:str, benchmark:str, projection:str, legsStr:str):
@@ -350,15 +343,13 @@ class _IBClient(EClient):
         self.data_tracker[reqId] = contract.symbol + "." + contract.currency
         print(self.data_tracker)
 
-    def reqPositions(self):        
-        # print("Requesting open positions")
+    def reqPositions(self):
         self.logger.info("Requesting open positions")
         super().reqPositions()
         self.open_positions_received = False
         self.open_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
 
     def reqOpenOrders(self):        
-        # print("Requesting open orders")
         self.logger.info("Requesting open orders")
         super().reqOpenOrders()
         self.open_orders_received = False
@@ -388,8 +379,8 @@ class IBApp(_IBWrapper, _IBClient):
             return
 
         self.started = True
-        # log.setup_log("IBApp")
-        # self.logger = logging.getLogger("IBApp")
+        log.setup_log("IBApp")
+        self.logger = logging.getLogger("IBApp")
 
         #self.reqIds(-1) # to make sure nextValidOrderId gets a value for sure
  
@@ -402,7 +393,6 @@ class IBApp(_IBWrapper, _IBClient):
         
         ib_thread = threading.Thread(target=self.run, name="Interactive Broker Client Thread", )
         ib_thread.start()
-        # print("Waiting 1 second for nextValidID response")
         self.logger.info("Waiting 1 second for nextValidID response")
         time.sleep(1) 
            
@@ -413,7 +403,6 @@ class IBApp(_IBWrapper, _IBClient):
             self.nextOrderId()
         else:
             oid = self.nextValidOrderId
-            # print("nextOrderId CALLED")
             self.logger.info(self.nextValidOrderId)
             self.nextValidOrderId += 1
             return oid
