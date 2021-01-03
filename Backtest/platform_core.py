@@ -13,8 +13,6 @@ from pyspark.sql.window import Window
 from Backtest.indicators import SMA
 from Backtest.data_reader import DataReader
 from auto_trading.log import setup_log
-# import database_stuff as db
-from Backtest import config
 from Backtest import Settings
 
 # for testing
