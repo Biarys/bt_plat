@@ -7,6 +7,7 @@ import time
 from queue import Queue
 import json
 import smtplib, ssl 
+from collections import defaultdict
 
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
@@ -218,9 +219,11 @@ class _IBWrapper(EWrapper):
     def position(self, account, contract, pos, avg_cost):
         # print(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
         self.logger.info(f"Account: {account}, Contract: {contract.symbol}, Position: {pos}, Average cost: {avg_cost}")
-        _row = pd.DataFrame(data=[[account, contract.symbol+"."+contract.currency, pos, avg_cost]], 
-                            columns=["account", "symbol_currency", "quantity", "avg_cost"])
-        self.open_positions = self.open_positions.append(_row)
+        name = contract.symbol+"."+contract.currency
+        # _row = pd.DataFrame(data=[[account, name, pos, avg_cost]], 
+        #                     columns=["account", "symbol_currency", "quantity", "avg_cost"])
+        self.open_positions[name] = {"symbol_currency":name, "quantity":pos, "avg_cost": avg_cost}
+        # self.open_positions = self.open_positions.append(_row)
 
     def positionEnd(self):
         self.logger.info("Finished executing reqPositions")
@@ -355,7 +358,8 @@ class _IBClient(EClient):
         self.logger.info("Requesting open positions")
         super().reqPositions()
         self.open_positions_received = False
-        self.open_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
+        # self.open_positions = {}
+        # self.open_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
 
     def reqOpenOrders(self):        
         self.logger.info("Requesting open orders")
@@ -370,7 +374,7 @@ class _IBClient(EClient):
 class IBApp(_IBWrapper, _IBClient):
     def __init__(self):
         _IBWrapper.__init__(self)
-        _IBClient.__init__(self, self)
+        _IBClient.__init__(self, wrapper=self)
         
         self.started = False
         self.nextValidOrderId = None
@@ -380,7 +384,7 @@ class IBApp(_IBWrapper, _IBClient):
         self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
         self._last_reqId = None
         self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
-        self.open_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
+        self.open_positions = {}
         self.open_orders_received = False
         self.open_positions_received = False
         # self.q = Queue()
@@ -398,12 +402,13 @@ class IBApp(_IBWrapper, _IBClient):
  
         # self.reqAllOpenOrders()
         # self.reqCurrentTime()
-
+        self.reqPositions()
+        self.reqOpenOrders()
 
         with open(settings.path_to_mapping, "r") as f:
             self.asset_map = json.loads(f.read())
         
-        ib_thread = threading.Thread(target=self.run, name="Interactive Broker Client Thread", )
+        ib_thread = threading.Thread(target=self.run, name="Interactive Broker Client Thread")
         ib_thread.start()
         self.logger.info("Waiting 1 second for nextValidID response")
         time.sleep(1) 
@@ -489,18 +494,13 @@ class IBApp(_IBWrapper, _IBClient):
            
 
     def submit_orders(self, trades):
-        self.reqPositions()
-        self.reqOpenOrders()
-
         bt_orders = trades[trades["Date_exit"] == "Open"]
-
-        while (not self.open_orders_received) and (not self.open_positions_received):
-            time.sleep(0.5)
             
         current_orders = self.open_orders
-        current_positions = self.open_positions[self.open_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
+        current_positions = pd.DataFrame.from_dict(self.open_positions, orient="index")
+        current_positions = current_positions[current_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
         print(f"Open positions: {current_positions}")
-        print(f"Open orders: {self.open_orders}")
+        print(f"Open orders: {current_orders}")
         # if len(bt_orders) == 0:
         #     # close all positions and orders
         #     self.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
