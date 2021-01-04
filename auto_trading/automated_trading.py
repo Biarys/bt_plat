@@ -217,24 +217,24 @@ class _IBWrapper(EWrapper):
 
     #@printall
     def position(self, account, contract, pos, avg_cost):
-        # print(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
         self.logger.info(f"Account: {account}, Contract: {contract.symbol}, Position: {pos}, Average cost: {avg_cost}")
         name = contract.symbol+"."+contract.currency
         # _row = pd.DataFrame(data=[[account, name, pos, avg_cost]], 
         #                     columns=["account", "symbol_currency", "quantity", "avg_cost"])
-        self.open_positions[name] = {"symbol_currency":name, "quantity":pos, "avg_cost": avg_cost}
         # self.open_positions = self.open_positions.append(_row)
+        self.open_positions[name] = {"symbol_currency":name, "quantity":pos, "avg_cost": avg_cost}
 
     def positionEnd(self):
         self.logger.info("Finished executing reqPositions")
         self.open_positions_received = True
 
     def openOrder(self, orderId, contract, order, orderState):
-        # print(f"Order Id: {orderId}, Contract: {contract}, Order: {order}, Order state: {orderState}")
         self.logger.info(f"Order Id: {orderId}, Contract: {contract.symbol}, Order: {order.action}, Commission paid: {orderState.commission}")
-        _row = pd.DataFrame(data=[[orderId, contract.symbol+"."+contract.currency, order.action, order.totalQuantity, order.orderType]], 
-                            columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
-        self.open_orders = self.open_orders.append(_row)
+        name = contract.symbol+"."+contract.currency
+        # _row = pd.DataFrame(data=[[orderId, name, order.action, order.totalQuantity, order.orderType]], 
+        #                     columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
+        # self.open_orders = self.open_orders.append(_row)
+        self.open_orders[orderId] = {"orderId":orderId, "symbol_currency":name, "order_action": order.action, "quantity":order.totalQuantity, "order_type": order.orderType}
 
     def openOrderEnd(self):
         self.logger.info("Finished executing reqOpenOrders")
@@ -285,7 +285,6 @@ class _IBWrapper(EWrapper):
     def historicalDataEnd(self, reqId, start, end):
         self.logger.info(f"Historical Data End. ReqID: {reqId}, start: {start}, end: {end}")
         self.logger.info(f"Stocks that are being tracked: {self.data_tracker}")
-        # self.data = self.q.get()
 
     def scannerData(self, reqId:int, rank:int, contractDetails, distance:str, benchmark:str, projection:str, legsStr:str):
         """
@@ -343,6 +342,7 @@ class _IBWrapper(EWrapper):
 class _IBClient(EClient):
     def __init__(self, wrapper):
         EClient.__init__(self, wrapper)
+        self.data_tracker = {}
 
     def reqHistoricalData(self, reqId, contract, endDateTime="", durationStr="3 D", barSizeSetting="1 min", 
                         whatToShow="MIDPOINT", useRTH=1, formatDate=1, keepUpToDate=True, chartOptions=[]):
@@ -352,20 +352,19 @@ class _IBClient(EClient):
         # temp = _split_contract(contract)
         # print(temp)
         self.data_tracker[reqId] = contract.symbol + "." + contract.currency
-        print(self.data_tracker)
+        self.logger.info(self.data_tracker)
 
     def reqPositions(self):
         self.logger.info("Requesting open positions")
         super().reqPositions()
         self.open_positions_received = False
-        # self.open_positions = {}
         # self.open_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
 
     def reqOpenOrders(self):        
         self.logger.info("Requesting open orders")
         super().reqOpenOrders()
         self.open_orders_received = False
-        self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
+        # self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
 
     def placeOrder(self, Id, contract, order):
         self.logger.info(f"Placing order for: id - {Id}, contract - {contract.symbol}, {contract.secType}, order - {order.action}, {order.orderType}")
@@ -378,12 +377,10 @@ class IBApp(_IBWrapper, _IBClient):
         
         self.started = False
         self.nextValidOrderId = None
-        self.logger = None   
-        self.data_tracker = {}  
-        self.data = {}  
+        self.logger = None
         self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
         self._last_reqId = None
-        self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
+        self.open_orders = {}
         self.open_positions = {}
         self.open_orders_received = False
         self.open_positions_received = False
@@ -478,6 +475,7 @@ class IBApp(_IBWrapper, _IBClient):
         while not self.open_positions_received:
             time.sleep(0.5)
 
+        # ! needs to be modified to be like in submit_orders
         current_positions = self.open_positions[self.open_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
 
         for ix, order in current_positions.iterrows():
@@ -496,7 +494,7 @@ class IBApp(_IBWrapper, _IBClient):
     def submit_orders(self, trades):
         bt_orders = trades[trades["Date_exit"] == "Open"]
             
-        current_orders = self.open_orders
+        current_orders = pd.DataFrame.from_dict(self.open_orders, orient="index")
         current_positions = pd.DataFrame.from_dict(self.open_positions, orient="index")
         current_positions = current_positions[current_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
         print(f"Open positions: {current_positions}")
