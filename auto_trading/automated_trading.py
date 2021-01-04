@@ -55,34 +55,6 @@ def printall(func):
 #         return inner
 #     return outer
 
-
-# def _setup_log(name, level=logging.INFO):
-#     if not os.path.exists(settings.log_folder):
-#         try:
-#             print(f"Creating log folder in {settings.log_folder}")
-#             os.mkdir(settings.log_folder)
-#         except Exception as e:
-#             print(f"Failed to create log folder in {settings.log_folder}")
-#             print(f"An error occured {e}")
-
-
-#     logger = logging.getLogger(name)
-#     logger.setLevel(level)
-#     formatter = logging.Formatter("%(asctime)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s")
-
-#     handler_console = logging.StreamHandler()
-#     handler_console.setLevel(level)
-#     handler_console.setFormatter(formatter)
-
-#     handler_file = logging.FileHandler(settings.log_folder + r"/" + settings.log_name, mode="w")
-#     handler_file.setLevel(level)
-#     handler_file.setFormatter(formatter)
-    
-#     logger.addHandler(handler_console)
-#     logger.addHandler(handler_file)
-
-#     logger.info("Started")
-
 class IBContract:
 
     @staticmethod
@@ -194,28 +166,23 @@ class _IBWrapper(EWrapper):
     def error(self, reqId, errorCode, errorString):
         self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}", stack_info=True)
 
-    #@printall
     def connectAck(self):
         if self.asynchronous:
             self.startApi()
 
-    #@printall
     # commented out cuz not used
     # def contractDetails(self, reqId, contractDetails):
     #     # self.logger.info(f"ReqID: {reqId}, Contract Details: {contractDetails}")
     #     pass
 
-    #@printall
     def accountSummary(self, reqId, account, tag, value, currency):
         if tag=="NetLiquidation":
             self.avail_funds = float(value)
         # self.logger.info(f"ReqID: {reqId}, Account: {account}, Tag: {tag}, Value: {value}, Currency: {currency}")
 
-    #@printall
     def accountSummaryEnd(self, reqId: int):
         self.logger.info(f"AccountSummaryEnd. ReqId: {reqId}")
 
-    #@printall
     def position(self, account, contract, pos, avg_cost):
         self.logger.info(f"Account: {account}, Contract: {contract.symbol}, Position: {pos}, Average cost: {avg_cost}")
         name = contract.symbol+"."+contract.currency
@@ -247,13 +214,10 @@ class _IBWrapper(EWrapper):
     #     self.logger.info("Finished executing completedOrderEnd")
 
     def historicalData(self, reqId, bar):
-        #print(f"ReqID: {reqId}, Hist Data: {bar}")
         # delete old asset's data        
         if self._last_reqId != reqId:
             self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
             self._last_reqId = reqId
-            
-        # self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
 
         _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
         _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
@@ -261,18 +225,13 @@ class _IBWrapper(EWrapper):
 
         self._data_all = self._data_all.append(_row)
         self._data_all.index.name = "Date"
-        # self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(_row)
         self.data[self.data_tracker[reqId]] = self._data_all
-        # self.q.put(self.data)
 
     def historicalDataUpdate(self, reqId, bar):
-        #print(f"ReqID: {reqId}, Hist Data: {bar}")
         self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
         if self._last_reqId != reqId:
             self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
             self._last_reqId = reqId
-            
-        # self.logger.info(f"ReqID: {reqId}, Hist Data: {bar}")
 
         _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
         _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
@@ -309,12 +268,10 @@ class _IBWrapper(EWrapper):
                                                                    "exchange": exchange,
                                                                    "primaryExchange": primaryExchange
                                                                   }
-            # print(f"ReqId: {reqId}, rank: {rank}, symbol: {symbol}, secType: {secType}, exchange: {exchange}, primaryExchange: {primaryExchange}, currency: {currency}")
 
     def scannerParameters(self, xml:str):
         print(xml)
 
-    #@printall
     def nextValidId(self, orderId):
         """
         The nextValidId event provides the next valid identifier needed to place an order. 
@@ -330,12 +287,7 @@ class _IBWrapper(EWrapper):
         More info http://interactivebrokers.github.io/tws-api/order_submission.html
         """
         super().nextValidId(orderId)
-        # logging.debug("setting nextValidOrderId: %d", orderId)
         self.nextValidOrderId = orderId
-        # print("nextValidId CALLED")
-        # print(self.nextValidOrderId)
-
-        # print(f"NextValidId: {orderId}")
         self.logger.info(f"NextValidId: {orderId}")
 
 
@@ -349,8 +301,6 @@ class _IBClient(EClient):
         super().reqHistoricalData(reqId, contract, endDateTime, durationStr, barSizeSetting, 
                                 whatToShow, useRTH, formatDate, keepUpToDate, chartOptions)
         
-        # temp = _split_contract(contract)
-        # print(temp)
         self.data_tracker[reqId] = contract.symbol + "." + contract.currency
         self.logger.info(self.data_tracker)
 
@@ -358,13 +308,11 @@ class _IBClient(EClient):
         self.logger.info("Requesting open positions")
         super().reqPositions()
         self.open_positions_received = False
-        # self.open_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
 
     def reqOpenOrders(self):        
         self.logger.info("Requesting open orders")
         super().reqOpenOrders()
         self.open_orders_received = False
-        # self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
 
     def placeOrder(self, Id, contract, order):
         self.logger.info(f"Placing order for: id - {Id}, contract - {contract.symbol}, {contract.secType}, order - {order.action}, {order.orderType}")
@@ -383,9 +331,7 @@ class IBApp(_IBWrapper, _IBClient):
         self.open_orders = {}
         self.open_positions = {}
         self.open_orders_received = False
-        self.open_positions_received = False
-        # self.q = Queue()
-        
+        self.open_positions_received = False        
 
     def start(self):
         if self.started:
@@ -396,9 +342,7 @@ class IBApp(_IBWrapper, _IBClient):
         self.logger = logging.getLogger("IBApp")
 
         #self.reqIds(-1) # to make sure nextValidOrderId gets a value for sure
- 
-        # self.reqAllOpenOrders()
-        # self.reqCurrentTime()
+
         self.reqPositions()
         self.reqOpenOrders()
 
@@ -458,11 +402,6 @@ class IBApp(_IBWrapper, _IBClient):
             sender_email = config.sender_email  # Enter your address
             receiver_email = config.receiver_email  # Enter receiver address
 
-            # msg = MIMEText("""body""")
-            # msg['To'] = ", ".join(receiver_email)
-            # msg['Subject'] = "subject line"
-            # msg['From'] = sender_email
-
             context = ssl.create_default_context() # Create a secure SSL context
             with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
                 server.login(sender_email, password)
@@ -508,10 +447,7 @@ class IBApp(_IBWrapper, _IBClient):
         # else:
         # entry logic
         for ix, order in bt_orders.iterrows():
-            # _buy_or_sell = "BUY" if order["Direction"] == "Long" else "SELL"
             asset = order["Symbol"]
-            # _asset = order["Symbol"].split(".")
-            # _asset = "".join(_asset)
             try:
                 # simple check to see if current order has already been submitted
                 if (asset not in current_orders["symbol_currency"].values) and (asset not in current_positions["symbol_currency"].values):
@@ -560,11 +496,6 @@ class IBApp(_IBWrapper, _IBClient):
         self.logger.info(f"Finished executing scanner data reqID: {reqId}")
         self.logger.info(f"Stocks in self.scanner_instr.keys(): {self.scanner_instr.keys()}")
         self.logger.info(f"Currently tracking: {self.data_tracker.values()}")
-
-    # def place_order(self):
-    #     self.simplePlaceOid = self.nextValidId()
-    #     self.placeOrder(self.simplePlaceOid, ContractSamples.USStock(),
-    #                     OrderSamples.LimitOrder("SELL", 1, 50))
 
 
 if __name__ == "__main__":
