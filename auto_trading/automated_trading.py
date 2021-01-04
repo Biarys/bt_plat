@@ -161,6 +161,7 @@ class IBOrder:
         return order
 
 class IBScanner:
+
     def __init__(self):
         pass
 
@@ -182,6 +183,7 @@ class IBScanner:
     
     
 class _IBWrapper(EWrapper):
+
     def __init__(self):
         EWrapper.__init__(self)
         self.data = {}
@@ -190,6 +192,11 @@ class _IBWrapper(EWrapper):
 
     def error(self, reqId, errorCode, errorString):
         self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}", stack_info=True)
+
+    #@printall
+    def connectAck(self):
+        if self.asynchronous:
+            self.startApi()
 
     #@printall
     # commented out cuz not used
@@ -219,15 +226,9 @@ class _IBWrapper(EWrapper):
         self.logger.info("Finished executing reqPositions")
         self.open_positions_received = True
 
-
-    #@printall
-    def connectAck(self):
-        if self.asynchronous:
-            self.startApi()
-
     def openOrder(self, orderId, contract, order, orderState):
         # print(f"Order Id: {orderId}, Contract: {contract}, Order: {order}, Order state: {orderState}")
-        self.logger.info(f"Order Id: {orderId}, Contract: {contract.symbol}, Order: {order.action}, Order state: {orderState}")
+        self.logger.info(f"Order Id: {orderId}, Contract: {contract.symbol}, Order: {order.action}, Commission paid: {orderState.commission}")
         _row = pd.DataFrame(data=[[orderId, contract.symbol+"."+contract.currency, order.action, order.totalQuantity, order.orderType]], 
                             columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
         self.open_orders = self.open_orders.append(_row)
@@ -235,6 +236,12 @@ class _IBWrapper(EWrapper):
     def openOrderEnd(self):
         self.logger.info("Finished executing reqOpenOrders")
         self.open_orders_received = True
+
+    # def completedOrder(self, contract, order, orderState):
+    #     self.logger.info(f"Contract: {contract}. Order: {order}. OrderState: {orderState}")
+
+    # def completedOrderEnd(self):
+    #     self.logger.info("Finished executing completedOrderEnd")
 
     def historicalData(self, reqId, bar):
         #print(f"ReqID: {reqId}, Hist Data: {bar}")
@@ -442,22 +449,23 @@ class IBApp(_IBWrapper, _IBClient):
 
     @staticmethod
     def send_email(message):
-        port = 465 # for SSL
-        password = config.password
-        smtp_server = "smtp.gmail.com"
-        sender_email = config.sender_email  # Enter your address
-        receiver_email = config.receiver_email  # Enter receiver address
+        if settings.send_email:
+            port = 465 # for SSL
+            password = config.password
+            smtp_server = "smtp.gmail.com"
+            sender_email = config.sender_email  # Enter your address
+            receiver_email = config.receiver_email  # Enter receiver address
 
-        # msg = MIMEText("""body""")
-        # msg['To'] = ", ".join(receiver_email)
-        # msg['Subject'] = "subject line"
-        # msg['From'] = sender_email
+            # msg = MIMEText("""body""")
+            # msg['To'] = ", ".join(receiver_email)
+            # msg['Subject'] = "subject line"
+            # msg['From'] = sender_email
 
-        context = ssl.create_default_context() # Create a secure SSL context
-        with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
-            server.login(sender_email, password)
-            for email in receiver_email:
-                server.sendmail(sender_email, email, message)
+            context = ssl.create_default_context() # Create a secure SSL context
+            with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
+                server.login(sender_email, password)
+                for email in receiver_email:
+                    server.sendmail(sender_email, email, message)
 
     def cancelOpenPositions(self):
         self.reqPositions()
