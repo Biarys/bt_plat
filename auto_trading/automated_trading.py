@@ -192,9 +192,10 @@ class _IBWrapper(EWrapper):
         self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}", stack_info=True)
 
     #@printall
-    def contractDetails(self, reqId, contractDetails):
-        # self.logger.info(f"ReqID: {reqId}, Contract Details: {contractDetails}")
-        pass
+    # commented out cuz not used
+    # def contractDetails(self, reqId, contractDetails):
+    #     # self.logger.info(f"ReqID: {reqId}, Contract Details: {contractDetails}")
+    #     pass
 
     #@printall
     def accountSummary(self, reqId, account, tag, value, currency):
@@ -208,8 +209,8 @@ class _IBWrapper(EWrapper):
 
     #@printall
     def position(self, account, contract, pos, avg_cost):
-        print(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
-        self.logger.info(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
+        # print(f"Account: {account}, Contract: {contract}, Position: {pos}, Average cost: {avg_cost}")
+        self.logger.info(f"Account: {account}, Contract: {contract.symbol}, Position: {pos}, Average cost: {avg_cost}")
         _row = pd.DataFrame(data=[[account, contract.symbol+"."+contract.currency, pos, avg_cost]], 
                             columns=["account", "symbol_currency", "quantity", "avg_cost"])
         self.open_positions = self.open_positions.append(_row)
@@ -225,8 +226,8 @@ class _IBWrapper(EWrapper):
             self.startApi()
 
     def openOrder(self, orderId, contract, order, orderState):
-        print(f"Order Id: {orderId}, Contract: {contract}, Order: {order}, Order state: {orderState}")
-        self.logger.info(f"Order Id: {orderId}, Contract: {contract}, Order: {order}, Order state: {orderState}")
+        # print(f"Order Id: {orderId}, Contract: {contract}, Order: {order}, Order state: {orderState}")
+        self.logger.info(f"Order Id: {orderId}, Contract: {contract.symbol}, Order: {order.action}, Order state: {orderState}")
         _row = pd.DataFrame(data=[[orderId, contract.symbol+"."+contract.currency, order.action, order.totalQuantity, order.orderType]], 
                             columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
         self.open_orders = self.open_orders.append(_row)
@@ -273,6 +274,7 @@ class _IBWrapper(EWrapper):
         
     def historicalDataEnd(self, reqId, start, end):
         self.logger.info(f"Historical Data End. ReqID: {reqId}, start: {start}, end: {end}")
+        self.logger.info(f"Stocks that are being tracked: {self.data_tracker}")
         # self.data = self.q.get()
 
     def scannerData(self, reqId:int, rank:int, contractDetails, distance:str, benchmark:str, projection:str, legsStr:str):
@@ -354,6 +356,10 @@ class _IBClient(EClient):
         self.open_orders_received = False
         self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
 
+    def placeOrder(self, Id, contract, order):
+        self.logger.info(f"Placing order for: id - {Id}, contract - {contract.symbol}, {contract.secType}, order - {order.action}, {order.orderType}")
+        super().placeOrder(Id, contract, order)
+
 class IBApp(_IBWrapper, _IBClient):
     def __init__(self):
         _IBWrapper.__init__(self)
@@ -402,7 +408,7 @@ class IBApp(_IBWrapper, _IBClient):
             self.nextOrderId()
         else:
             oid = self.nextValidOrderId
-            self.logger.info(self.nextValidOrderId)
+            self.logger.info(f"Next valid order id is: {self.nextValidOrderId}")
             self.nextValidOrderId += 1
             return oid
         
@@ -506,12 +512,13 @@ class IBApp(_IBWrapper, _IBClient):
                     self.logger.info("Calling entry logic")
                     if bt_orders[bt_orders["Symbol"]==asset]["Direction"].iloc[0] == "Long":
                         self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", order["Weight"]))
-                        self.send_email(f"Subject: Buy signal {asset} \n\n BUY - {asset} - {order['Weight']}")
+                        self.send_email(f"Subject: Buy signal for {asset} \n\n Open long for {asset}. Position size: {order['Weight']}. Trigger price (theoretical price): {order['Entry_price']}")
                     
                     elif bt_orders[bt_orders["Symbol"]==asset]["Direction"].iloc[0] == "Short":
                         self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("SELL", abs(order["Weight"])))
-                        self.send_email(f"Subject: Short signal {asset} \n\n SHORT - {asset} - {order['Weight']}")
+                        self.send_email(f"Subject: Short signal for {asset} \n\n Open short for {asset}. Position size: {order['Weight']}. Trigger price (theoretical price): {order['Entry_price']}")
             except Exception as e:
+                self.send_email(f"Subject: Couldnt enter position for {asset} \n\n An error has occured: {e}")
                 self.logger.error(f"Couldnt enter position for {asset}")
                 self.logger.error(e, stack_info=True)
         # exit logic
@@ -522,12 +529,13 @@ class IBApp(_IBWrapper, _IBClient):
                     self.logger.info("Calling exit logic")
                     if order["quantity"] > 0:
                         self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
-                        self.send_email(f"Subject: Sell signal {asset} \n\n SELL - {asset} - {order['quantity']}")
+                        self.send_email(f"Subject: Sell signal for {asset} \n\n Close long for {asset}. Position size: {order['quantity']}")
 
                     elif order["quantity"] < 0:
                         self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
-                        self.send_email(f"Subject: Cover signal {asset} \n\n COVER - {asset} - {order['quantity']}")
+                        self.send_email(f"Subject: Cover signal for {asset} \n\n Close short for {asset}. Position size: {order['quantity']}")
             except Exception as e:
+                self.send_email(f"Subject: Couldnt enter position for {asset} \n\n An error has occured: {e}")
                 self.logger.error(f"Couldnt exit position for {asset}")
                 self.logger.error(e, stack_info=True)
 
