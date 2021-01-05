@@ -314,6 +314,11 @@ class _IBClient(EClient):
         super().reqOpenOrders()
         self.open_orders_received = False
 
+    def reqAllOpenOrders(self):        
+        self.logger.info("Requesting open orders")
+        super().reqAllOpenOrders()
+        self.open_orders_received = False
+
     def placeOrder(self, Id, contract, order):
         self.logger.info(f"Placing order for: id - {Id}, contract - {contract.symbol}, {contract.secType}, order - {order.action}, {order.orderType}")
         super().placeOrder(Id, contract, order)
