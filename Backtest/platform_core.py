@@ -41,13 +41,13 @@ class Backtest():
         self.real_time = real_time
         self.keys = None        
         self.log = logging.getLogger("Backtester")
-        self.log.info("Backtester started!")
+        
 
     def preprocessing(self, data):
         """
         Called once before running through the data.
         Should be used to generate values that need to be known prior running logic such as ranking among asset classes.
-        For example, if we want to know top 10 momentum stocks every month or stocks above 200 MA, this data can be generated at this stage.
+        For example, if we want to know top 10 momentum stocks every month or highest stocks above 200 MA, this data can be generated at this stage.
 
         Inputs: self + all data that will be used for the backtest
         """
@@ -177,6 +177,7 @@ class Backtest():
         """
         Calculate profit and loss for the strategy
         """
+        self.log.info("Backtester started!")
         if Settings.backtest_engine.lower() == "pandas":
             # ! add break condition before loop so dont waste time reading data
             for name in data.keys:
