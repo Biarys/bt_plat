@@ -198,20 +198,20 @@ class _IBWrapper(EWrapper):
     def openOrder(self, orderId, contract, order, orderState):
         self.logger.info(f"Order Id: {orderId}, Contract: {contract.symbol}, Order: {order.action}, Commission paid: {orderState.commission}")
         name = contract.symbol+"."+contract.currency
-        # _row = pd.DataFrame(data=[[orderId, name, order.action, order.totalQuantity, order.orderType]], 
-        #                     columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
-        # self.open_orders = self.open_orders.append(_row)
-        self.open_orders[orderId] = {"orderId":orderId, "symbol_currency":name, "order_action": order.action, "quantity":order.totalQuantity, "order_type": order.orderType}
+        _row = pd.DataFrame(data=[[orderId, name, order.action, order.totalQuantity, order.orderType]], 
+                            columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
+        self.open_orders = self.open_orders.append(_row)
+        # self.open_orders[orderId] = {"orderId":orderId, "symbol_currency":name, "order_action": order.action, "quantity":order.totalQuantity, "order_type": order.orderType}
 
     def openOrderEnd(self):
         self.logger.info("Finished executing reqOpenOrders")
         self.open_orders_received = True
 
-    # def completedOrder(self, contract, order, orderState):
-    #     self.logger.info(f"Contract: {contract}. Order: {order}. OrderState: {orderState}")
+    def completedOrder(self, contract, order, orderState):
+        self.logger.info(f"Contract: {contract}. Order: {order}. OrderState: {orderState}")
 
-    # def completedOrderEnd(self):
-    #     self.logger.info("Finished executing completedOrderEnd")
+    def completedOrderEnd(self):
+        self.logger.info("Finished executing completedOrderEnd")
 
     def historicalData(self, reqId, bar):
         # delete old asset's data        
@@ -222,7 +222,6 @@ class _IBWrapper(EWrapper):
         _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
         _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
                             columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
-
         self._data_all = self._data_all.append(_row)
         self._data_all.index.name = "Date"
         self.data[self.data_tracker[reqId]] = self._data_all
@@ -433,10 +432,25 @@ class IBApp(_IBWrapper, _IBClient):
 
     def submit_orders(self, trades):
         bt_orders = trades[trades["Date_exit"] == "Open"]
-            
-        current_orders = pd.DataFrame.from_dict(self.open_orders, orient="index")
-        current_positions = pd.DataFrame.from_dict(self.open_positions, orient="index")
-        current_positions = current_positions[current_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
+        
+        # Requests all current open orders in associated accounts at the current moment. 
+        # Open orders are returned once; this function does not initiate a subscription. 
+        self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
+        self.reqAllOpenOrders()
+
+        while not self.open_orders_received:
+            time.sleep(0.5)
+
+        # if dict not empty -> create df from it. Otherwise create an empty df
+        current_orders = self.open_orders
+
+        # if dict not empty -> create df from it. Otherwise create an empty df
+        if self.open_positions:
+            current_positions = pd.DataFrame.from_dict(self.open_positions, orient="index")
+            current_positions = current_positions[current_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
+        else:
+            current_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
+        
         print(f"Open positions: {current_positions}")
         print(f"Open orders: {current_orders}")
         # if len(bt_orders) == 0:
@@ -466,8 +480,8 @@ class IBApp(_IBWrapper, _IBClient):
                 self.logger.error(e, stack_info=True)
         # exit logic
         for ix, order in current_positions.iterrows():
-            try:
-                asset = order["symbol_currency"]
+            asset = order["symbol_currency"]
+            try:                
                 if (asset not in bt_orders["Symbol"].values) and (asset not in current_orders["symbol_currency"].values):
                     self.logger.info("Calling exit logic")
                     if order["quantity"] > 0:
