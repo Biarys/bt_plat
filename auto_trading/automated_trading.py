@@ -383,12 +383,13 @@ class IBApp(_IBWrapper, _IBClient):
                 # recent_min = now.minute
                 # if now.second == 5 and recent_min != prev_min:
                 #     prev_min = recent_min
-                self.logger.info("Running strategy")
-                s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
-                data_ = DataReader("at", self.data) 
-                settings.start_amount = self.avail_funds
-                s.run(data_)
-                self.submit_orders(s.trade_list)
+                if bool(self.data): # empty dict == False. Not empty == True
+                    self.logger.info("Running strategy")
+                    s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
+                    data_ = DataReader("at", self.data) 
+                    settings.start_amount = self.avail_funds
+                    s.run(data_)
+                    self.submit_orders(s.trade_list)
             except Exception as e:
                 self.logger.error("An error occured")
                 self.logger.error(e, stack_info=True)
@@ -490,7 +491,7 @@ class IBApp(_IBWrapper, _IBClient):
             # check if already requested & tracking data for the symbol
             # Otherwise it will request multiples of the same symbol -> reach limit of 50 simultaneous API historical data requests
             if symbol not in self.data_tracker.values():
-                self.logger.info("SYMBOL NOT TRACKED: ", symbol, self.data_tracker.values())
+                self.logger.info(f"SYMBOL NOT TRACKED: {symbol}, Currently tracking: {self.data_tracker.values()}")
                 self.logger.info(f"Requesting data for: {symbol}")
                 self.reqHistoricalData(reqId=self.nextOrderId(), contract=IBContract.stock(self.scanner_instr[symbol]))
         self.logger.info(f"Finished executing scanner data reqID: {reqId}")
