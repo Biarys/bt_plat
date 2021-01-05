@@ -223,7 +223,7 @@ class _IBWrapper(EWrapper):
         _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
                             columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
         self._data_all = self._data_all.append(_row)
-        self._data_all.replace(to_replace=0, method='ffill', inplace=True)
+        self._data_all.replace(to_replace=0, method='ffill', inplace=True) # add backward fill too?
         self._data_all.index.name = "Date"
         self.data[self.data_tracker[reqId]] = self._data_all
 
@@ -328,7 +328,7 @@ class IBApp(_IBWrapper, _IBClient):
         self.logger = None
         self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
         self._last_reqId = None
-        self.open_orders = {}
+        self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
         self.open_positions = {}
         self.open_orders_received = False
         self.open_positions_received = False        
