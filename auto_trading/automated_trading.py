@@ -223,6 +223,7 @@ class _IBWrapper(EWrapper):
         _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
                             columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
         self._data_all = self._data_all.append(_row)
+        self._data_all.replace(to_replace=0, method='ffill', inplace=True)
         self._data_all.index.name = "Date"
         self.data[self.data_tracker[reqId]] = self._data_all
 
