@@ -134,7 +134,6 @@ class IBOrder:
         return order
 
 class IBScanner:
-
     def __init__(self):
         pass
 
@@ -152,11 +151,9 @@ class IBScanner:
         scanSub.belowPrice = 10
         scanSub.aboveVolume = 1000000
 
-        return scanSub
-    
+        return scanSub    
     
 class _IBWrapper(EWrapper):
-
     def __init__(self):
         EWrapper.__init__(self)
         self.data = {}
@@ -164,7 +161,9 @@ class _IBWrapper(EWrapper):
         self.scanner_instr = {}
 
     def error(self, reqId, errorCode, errorString):
-        self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}", stack_info=True)
+        self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
+        if int(errorCode) != -1:
+            self.send_email(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
 
     def connectAck(self):
         if self.asynchronous:
@@ -178,7 +177,7 @@ class _IBWrapper(EWrapper):
     def accountSummary(self, reqId, account, tag, value, currency):
         if tag=="NetLiquidation":
             self.avail_funds = float(value)
-        # self.logger.info(f"ReqID: {reqId}, Account: {account}, Tag: {tag}, Value: {value}, Currency: {currency}")
+        self.logger.info(f"ReqID: {reqId}, Account: {account}, Tag: {tag}, Value: {value}, Currency: {currency}")
 
     def accountSummaryEnd(self, reqId: int):
         self.logger.info(f"AccountSummaryEnd. ReqId: {reqId}")
@@ -196,7 +195,7 @@ class _IBWrapper(EWrapper):
         self.open_positions_received = True
 
     def openOrder(self, orderId, contract, order, orderState):
-        self.logger.info(f"Order Id: {orderId}, Contract: {contract.symbol}, Order: {order.action}, Commission paid: {orderState.commission}")
+        # self.logger.info(f"Order Id: {orderId}, Contract: {contract.symbol}, Order: {order.action}, Commission paid: {orderState.commission}")
         name = contract.symbol+"."+contract.currency
         _row = pd.DataFrame(data=[[orderId, name, order.action, order.totalQuantity, order.orderType]], 
                             columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
@@ -238,6 +237,9 @@ class _IBWrapper(EWrapper):
                             columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
 
         self._data_all = self._data_all.append(_row)
+        self._data_all.replace(to_replace=0, method='ffill', inplace=True) # add backward fill too?
+        if self._data_all.eq(0).any(1).any():
+            self.logger.warning(f"0s HAS BEEN FOUND IN THE DATA {reqId}: {_row}")
         self._data_all.index.name = "Date"
         self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(self._data_all)
         
