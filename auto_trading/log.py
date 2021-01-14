@@ -1,9 +1,10 @@
 import logging
 import os
+from datetime import datetime as dt
 from Backtest import Settings as settings
 
 def setup_log(name, level=logging.INFO):
-    _create_folders()
+    # _create_folders()
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -14,7 +15,7 @@ def setup_log(name, level=logging.INFO):
     handler_console.setLevel(level)
     handler_console.setFormatter(formatter)
 
-    handler_file = logging.FileHandler(settings.log_folder + r"/" + settings.log_name, mode="w")
+    handler_file = logging.FileHandler(settings.log_folder + r"/" + dt.now().strftime("%d_%b_%Y_asof_%H_%M_%S.log"), mode="w")
     handler_file.setLevel(level)
     handler_file.setFormatter(formatter)
     
