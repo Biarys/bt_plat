@@ -516,14 +516,14 @@ class IBApp(_IBWrapper, _IBClient):
                 self.logger.info(f"Requesting data for: {symbol}")
                 self.reqHistoricalData(reqId=self.nextOrderId(), contract=IBContract.stock(self.scanner_instr[symbol]))
 
-        # for _reqId in self.data_tracker:
-        #     symbol = self.data_tracker[_reqId]
-        #     # Check if symbol does not need to be tracked
-        #     # Otherwise keep running strategy on extra data (slow) + reach limit of 50 simultaneous API historical data requests
-        #     if symbol not in self.scanner_instr.keys(): #add symbol not in current open positions?
-        #         self.logger.info(f"SYMBOL DOES NOT NEED TO BE TRACKED: {symbol}, Currently tracking: {self.data_tracker.values()}")
-        #         self.logger.info(f"Unsubscribing data for: {symbol}")
-        #         self.cancelHistoricalData(reqId=reqId)
+        for _reqId in self.data_tracker:
+            symbol = self.data_tracker[_reqId]
+            # Check if symbol does not need to be tracked
+            # Otherwise keep running strategy on extra data (slow) + reach limit of 50 simultaneous API historical data requests
+            if symbol not in self.scanner_instr.keys(): #add symbol not in current open positions?
+                self.logger.info(f"SYMBOL DOES NOT NEED TO BE TRACKED: {symbol}, Currently tracking: {self.data_tracker.values()}")
+                self.logger.info(f"Unsubscribing data for: {symbol}")
+                self.cancelHistoricalData(reqId=reqId)
         self.logger.info(f"Finished executing scanner data reqID: {reqId}")
         self.logger.info(f"Stocks in self.scanner_instr.keys(): {self.scanner_instr.keys()}")
         self.logger.info(f"Currently tracking: {self.data_tracker.values()}")
