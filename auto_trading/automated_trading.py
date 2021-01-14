@@ -237,12 +237,12 @@ class _IBWrapper(EWrapper):
                             columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
 
         self._data_all = self._data_all.append(_row)
-        self._data_all.replace(to_replace=0, method='ffill', inplace=True) # add backward fill too?
-        if self._data_all.eq(0).any(1).any():
-            self.logger.warning(f"0s HAS BEEN FOUND IN THE DATA {reqId}: {_row}")
         self._data_all.index.name = "Date"
         self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(self._data_all)
-        
+        self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].replace(to_replace=0, method='ffill') # add backward fill too?
+        if self.data[self.data_tracker[reqId]].eq(0).any(1).any():
+            self.logger.warning(f"0s HAS BEEN FOUND IN THE DATA {reqId}: {_row}")
+
     def historicalDataEnd(self, reqId, start, end):
         self.logger.info(f"Historical Data End. ReqID: {reqId}, start: {start}, end: {end}")
         self.logger.info(f"Stocks that are being tracked: {self.data_tracker}")
@@ -298,7 +298,7 @@ class _IBClient(EClient):
         EClient.__init__(self, wrapper)
         self.data_tracker = {}
 
-    def reqHistoricalData(self, reqId, contract, endDateTime="", durationStr="3 D", barSizeSetting="1 min", 
+    def reqHistoricalData(self, reqId, contract, endDateTime="", durationStr="1 D", barSizeSetting="1 min", 
                         whatToShow="MIDPOINT", useRTH=1, formatDate=1, keepUpToDate=True, chartOptions=[]):
         super().reqHistoricalData(reqId, contract, endDateTime, durationStr, barSizeSetting, 
                                 whatToShow, useRTH, formatDate, keepUpToDate, chartOptions)
@@ -318,6 +318,7 @@ class _IBClient(EClient):
 
     def reqAllOpenOrders(self):        
         self.logger.info("Requesting open orders")
+        self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
         super().reqAllOpenOrders()
         self.open_orders_received = False
 
@@ -443,13 +444,11 @@ class IBApp(_IBWrapper, _IBClient):
         
         # Requests all current open orders in associated accounts at the current moment. 
         # Open orders are returned once; this function does not initiate a subscription. 
-        self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
         self.reqAllOpenOrders()
 
         while not self.open_orders_received:
             time.sleep(0.5)
 
-        # if dict not empty -> create df from it. Otherwise create an empty df
         current_orders = self.open_orders
 
         # if dict not empty -> create df from it. Otherwise create an empty df
@@ -510,15 +509,26 @@ class IBApp(_IBWrapper, _IBClient):
     def scannerDataEnd(self, reqId:int):
         # super().scannerDataEnd(self, reqId:int)
         for symbol in self.scanner_instr.keys():
-            # check if already requested & tracking data for the symbol
+            # Check if already requested & tracking data for the symbol
             # Otherwise it will request multiples of the same symbol -> reach limit of 50 simultaneous API historical data requests
             if symbol not in self.data_tracker.values():
                 self.logger.info(f"SYMBOL NOT TRACKED: {symbol}, Currently tracking: {self.data_tracker.values()}")
                 self.logger.info(f"Requesting data for: {symbol}")
                 self.reqHistoricalData(reqId=self.nextOrderId(), contract=IBContract.stock(self.scanner_instr[symbol]))
+
+        # for _reqId in self.data_tracker:
+        #     symbol = self.data_tracker[_reqId]
+        #     # Check if symbol does not need to be tracked
+        #     # Otherwise keep running strategy on extra data (slow) + reach limit of 50 simultaneous API historical data requests
+        #     if symbol not in self.scanner_instr.keys(): #add symbol not in current open positions?
+        #         self.logger.info(f"SYMBOL DOES NOT NEED TO BE TRACKED: {symbol}, Currently tracking: {self.data_tracker.values()}")
+        #         self.logger.info(f"Unsubscribing data for: {symbol}")
+        #         self.cancelHistoricalData(reqId=reqId)
         self.logger.info(f"Finished executing scanner data reqID: {reqId}")
         self.logger.info(f"Stocks in self.scanner_instr.keys(): {self.scanner_instr.keys()}")
         self.logger.info(f"Currently tracking: {self.data_tracker.values()}")
+        # refresh scanner to
+        self.scanner_instr = {}
 
 
 if __name__ == "__main__":
