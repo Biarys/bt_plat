@@ -159,6 +159,7 @@ class _IBWrapper(EWrapper):
         self.data = {}
         self.avail_funds = None
         self.scanner_instr = {}
+        self.scanner_instr_all = {}
 
     def error(self, reqId, errorCode, errorString):
         self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
@@ -218,30 +219,31 @@ class _IBWrapper(EWrapper):
             self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
             self._last_reqId = reqId
 
-        _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
-        _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
-                            columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
-        self._data_all = self._data_all.append(_row)
-        self._data_all.replace(to_replace=0, method='ffill', inplace=True) # add backward fill too?
-        self._data_all.index.name = "Date"
-        self.data[self.data_tracker[reqId]] = self._data_all
+        if reqId in self.data_tracker.keys():
+            _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
+            _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
+                                columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
+            self._data_all = self._data_all.append(_row)
+            self._data_all.replace(to_replace=0, method='ffill', inplace=True) # add backward fill too?
+            self._data_all.index.name = "Date"
+            self.data[self.data_tracker[reqId]] = self._data_all
 
     def historicalDataUpdate(self, reqId, bar):
         self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
         if self._last_reqId != reqId:
             self._data_all = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
             self._last_reqId = reqId
+        if reqId in self.data_tracker.keys():
+            _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
+            _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
+                                columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
 
-        _date = pd.to_datetime(bar.date, format="%Y%m%d  %H:%M:%S") # note 2 spaces
-        _row = pd.DataFrame(data=[[bar.open, bar.high, bar.low, bar.close, bar.volume]], 
-                            columns=["Open", "High", "Low", "Close", "Volume"], index=[_date])
-
-        self._data_all = self._data_all.append(_row)
-        self._data_all.index.name = "Date"
-        self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(self._data_all)
-        self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].replace(to_replace=0, method='ffill') # add backward fill too?
-        if self.data[self.data_tracker[reqId]].eq(0).any(1).any():
-            self.logger.warning(f"0s HAS BEEN FOUND IN THE DATA {reqId}: {_row}")
+            self._data_all = self._data_all.append(_row)
+            self._data_all.index.name = "Date"
+            self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].append(self._data_all)
+            self.data[self.data_tracker[reqId]] = self.data[self.data_tracker[reqId]].replace(to_replace=0, method='ffill') # add backward fill too?
+            if self.data[self.data_tracker[reqId]].eq(0).any(1).any():
+                self.logger.warning(f"0s HAS BEEN FOUND IN THE DATA {reqId}: {_row}")
 
     def historicalDataEnd(self, reqId, start, end):
         self.logger.info(f"Historical Data End. ReqID: {reqId}, start: {start}, end: {end}")
@@ -258,18 +260,24 @@ class _IBWrapper(EWrapper):
             projection	    according to query.
             legStr	        describes the combo legs when the scanner is returning EFP 
         """
-        if contractDetails.contract.symbol not in self.scanner_instr.keys():
-            symbol = contractDetails.contract.symbol
-            secType = contractDetails.contract.secType
-            currency = contractDetails.contract.currency
-            exchange = contractDetails.contract.exchange
-            primaryExchange = contractDetails.contract.primaryExchange
-            self.scanner_instr[symbol + "." + currency] = {"symbol": symbol,
-                                                                   "secType": secType,
-                                                                   "currency": currency,
-                                                                   "exchange": exchange,
-                                                                   "primaryExchange": primaryExchange
-                                                                  }
+        # if contractDetails.contract.symbol not in self.scanner_instr.keys():
+        symbol = contractDetails.contract.symbol
+        secType = contractDetails.contract.secType
+        currency = contractDetails.contract.currency
+        exchange = contractDetails.contract.exchange
+        primaryExchange = contractDetails.contract.primaryExchange
+        self.scanner_instr[symbol + "." + currency] = {"symbol": symbol,
+                                                                "secType": secType,
+                                                                "currency": currency,
+                                                                "exchange": exchange,
+                                                                "primaryExchange": primaryExchange
+                                                                }
+        self.scanner_instr_all[symbol + "." + currency] = {"symbol": symbol,
+                                                                "secType": secType,
+                                                                "currency": currency,
+                                                                "exchange": exchange,
+                                                                "primaryExchange": primaryExchange
+                                                                }
 
     def scannerParameters(self, xml:str):
         print(xml)
@@ -298,7 +306,7 @@ class _IBClient(EClient):
         EClient.__init__(self, wrapper)
         self.data_tracker = {}
 
-    def reqHistoricalData(self, reqId, contract, endDateTime="", durationStr="1 D", barSizeSetting="1 min", 
+    def reqHistoricalData(self, reqId, contract, endDateTime="", durationStr="2 D", barSizeSetting="1 min", 
                         whatToShow="MIDPOINT", useRTH=1, formatDate=1, keepUpToDate=True, chartOptions=[]):
         super().reqHistoricalData(reqId, contract, endDateTime, durationStr, barSizeSetting, 
                                 whatToShow, useRTH, formatDate, keepUpToDate, chartOptions)
@@ -437,8 +445,6 @@ class IBApp(_IBWrapper, _IBClient):
                 self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
                 self.send_email(f"Subject: Cover signal {asset} \n\n COVER - {asset} - {order['quantity']}")
 
-           
-
     def submit_orders(self, trades):
         bt_orders = trades[trades["Date_exit"] == "Open"]
         
@@ -475,15 +481,15 @@ class IBApp(_IBWrapper, _IBClient):
                 if (asset not in current_orders["symbol_currency"].values) and (asset not in current_positions["symbol_currency"].values):
                     self.logger.info("Calling entry logic")
                     if bt_orders[bt_orders["Symbol"]==asset]["Direction"].iloc[0] == "Long":
-                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", order["Weight"]))
+                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr_all[asset]), IBOrder.MarketOrder("BUY", order["Weight"]))
                         self.send_email(f"Subject: Buy signal for {asset} \n\n Open long for {asset}. Position size: {order['Weight']}. Trigger price (theoretical price): {order['Entry_price']}")
                     
                     elif bt_orders[bt_orders["Symbol"]==asset]["Direction"].iloc[0] == "Short":
-                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("SELL", abs(order["Weight"])))
+                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr_all[asset]), IBOrder.MarketOrder("SELL", abs(order["Weight"])))
                         self.send_email(f"Subject: Short signal for {asset} \n\n Open short for {asset}. Position size: {order['Weight']}. Trigger price (theoretical price): {order['Entry_price']}")
             except Exception as e:
-                self.send_email(f"Subject: Couldnt enter position for {asset} \n\n An error has occured: {e}")
-                self.logger.error(f"Couldnt enter position for {asset}")
+                self.send_email(f"Subject: Couldnt enter position for {asset} \n\n An error has occured during entry logic: {e}")
+                self.logger.error(f"Couldnt enter position for {asset}. An error has occured during entry logic: {e}")
                 self.logger.error(e, stack_info=True)
         # exit logic
         for ix, order in current_positions.iterrows():
@@ -492,15 +498,15 @@ class IBApp(_IBWrapper, _IBClient):
                 if (asset not in bt_orders["Symbol"].values) and (asset not in current_orders["symbol_currency"].values):
                     self.logger.info("Calling exit logic")
                     if order["quantity"] > 0:
-                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
+                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr_all[asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
                         self.send_email(f"Subject: Sell signal for {asset} \n\n Close long for {asset}. Position size: {order['quantity']}")
 
                     elif order["quantity"] < 0:
-                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
+                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr_all[asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
                         self.send_email(f"Subject: Cover signal for {asset} \n\n Close short for {asset}. Position size: {order['quantity']}")
             except Exception as e:
-                self.send_email(f"Subject: Couldnt enter position for {asset} \n\n An error has occured: {e}")
-                self.logger.error(f"Couldnt exit position for {asset}")
+                self.send_email(f"Subject: Couldnt enter position for {asset} \n\n An error has occured during exit logic: {e}")
+                self.logger.error(f"Couldnt exit position for {asset}. An error has occured during exit logic: {e}")
                 self.logger.error(e, stack_info=True)
 
     def read_data(self, stock):
@@ -516,18 +522,35 @@ class IBApp(_IBWrapper, _IBClient):
                 self.logger.info(f"Requesting data for: {symbol}")
                 self.reqHistoricalData(reqId=self.nextOrderId(), contract=IBContract.stock(self.scanner_instr[symbol]))
 
+        keys_to_pop = []
+        # if dict not empty -> create df from it. Otherwise create an empty df
+        if self.open_positions:
+            current_positions = pd.DataFrame.from_dict(self.open_positions, orient="index")
+            current_positions = current_positions[current_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
+        else:
+            current_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
+
         for _reqId in self.data_tracker:
-            symbol = self.data_tracker[_reqId]
-            # Check if symbol does not need to be tracked
-            # Otherwise keep running strategy on extra data (slow) + reach limit of 50 simultaneous API historical data requests
-            if symbol not in self.scanner_instr.keys(): #add symbol not in current open positions?
-                self.logger.info(f"SYMBOL DOES NOT NEED TO BE TRACKED: {symbol}, Currently tracking: {self.data_tracker.values()}")
-                self.logger.info(f"Unsubscribing data for: {symbol}")
-                self.cancelHistoricalData(reqId=reqId)
+            try:
+                symbol = self.data_tracker[_reqId]
+                # Check if symbol does not need to be tracked
+                # Otherwise keep running strategy on extra data (slow) + reach limit of 50 simultaneous API historical data requests
+                if (symbol not in self.scanner_instr.keys()) and (symbol not in current_positions["symbol_currency"].values): #add symbol not in current open positions?
+                    self.logger.info(f"Unsubscribing data for: {symbol}")
+                    self.cancelHistoricalData(reqId=_reqId)
+                    keys_to_pop.append(_reqId)
+                    self.data.pop(symbol)
+                    self.logger.info(f"REMOVING SYMBOL: {symbol}, Currently tracking: {self.data_tracker.values()}")
+            except Exception as e:
+                self.logger.error("An error has occured while removing symbols")
+                self.logger.error(e, stack_info=True)
+        # removing stocks that dont need to be tracked from data tracker
+        [self.data_tracker.pop(key) for key in keys_to_pop]
+        
         self.logger.info(f"Finished executing scanner data reqID: {reqId}")
         self.logger.info(f"Stocks in self.scanner_instr.keys(): {self.scanner_instr.keys()}")
         self.logger.info(f"Currently tracking: {self.data_tracker.values()}")
-        # refresh scanner to
+        # refresh scanner to receive only recently tracked data
         self.scanner_instr = {}
 
 
