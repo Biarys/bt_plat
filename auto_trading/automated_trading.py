@@ -187,6 +187,7 @@ class _IBWrapper(EWrapper):
     def pnl(self, reqId:int, dailyPnL:float, unrealizedPnL:float, realizedPnL:float):
         self.logger.info(f"Current daily P&L {dailyPnL}. ReqId: {reqId}")
         self.daily_pnl = dailyPnL
+        self.daily_pnl_received = True
 
     def position(self, account, contract, pos, avg_cost):
         self.logger.info(f"Account: {account}, Contract: {contract.symbol}, Position: {pos}, Average cost: {avg_cost}")
@@ -340,8 +341,9 @@ class _IBClient(EClient):
         super().placeOrder(Id, contract, order)
 
     def reqPnL(self, reqId:int, account:str, modelCode:str):
-        super().reqPnL(reqId, account, modelCode)
         self.logger.info(f"Requesting PnL. ReqID: {reqId}")
+        super().reqPnL(reqId, account, modelCode)
+        self.daily_pnl_received = False
 
 class IBApp(_IBWrapper, _IBClient):
     def __init__(self):
@@ -356,7 +358,8 @@ class IBApp(_IBWrapper, _IBClient):
         self.open_orders = pd.DataFrame(columns=["orderId", "symbol_currency", "buy_or_sell", "quantity", "order_type"])
         self.open_positions = {}
         self.open_orders_received = False
-        self.open_positions_received = False        
+        self.open_positions_received = False
+        self.daily_pnl_received = False  
 
     def start(self):
         if self.started:
@@ -392,7 +395,7 @@ class IBApp(_IBWrapper, _IBClient):
     def req_account_data(self):
         self.reqPositions()
         self.reqOpenOrders()
-        self.reqPnL(self.nextOrderId(), "DU1350485", "")
+        self.reqPnL(self.nextOrderId(), settings.account_number, "")
 
     def cancel_open_positions(self):
         self.reqPositions()
@@ -406,19 +409,25 @@ class IBApp(_IBWrapper, _IBClient):
     def run_strategy(self, strat):
         prev_min = None
         from Backtest.data_reader import DataReader
-        while True:
+        _run = True
+        while _run:
             try:
                 # now = dt.now()
                 # recent_min = now.minute
                 # if now.second == 5 and recent_min != prev_min:
                 #     prev_min = recent_min
                 if bool(self.data): # empty dict == False. Not empty == True
-                    self.logger.info("Running strategy")
-                    s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
-                    data_ = DataReader("at", self.data) 
-                    settings.start_amount = self.avail_funds
-                    s.run(data_)
-                    self.submit_orders(s.trade_list)
+                    if (settings.account_stop_use and self.daily_pnl > self.calc_account_max_loss()) or (not settings.account_stop_use):
+                        self.logger.info("Running strategy")
+                        s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
+                        data_ = DataReader("at", self.data) 
+                        settings.start_amount = self.avail_funds
+                        s.run(data_)
+                        self.submit_orders(s.trade_list)
+                    elif (settings.account_stop_use and self.daily_pnl <= self.calc_account_max_loss()):
+                        self.logger.warning(f"Daily PnL of {self.daily_pnl} has exceeded the threshhold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
+                        self.send_email(f"Subject: WARNING: DAILY MAX LOSS HAS BEEN TRIGGERED! \n\n Daily PnL of {self.daily_pnl} has exceeded the threshhold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
+                        _run = False
             except Exception as e:
                 self.logger.error("An error occured")
                 self.logger.error(e, stack_info=True)
@@ -437,6 +446,17 @@ class IBApp(_IBWrapper, _IBClient):
                 server.login(sender_email, password)
                 for email in receiver_email:
                     server.sendmail(sender_email, email, message)
+
+    def calc_account_max_loss(self):
+        if settings.account_stop_type == "pct":
+            return settings.account_stop_value * self.avail_funds
+        elif settings.account_stop_type == "dollar":
+            return settings.account_stop_value
+        elif settings.account_stop_type == None:
+            self.logger.error("=====================================================================")
+            self.logger.error("account_stop_type in settings has not been specified while account_stop_use was set to True")
+            self.logger.error("Please specify account_stop_type in the settings")
+            self.logger.error("=====================================================================")
 
     def cancelOpenPositions(self):
         self.reqPositions()
