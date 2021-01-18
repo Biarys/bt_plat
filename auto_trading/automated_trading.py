@@ -164,8 +164,8 @@ class _IBWrapper(EWrapper):
 
     def error(self, reqId, errorCode, errorString):
         self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
-        if int(errorCode) != -1:
-            self.send_email(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
+        if reqId != -1:
+            self.send_email(f"Subject: An error has occurred! \n\n ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
 
     def connectAck(self):
         if self.asynchronous:
