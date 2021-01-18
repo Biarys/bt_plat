@@ -160,6 +160,7 @@ class _IBWrapper(EWrapper):
         self.avail_funds = None
         self.scanner_instr = {}
         self.scanner_instr_all = {}
+        self.daily_pnl = 0
 
     def error(self, reqId, errorCode, errorString):
         self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
@@ -182,6 +183,10 @@ class _IBWrapper(EWrapper):
 
     def accountSummaryEnd(self, reqId: int):
         self.logger.info(f"AccountSummaryEnd. ReqId: {reqId}")
+
+    def pnl(self, reqId:int, dailyPnL:float, unrealizedPnL:float, realizedPnL:float):
+        self.logger.info(f"Current daily P&L {dailyPnL}. ReqId: {reqId}")
+        self.daily_pnl = dailyPnL
 
     def position(self, account, contract, pos, avg_cost):
         self.logger.info(f"Account: {account}, Contract: {contract.symbol}, Position: {pos}, Average cost: {avg_cost}")
@@ -334,6 +339,10 @@ class _IBClient(EClient):
         self.logger.info(f"Placing order for: id - {Id}, contract - {contract.symbol}, {contract.secType}, order - {order.action}, {order.orderType}")
         super().placeOrder(Id, contract, order)
 
+    def reqPnL(self, reqId:int, account:str, modelCode:str):
+        super().reqPnL(reqId, account, modelCode)
+        self.logger.info(f"Requesting PnL. ReqID: {reqId}")
+
 class IBApp(_IBWrapper, _IBClient):
     def __init__(self):
         _IBWrapper.__init__(self)
@@ -359,16 +368,15 @@ class IBApp(_IBWrapper, _IBClient):
 
         #self.reqIds(-1) # to make sure nextValidOrderId gets a value for sure
 
-        self.reqPositions()
-        self.reqOpenOrders()
-
-        with open(settings.path_to_mapping, "r") as f:
-            self.asset_map = json.loads(f.read())
+        # with open(settings.path_to_mapping, "r") as f:
+        #     self.asset_map = json.loads(f.read())
         
         ib_thread = threading.Thread(target=self.run, name="Interactive Broker Client Thread")
         ib_thread.start()
         self.logger.info("Waiting 1 second for nextValidID response")
         time.sleep(1) 
+
+        self.req_account_data()
            
     def nextOrderId(self):
         if self.nextValidOrderId == None:
@@ -380,7 +388,12 @@ class IBApp(_IBWrapper, _IBClient):
             self.logger.info(f"Next valid order id is: {self.nextValidOrderId}")
             self.nextValidOrderId += 1
             return oid
-        
+    
+    def req_account_data(self):
+        self.reqPositions()
+        self.reqOpenOrders()
+        self.reqPnL(self.nextOrderId(), "DU1350485", "")
+
     def cancel_open_positions(self):
         self.reqPositions()
 
