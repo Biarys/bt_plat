@@ -164,7 +164,7 @@ class _IBWrapper(EWrapper):
 
     def error(self, reqId, errorCode, errorString):
         self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
-        if reqId != -1:
+        if (reqId != -1) or (int(errorCode) != 162):
             self.send_email(f"Subject: An error has occurred! \n\n ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
 
     def connectAck(self):
@@ -397,14 +397,14 @@ class IBApp(_IBWrapper, _IBClient):
         self.reqOpenOrders()
         self.reqPnL(self.nextOrderId(), settings.account_number, "")
 
-    def cancel_open_positions(self):
-        self.reqPositions()
+    # def cancel_open_positions(self):
+    #     self.reqPositions()
 
-        while not self.open_positions_received:
-            time.sleep(0.5)
+    #     while not self.open_positions_received:
+    #         time.sleep(0.5)
 
-        for ix, pos in self.open_positions.iterrows():
-            self.placeOrder(self.nextOrderId(), IBContract.stock(self.asset_map["stock"][pos["symbol_currency"]]), IBOrder.MarketOrder("SELL", pos["quantity"]))
+    #     for ix, pos in self.open_positions.iterrows():
+    #         self.placeOrder(self.nextOrderId(), IBContract.stock(self.asset_map["stock"][pos["symbol_currency"]]), IBOrder.MarketOrder("SELL", pos["quantity"]))
 
     def run_strategy(self, strat):
         prev_min = None
@@ -425,8 +425,10 @@ class IBApp(_IBWrapper, _IBClient):
                         s.run(data_)
                         self.submit_orders(s.trade_list)
                     elif (settings.account_stop_use and self.daily_pnl <= self.calc_account_max_loss()):
-                        self.logger.warning(f"Daily PnL of {self.daily_pnl} has exceeded the threshhold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
-                        self.send_email(f"Subject: WARNING: DAILY MAX LOSS HAS BEEN TRIGGERED! \n\n Daily PnL of {self.daily_pnl} has exceeded the threshhold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
+                        self.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
+                        self.close_open_positions()
+                        self.logger.warning(f"Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
+                        self.send_email(f"Subject: WARNING: DAILY MAX LOSS HAS BEEN TRIGGERED! \n\n Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
                         _run = False
             except Exception as e:
                 self.logger.error("An error occured")
@@ -458,25 +460,23 @@ class IBApp(_IBWrapper, _IBClient):
             self.logger.error("Please specify account_stop_type in the settings")
             self.logger.error("=====================================================================")
 
-    def cancelOpenPositions(self):
-        self.reqPositions()
-
-        while not self.open_positions_received:
-            time.sleep(0.5)
-
-        # ! needs to be modified to be like in submit_orders
-        current_positions = self.open_positions[self.open_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
-
+    def close_open_positions(self):
+        current_positions = self._active_open_positions()
+        
         for ix, order in current_positions.iterrows():
             asset = order["symbol_currency"]
-
-            if order["quantity"] > 0:
-                self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
-                self.send_email(f"Subject: Sell signal {asset} \n\n SELL - {asset} - {order['quantity']}")
-
-            elif order["quantity"] < 0:
-                self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr[asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
-                self.send_email(f"Subject: Cover signal {asset} \n\n COVER - {asset} - {order['quantity']}")
+            try:                
+                self.logger.info("TERMINATING ALL OPEN POSITIONS")
+                if order["quantity"] > 0:
+                    self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr_all[asset]), IBOrder.MarketOrder("SELL", order["quantity"]))
+                    self.send_email(f"Subject: TERMINATING OPEN POSITION FOR {asset} \n\n Maximum account loss has been triggered. Closing long position for {asset}. Position size: {order['quantity']}")
+                elif order["quantity"] < 0:
+                    self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr_all[asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
+                    self.send_email(f"Subject: TERMINATING OPEN POSITION FOR {asset} \n\n Maximum account loss has been triggered. Closing short position for {asset}. Position size: {order['quantity']}")
+            except Exception as e:
+                self.send_email(f"Subject: COULDNT TERMINATE POSITION FOR {asset} \n\n An error has occured during exit termination logic: {e}")
+                self.logger.error(f"COULDNT TERMINATE POSITION FOR {asset}. An error has occured during exit termination logic: {e}")
+                self.logger.error(e, stack_info=True)
 
     def submit_orders(self, trades):
         bt_orders = trades[trades["Date_exit"] == "Open"]
@@ -489,13 +489,7 @@ class IBApp(_IBWrapper, _IBClient):
             time.sleep(0.5)
 
         current_orders = self.open_orders
-
-        # if dict not empty -> create df from it. Otherwise create an empty df
-        if self.open_positions:
-            current_positions = pd.DataFrame.from_dict(self.open_positions, orient="index")
-            current_positions = current_positions[current_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
-        else:
-            current_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
+        current_positions = self._active_open_positions()
         
         print(f"Open positions: {current_positions}")
         print(f"Open orders: {current_orders}")
@@ -538,7 +532,7 @@ class IBApp(_IBWrapper, _IBClient):
                         self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr_all[asset]), IBOrder.MarketOrder("BUY", abs(order["quantity"])))
                         self.send_email(f"Subject: Cover signal for {asset} \n\n Close short for {asset}. Position size: {order['quantity']}")
             except Exception as e:
-                self.send_email(f"Subject: Couldnt enter position for {asset} \n\n An error has occured during exit logic: {e}")
+                self.send_email(f"Subject: Couldnt exit position for {asset} \n\n An error has occured during exit logic: {e}")
                 self.logger.error(f"Couldnt exit position for {asset}. An error has occured during exit logic: {e}")
                 self.logger.error(e, stack_info=True)
 
@@ -586,6 +580,14 @@ class IBApp(_IBWrapper, _IBClient):
         # refresh scanner to receive only recently tracked data
         self.scanner_instr = {}
 
+    def _active_open_positions(self):
+        # if dict not empty -> create df from it. Otherwise create an empty df
+        if self.open_positions:
+            current_positions = pd.DataFrame.from_dict(self.open_positions, orient="index")
+            current_positions = current_positions[current_positions["quantity"] != 0] # also shows closed positions with quantity 0 for some reason 
+        else:
+            current_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
+        return current_positions
 
 if __name__ == "__main__":
     print("You are not running from the main script!")
