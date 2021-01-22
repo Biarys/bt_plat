@@ -518,6 +518,7 @@ class IBApp(_IBWrapper, _IBClient):
                 self.send_email(f"Subject: Couldnt enter position for {asset} \n\n An error has occured during entry logic: {e}")
                 self.logger.error(f"Couldnt enter position for {asset}. An error has occured during entry logic: {e}")
                 self.logger.error(e, stack_info=True)
+                continue
         # exit logic
         for ix, order in current_positions.iterrows():
             asset = order["symbol_currency"]
