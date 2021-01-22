@@ -147,7 +147,7 @@ class IBScanner:
         scanSub.instrument = "STK"
         scanSub.locationCode = "STK.US"
         scanSub.scanCode = "TOP_PERC_GAIN"
-        scanSub.abovePrice = 1
+        scanSub.abovePrice = 2
         scanSub.belowPrice = 10
         scanSub.aboveVolume = 1000000
 
@@ -164,7 +164,7 @@ class _IBWrapper(EWrapper):
 
     def error(self, reqId, errorCode, errorString):
         self.logger.error(f"ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
-        if (reqId != -1) or (int(errorCode) != 162):
+        if (reqId != -1) and (errorCode != 162):
             self.send_email(f"Subject: An error has occurred! \n\n ReqID: {reqId}, Code: {errorCode}, Error: {errorString}")
 
     def connectAck(self):
@@ -425,13 +425,13 @@ class IBApp(_IBWrapper, _IBClient):
                         s.run(data_)
                         self.submit_orders(s.trade_list)
                     elif (settings.account_stop_use and self.daily_pnl <= self.calc_account_max_loss()):
+                        self.send_email(f"Subject: WARNING: DAILY MAX LOSS HAS BEEN TRIGGERED! \n\n Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
                         self.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
                         self.close_open_positions()
-                        self.logger.warning(f"Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
-                        self.send_email(f"Subject: WARNING: DAILY MAX LOSS HAS BEEN TRIGGERED! \n\n Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
+                        self.logger.warning(f"Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.") 
                         _run = False
             except Exception as e:
-                self.logger.error("An error occured")
+                self.logger.error("An error occured during run_strategy")
                 self.logger.error(e, stack_info=True)
 
     @staticmethod
@@ -535,6 +535,7 @@ class IBApp(_IBWrapper, _IBClient):
                 self.send_email(f"Subject: Couldnt exit position for {asset} \n\n An error has occured during exit logic: {e}")
                 self.logger.error(f"Couldnt exit position for {asset}. An error has occured during exit logic: {e}")
                 self.logger.error(e, stack_info=True)
+                continue
 
     def read_data(self, stock):
         return (stock, self.data[stock])
