@@ -160,15 +160,9 @@ class Backtest():
         trade_signals = TradeSignal(rep)
         trans_prices = TransPrice(rep, trade_signals)
         trades_current_asset = Trades(rep, trade_signals, trans_prices)
-
-        # save trans_prices for portfolio level
-        self.agg_trans_prices.buyPrice = _aggregate(self.agg_trans_prices.buyPrice, trans_prices.buyPrice)
-        self.agg_trans_prices.sellPrice = _aggregate(self.agg_trans_prices.sellPrice, trans_prices.sellPrice)
-        self.agg_trans_prices.shortPrice = _aggregate(self.agg_trans_prices.shortPrice, trans_prices.shortPrice)
-        self.agg_trans_prices.coverPrice = _aggregate(self.agg_trans_prices.coverPrice, trans_prices.coverPrice)
-        self.agg_trades.priceFluctuation_dollar = _aggregate(self.agg_trades.priceFluctuation_dollar,
-                                                                trades_current_asset.priceFluctuation_dollar)
-        self.agg_trades.trades = _aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
+        print(name, trades_current_asset.trades.T)
+        return ("buy_price", trans_prices.buyPrice), ("sell_price",trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
+                    ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
 
         # save custom stops
         if Settings.position_size_type == "custom":
@@ -177,7 +171,7 @@ class Backtest():
     def _read_and_preprice(self, name):
         # ! change hardcoded cvs_files
         _current_asset_tuple = DataReader("csv_files", Settings.read_from_csv_path).read_data(name)
-        self._prepricing_pd(_current_asset_tuple)
+        return self._prepricing_pd(_current_asset_tuple)
 
     def _run_portfolio(self, data):
         """
