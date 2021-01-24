@@ -6,6 +6,8 @@ import logging
 # import traceback
 # for testing
 from datetime import datetime as dt
+import concurrent.futures as cf
+import multiprocessing as mp
 
 # own files
 from Backtest.indicators import SMA
@@ -25,7 +27,6 @@ setup_log("Backtester")
 # Core starts
 #############################################
 class Backtest():
-
     def __init__(self, name="Test", real_time=False):
         self.name = name
         self.data = {}
@@ -173,6 +174,11 @@ class Backtest():
         if Settings.position_size_type == "custom":
             self.agg_custom_stop =  _prep_and_agg_custom_stops(self.agg_custom_stop, self.custom_stop_size, name)
 
+    def _read_and_preprice(self, name):
+        # ! change hardcoded cvs_files
+        _current_asset_tuple = DataReader("csv_files", Settings.read_from_csv_path).read_data(name)
+        self._prepricing_pd(_current_asset_tuple)
+
     def _run_portfolio(self, data):
         """
         Calculate profit and loss for the strategy
@@ -182,15 +188,20 @@ class Backtest():
             # ! add break condition before loop so dont waste time reading data
             for name in data.keys:
                 _current_asset_tuple = data.read_data(name)
-                if self.preprocessing(_current_asset_tuple) == "break": # in case prepricessing is just pass
+                if self.preprocessing(_current_asset_tuple) == "break": # in case preprocessing is just pass
                     break
                 else:
                     self.preprocessing(_current_asset_tuple)
-                
-
-            for name in data.keys:    
-                _current_asset_tuple = data.read_data(name)
-                self._prepricing_pd(_current_asset_tuple)
+            
+            max_workers = min(len(data.keys), os.cpu_count()) # take min of cpu count or stocks needed to process
+            with cf.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                res = executor.map(self._read_and_preprice, data.keys)
+                res = list(result for result in res)
+                print("Mapped results: ", res)
+                # for name in data.keys:
+                #     _current_asset_tuple = data.read_data(name)
+                    # _current_asset_tuple = data.read_data(name)
+                    # self._prepricing_pd(_current_asset_tuple)
 
         elif Settings.backtest_engine.lower() == "spark":
             # initialize spark
