@@ -172,6 +172,12 @@ class Backtest():
         # ! change hardcoded cvs_files
         _current_asset_tuple = DataReader("csv_files", Settings.read_from_csv_path).read_data(name)
         return self._prepricing_pd(_current_asset_tuple)
+    # def _read_and_preprice(self, data):
+    #     def inner(name):
+    #         _current_asset_tuple = data.read_data(name)
+    #         self._prepricing_pd(_current_asset_tuple)
+
+    #     return inner
 
     def _run_portfolio(self, data):
         """
@@ -189,7 +195,7 @@ class Backtest():
             
             max_workers = min(len(data.keys), os.cpu_count()) # take min of cpu count or stocks needed to process
             with cf.ProcessPoolExecutor(max_workers=max_workers) as executor:
-                res = executor.map(self._read_and_preprice, data.keys)
+                res = executor.map(self._read_and_preprice(self.data), data.keys)
                 res = list(result for result in res)
                 print("Mapped results: ", res)
                 # for name in data.keys:
