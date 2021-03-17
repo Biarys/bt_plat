@@ -621,6 +621,29 @@ class Backtest():
         self.port.equity_curve = self.port.equity_curve.cumsum()
         self.port.equity_curve.name = "Equity"
 
+    def apply_stop(self, buy_or_short, current_asset, stop_length, trail="false"):
+        if buy_or_short == "buy":
+            temp_ind = current_asset["Close"] - stop_length 
+            temp = temp_ind[self.cond.buy==1]
+        elif buy_or_short == "short":
+            temp_ind = current_asset["Close"] + stop_length 
+            temp = temp_ind[self.cond.short==1]
+
+        stops = pd.DataFrame(index=current_asset.index)
+        # temp = temp_ind[cond==1]
+        temp.name = "stop"
+        stops = stops.join(temp)
+        stops = stops.ffill()
+        stops = stops["stop"]
+
+        # update sell/cover cond
+        if buy_or_short == "buy":
+            temp_cond = current_asset["Low"] < stops
+            self.cond.sell = temp_cond | self.cond.sell
+        elif buy_or_short == "short":
+            temp_cond = current_asset["High"] > stops
+            self.cond.cover = temp_cond | self.cond.cover
+
 class TradeSignal:
     """
     Find trade signals for current asset
@@ -646,8 +669,8 @@ class TradeSignal:
         # from Backtest.indicators import ATR
         # atr = ATR(rep.data, 14)
 
-        # self._apply_stop("buy", self.buyCond, rep, atr()*2)
-        # self._apply_stop("short", self.shortCond, rep, atr()*2)
+        # _apply_stop("buy", self.buyCond, rep, atr()*2)
+        # _apply_stop("short", self.shortCond, rep, atr()*2)
 
         self.sellCond = _find_signals(rep.allCond["Sell"])
         self.coverCond = _find_signals(rep.allCond["Cover"])
@@ -684,28 +707,6 @@ class TradeSignal:
         # or using pd.ne()
         # or self.all = self.all[self.all != self.all.shift()]
         # self.all = _remove_dups(self.all)
-    
-    def _apply_stop(self, buy_or_short, cond, rep, ind):
-        if buy_or_short == "buy":
-            temp_ind = rep.data["Close"] - ind 
-        elif buy_or_short == "short":
-            temp_ind = rep.data["Close"] + ind 
-
-        stops = pd.DataFrame(index=rep.data.index)
-        temp = temp_ind[cond==1]
-        temp.name = "ATR"
-        stops = stops.join(temp)
-        stops = stops.ffill()
-        stops = stops["ATR"]
-
-        # update sell/cover cond
-        if buy_or_short == "buy":
-            temp_cond = rep.data.Close < stops
-            rep.allCond["Sell"] = temp_cond | rep.allCond["Sell"]
-        elif buy_or_short == "short":
-            temp_cond = rep.data.Close > stops
-            rep.allCond["Cover"] = temp_cond | rep.allCond["Cover"]
-        
         
     @staticmethod
     def _merge_signals(cond, out, rep, entry, col_name):        
@@ -941,6 +942,8 @@ def _find_df(df, name):
     for i in range(len(df)):
         if name == df[i][0]:
             return df[i][1]
+
+
 
 if __name__ == "__main__":
     print("=======================")
