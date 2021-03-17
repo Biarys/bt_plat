@@ -133,6 +133,44 @@ class IBOrder:
         # ! [stop]
         return order
 
+    @staticmethod
+    def BracketOrder(parentOrderId:int, action:str, quantity:float, 
+                    takeProfitLimitPrice:float, stopLossPrice:float):
+    
+        #This will be our main or "parent" order
+        parent = Order()
+        parent.orderId = parentOrderId
+        parent.action = action
+        parent.orderType = "MKT"
+        parent.totalQuantity = quantity
+        #The parent and children orders will need this attribute set to False to prevent accidental executions.
+        #The LAST CHILD will have it set to True, 
+        parent.transmit = False
+
+        takeProfit = Order()
+        takeProfit.orderId = parent.orderId + 1
+        takeProfit.action = "SELL" if action == "BUY" else "BUY"
+        takeProfit.orderType = "LMT"
+        takeProfit.totalQuantity = quantity
+        takeProfit.lmtPrice = takeProfitLimitPrice
+        takeProfit.parentId = parentOrderId
+        takeProfit.transmit = False
+
+        stopLoss = Order()
+        stopLoss.orderId = parent.orderId + 2
+        stopLoss.action = "SELL" if action == "BUY" else "BUY"
+        stopLoss.orderType = "TRAIL"
+        #Stop trigger price
+        stopLoss.auxPrice = stopLossPrice
+        stopLoss.totalQuantity = quantity
+        stopLoss.parentId = parentOrderId
+        #In this case, the low side order will be the last child being sent. Therefore, it needs to set this attribute to True 
+        #to activate all its predecessors
+        stopLoss.transmit = True
+
+        bracketOrder = [parent, takeProfit, stopLoss]
+        return bracketOrder
+
 class IBScanner:
     def __init__(self):
         pass
@@ -148,7 +186,7 @@ class IBScanner:
         scanSub.locationCode = "STK.US"
         scanSub.scanCode = "TOP_PERC_GAIN"
         scanSub.abovePrice = 2
-        scanSub.belowPrice = 10
+        scanSub.belowPrice = 50
         scanSub.aboveVolume = 1000000
 
         return scanSub    
@@ -512,7 +550,10 @@ class IBApp(_IBWrapper, _IBClient):
                         self.send_email(f"Subject: Buy signal for {asset} \n\n Open long for {asset}. Position size: {order['Weight']}. Trigger price (theoretical price): {order['Entry_price']}")
                     
                     elif bt_orders[bt_orders["Symbol"]==asset]["Direction"].iloc[0] == "Short":
-                        self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr_all[asset]), IBOrder.MarketOrder("SELL", abs(order["Weight"])))
+                        # self.placeOrder(self.nextOrderId(), IBContract.stock(self.scanner_instr_all[asset]), IBOrder.MarketOrder("SELL", abs(order["Weight"])))
+                        oid = self.nextOrderId()
+                        self.placeOrder(oid, IBContract.stock(self.scanner_instr_all[asset]), IBOrder.BracketOrder(oid, "SELL",  abs(order["Weight"]), )) 
+                    #     (parentOrderId:int, action:str, quantity:float, takeProfitLimitPrice:float, stopLossPrice:float)
                         self.send_email(f"Subject: Short signal for {asset} \n\n Open short for {asset}. Position size: {order['Weight']}. Trigger price (theoretical price): {order['Entry_price']}")
             except Exception as e:
                 self.send_email(f"Subject: Couldnt enter position for {asset} \n\n An error has occured during entry logic: {e}")
