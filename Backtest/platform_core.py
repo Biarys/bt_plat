@@ -34,6 +34,7 @@ class Backtest():
         self.agg_trans_prices = Agg_TransPrice()
         self.agg_trades = Agg_Trades()
         self.agg_custom_stop = pd.DataFrame()
+        self.agg_stop_length = pd.DataFrame()
         self.custom_stop_size = None
         self.trade_list = None
         # self.in_trade = {"long":0, "short":0}
@@ -168,6 +169,7 @@ class Backtest():
         self.agg_trades.priceFluctuation_dollar = _aggregate(self.agg_trades.priceFluctuation_dollar,
                                                                 trades_current_asset.priceFluctuation_dollar)
         self.agg_trades.trades = _aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
+        self.agg_stop_length = _aggregate(self.agg_stop_length, self.stop_length)
 
         # save custom stops
         if Settings.position_size_type == "custom":
@@ -551,17 +553,23 @@ class Backtest():
         self.trade_list["Date_exit"] = self.trade_list["Date_exit"].astype(str)
         self.trade_list.sort_values(by=["Date_exit", "Date_entry", "Symbol"], inplace=True)
         self.trade_list.reset_index(drop=True, inplace=True)
-
+        
+        # ! a work around failing dates, when buy and sell occur on the same candle -> an null row appears for entry stats
+        self.trade_list.dropna(inplace=True)
         # assign weights
         self.trade_list["Weight"] = np.NAN
         weight_list = self.trade_list.Symbol.unique()
+
+        # ! temp putting stop loss value here
+        self.trade_list["stop_loss"] = np.NAN
+
         for asset in weight_list:
             # find all entry dates for an asset
             dates = self.trade_list[self.trade_list["Symbol"] ==
                                     asset]["Date_entry"]
             # save index of the dates in trade_list for further concat
             idx = self.trade_list[self.trade_list["Symbol"] ==
-                                  asset]["Date_entry"].index
+                                asset]["Date_entry"].index
             # grab all weights for the asset on entry date
             dates_locs = np.searchsorted(self.idx, dates)
             asset_loc = self.keys.index(asset)
@@ -569,6 +577,10 @@ class Backtest():
             weights = self.port.weights[dates_locs, asset_loc]
 
             self.trade_list.loc[idx, "Weight"] = weights
+
+            # ! temp putting stop loss value here
+            self.trade_list.loc[idx, "stop_loss"] = self.agg_stop_length.loc[dates, asset].values
+
         # change values to display positive for short trades (instead of negative shares)
         self.trade_list["Weight"] = np.where(self.trade_list.Direction=="Long", 
                                     self.trade_list["Weight"], -self.trade_list["Weight"])
@@ -598,10 +610,12 @@ class Backtest():
         # Position value
         self.trade_list["Position_value"] = self.trade_list["Weight"] * self.trade_list["Entry_price"]
 
-        # # bars held
+        # number of bars held
         temp = pd.to_datetime(self.trade_list["Date_exit"], errors="coerce")
         self.trade_list["Trade_duration"] = temp - self.trade_list["Date_entry"]
         self.trade_list["Trade_duration"].fillna("Open", inplace=True)
+
+        
 
     def _generate_equity_curve(self):
         # Fillna cuz
