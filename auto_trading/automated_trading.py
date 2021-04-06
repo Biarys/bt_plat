@@ -134,15 +134,16 @@ class IBOrder:
         return order
 
     @staticmethod
-    def BracketOrder(parentOrderId:int, action:str, quantity:float, 
+    def BracketOrder(parentOrderId:int, action:str, quantity:float, limitPrice:float,
                     takeProfitLimitPrice:float, stopLossPrice:float):
     
         #This will be our main or "parent" order
         parent = Order()
         parent.orderId = parentOrderId
         parent.action = action
-        parent.orderType = "MKT"
+        parent.orderType = "LMT"
         parent.totalQuantity = quantity
+        parent.lmtPrice = round(limitPrice, 2)
         #The parent and children orders will need this attribute set to False to prevent accidental executions.
         #The LAST CHILD will have it set to True, 
         parent.transmit = False
@@ -152,16 +153,21 @@ class IBOrder:
         takeProfit.action = "SELL" if action == "BUY" else "BUY"
         takeProfit.orderType = "LMT"
         takeProfit.totalQuantity = quantity
-        takeProfit.lmtPrice = takeProfitLimitPrice
+        takeProfit.lmtPrice = round(takeProfitLimitPrice, 2)
         takeProfit.parentId = parentOrderId
         takeProfit.transmit = False
 
         stopLoss = Order()
         stopLoss.orderId = parent.orderId + 2
         stopLoss.action = "SELL" if action == "BUY" else "BUY"
-        stopLoss.orderType = "TRAIL"
-        #Stop trigger price
-        stopLoss.auxPrice = stopLossPrice
+        stopLoss.orderType = "STP"
+        stopLoss.auxPrice = round(limitPrice + stopLossPrice, 2)
+        stopLoss.triggerPrice = round(limitPrice - stopLossPrice, 2)
+        stopLoss.adjustedOrderType = "STP"
+        stopLoss.adjustedStopPrice = round(limitPrice, 2)
+        # stopLoss.orderType = "TRAIL"
+        # #Stop trigger price
+        # stopLoss.auxPrice = round(stopLossPrice,2)
         stopLoss.totalQuantity = quantity
         stopLoss.parentId = parentOrderId
         #In this case, the low side order will be the last child being sent. Therefore, it needs to set this attribute to True 
