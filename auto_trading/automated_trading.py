@@ -606,22 +606,25 @@ class IBApp(_IBWrapper, _IBClient):
         else:
             current_positions = pd.DataFrame(columns=["account", "symbol_currency", "quantity", "avg_cost"])
 
-        for _reqId in self.data_tracker:
-            try:
-                symbol = self.data_tracker[_reqId]
-                # Check if symbol does not need to be tracked
-                # Otherwise keep running strategy on extra data (slow) + reach limit of 50 simultaneous API historical data requests
-                if (symbol not in self.scanner_instr.keys()) and (symbol not in current_positions["symbol_currency"].values): #add symbol not in current open positions?
-                    self.logger.info(f"Unsubscribing data for: {symbol}")
-                    self.cancelHistoricalData(reqId=_reqId)
-                    keys_to_pop.append(_reqId)
-                    self.data.pop(symbol)
-                    self.logger.info(f"REMOVING SYMBOL: {symbol}, Currently tracking: {self.data_tracker.values()}")
-            except Exception as e:
-                self.logger.error("An error has occured while removing symbols")
-                self.logger.error(e, stack_info=True)
-        # removing stocks that dont need to be tracked from data tracker
-        [self.data_tracker.pop(key) for key in keys_to_pop]
+        if not self.scanner_instr.keys():
+            for _reqId in self.data_tracker:
+                try:
+                    symbol = self.data_tracker[_reqId]
+                    # Check if symbol does not need to be tracked
+                    # Otherwise keep running strategy on extra data (slow) + reach limit of 50 simultaneous API historical data requests
+                    if (symbol not in self.scanner_instr.keys()) and (symbol not in current_positions["symbol_currency"].values): #add symbol not in current open positions?
+                        self.logger.info(f"Unsubscribing data for: {symbol}")
+                        self.cancelHistoricalData(reqId=_reqId)
+                        keys_to_pop.append(_reqId)
+                        self.data.pop(symbol)
+                        self.logger.info(f"REMOVING SYMBOL: {symbol}, Currently tracking: {self.data_tracker.values()}")
+                except Exception as e:
+                    self.logger.error("An error has occured while removing symbols")
+                    self.logger.error(e, stack_info=True)
+            # removing stocks that dont need to be tracked from data tracker
+            [self.data_tracker.pop(key) for key in keys_to_pop]
+        else:
+            self.logger.warning(f"WARNING: self.scanner_instr IS EMPTY. ReqID: {reqId}.")
         
         self.logger.info(f"Finished executing scanner data reqID: {reqId}")
         self.logger.info(f"Stocks in self.scanner_instr.keys(): {self.scanner_instr.keys()}")
