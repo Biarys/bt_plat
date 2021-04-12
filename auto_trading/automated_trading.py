@@ -461,19 +461,27 @@ class IBApp(_IBWrapper, _IBClient):
                 # if now.second == 5 and recent_min != prev_min:
                 #     prev_min = recent_min
                 if bool(self.data): # empty dict == False. Not empty == True
-                    if (settings.account_stop_use and self.daily_pnl > self.calc_account_max_loss()) or (not settings.account_stop_use):
-                        self.logger.info("Running strategy")
-                        s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
-                        data_ = DataReader("at", self.data) 
-                        settings.start_amount = self.avail_funds
-                        s.run(data_)
-                        self.submit_orders(s.trade_list)
-                    elif (settings.account_stop_use and self.daily_pnl <= self.calc_account_max_loss()):
-                        self.send_email(f"Subject: WARNING: DAILY MAX LOSS HAS BEEN TRIGGERED! \n\n Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
-                        self.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
-                        self.close_open_positions()
-                        self.logger.warning(f"Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.") 
-                        _run = False
+                    self.logger.info("Running strategy")
+                    s = strat(real_time=True) # gotta create new object, otherwise it duplicates previous results  
+                    data_ = DataReader("at", self.data) 
+                    settings.start_amount = self.avail_funds
+                    s.run(data_)
+                    self.submit_orders(s.trade_list)
+                    
+                    if settings.account_stop_use:
+                        if self.daily_pnl < self.calc_account_max_loss():
+                            self.send_email(f"Subject: WARNING: DAILY MAX LOSS HAS BEEN TRIGGERED! \n\n Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
+                            self.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
+                            self.close_open_positions()
+                            self.logger.warning(f"Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.") 
+                            _run = False
+                        elif self.daily_pnl > self.calc_account_max_gain():
+                            self.send_email(f"Subject: CONGRATULATION: DAILY MAX GAIN HAS BEEN TRIGGERED! \n\n Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.")
+                            self.reqGlobalCancel() #Cancels all active orders. This method will cancel ALL open orders including those placed directly from TWS. 
+                            self.close_open_positions()
+                            self.logger.warning(f"Daily PnL of {self.daily_pnl} has exceeded the threshold of {self.calc_account_max_loss()} {settings.account_stop_type}s. Terminating trading for the day.") 
+                            _run = False
+                    
             except Exception as e:
                 self.logger.error("An error occured during run_strategy")
                 self.logger.error(e, stack_info=True)
@@ -495,9 +503,22 @@ class IBApp(_IBWrapper, _IBClient):
 
     def calc_account_max_loss(self):
         if settings.account_stop_type == "pct":
-            return settings.account_stop_value * self.avail_funds
+            # ! make a check for negative number (need to be negative)
+            return -(settings.account_stop_value * self.avail_funds)
         elif settings.account_stop_type == "dollar":
             return settings.account_stop_value
+        elif settings.account_stop_type == None:
+            self.logger.error("=====================================================================")
+            self.logger.error("account_stop_type in settings has not been specified while account_stop_use was set to True")
+            self.logger.error("Please specify account_stop_type in the settings")
+            self.logger.error("=====================================================================")
+
+    def calc_account_max_gain(self):
+        if settings.account_stop_type == "pct":
+            # ! make a check for negative number (need to be positive)
+            return abs(settings.account_stop_value * self.avail_funds)
+        elif settings.account_stop_type == "dollar":
+            return abs(settings.account_stop_value)
         elif settings.account_stop_type == None:
             self.logger.error("=====================================================================")
             self.logger.error("account_stop_type in settings has not been specified while account_stop_use was set to True")
