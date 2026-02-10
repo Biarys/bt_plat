@@ -8,3 +8,5 @@ Backtest/karun2.py
 __pycache__
 /other
 main_run.py
+.venv
+*.log
