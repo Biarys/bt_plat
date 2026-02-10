@@ -4,7 +4,7 @@ from datetime import datetime as dt
 from Backtest import Settings as settings
 
 def setup_log(name, level=logging.INFO):
-    # _create_folders()
+    _create_folders()
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -25,13 +25,10 @@ def setup_log(name, level=logging.INFO):
     logger.info(f"{name} started")
 
 def _create_folders():
-    for path in ["/", "/INFO", "/ERRORS", "DEBUG"]:
+    for path in ["/", "/INFO", "/ERRORS", "/DEBUG"]:
         if not os.path.exists(settings.log_folder+path):
             try:
                 print(f"Creating log folder in {settings.log_folder+path}")
-                os.mkdir(settings.log_folder)
-                os.mkdir(settings.log_folder+path)
-                os.mkdir(settings.log_folder+path)
                 os.mkdir(settings.log_folder+path)
             except Exception as e:
                 print(f"Failed to create log folder in {settings.log_folder+path}")

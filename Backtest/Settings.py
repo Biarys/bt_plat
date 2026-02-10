@@ -1,9 +1,9 @@
 # run options
 read_from = "csvFiles"
 read_from_csv_path = ""
-log_folder = r"D:\bt_plat_logs"
+log_folder = "LOGS"
 log_name = "test.log"
-save_temp_parquet = r"D:\parq\temp"
+save_temp_parquet = "parq/temp"
 
 # data_frequency = "D"
 
