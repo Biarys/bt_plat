@@ -1,128 +1,84 @@
+from abc import ABC, abstractmethod
 import os
 import pandas as pd
-import time
-# from functools import wraps
 
-# own files
-# from . import database_stuff as db
-# from . import config
-# from . import Settings
+class BaseReader(ABC):
+    def __init__(self, path):
+        self.path = path
+        self.keys = self.get_keys()
 
-# TODO: add support for csv/db
-class DataReader:
-    """
-    file_type : hdf, csv, csv_files, at (automated_trading)
-    If file_type == at, then submit app.data as path
-    If file_type == at, then data is stored in self.path (locally)
-    """
-    def __init__(self, file_type, path):        
-        self.data = None
-        self.type = file_type.lower()
-        self.keys = None
-        self.path = None
+    @abstractmethod
+    def get_keys(self):
+        pass
 
-        if self.type == "hdf":
-            self.path = path
-            self.get_hdf_keys()
-        elif self.type == "csv":
-            self.path = path
-            self.get_csv_key()
-        elif self.type == "csv_files":
-            self.path = path
-            self.get_csv_keys()
-        elif self.type == "at":
-            self.data = path.copy() # in this case, path is a dataframe with data received from app
-            self.keys = self.data.keys()
+    @abstractmethod
+    def read_data(self, key):
+        pass
+
+class HDFReader(BaseReader):
+    def get_keys(self):
+        import h5py
+        with h5py.File(self.path, "r") as data:
+            return list(data.keys())
 
     def read_data(self, stock):
-        if self.type == "hdf":
-            return self.read_hdf(self.path, stock)
-        elif self.type == "csv":
-            return self.readCSV(self.path, stock)
-        elif self.type == "csv_files":
-            return self.readCSVFiles(self.path, stock)
-        elif self.type == "at":
-            return (stock, self.data[stock])
-        
-    def get_csv_key(self):
-        assert os.path.isfile(self.path), "You need to specify a file or the path doesnt exist."
-        self.keys = [os.path.basename(self.path).split(".")[0]]
-    
-    def get_csv_keys(self):
-        assert os.path.isdir(self.path), "You need to specify a folder or the path doesnt exist."
-        self.keys = os.listdir(self.path)
+        return (stock, pd.read_hdf(self.path, stock))
 
-    def get_hdf_keys(self):
-        import h5py
-        data = h5py.File(self.path, "r")
-        self.keys = list(data.keys())
-    
-    def readCSV(self, path, stock):
+class CSVReader(BaseReader):
+    def get_keys(self):
+        assert os.path.isfile(self.path), "You need to specify a file or the path doesnt exist."
+        return [os.path.basename(self.path).split(".")[0]]
+
+    def read_data(self, stock):
         _temp = pd.read_csv(
-            path,
+            self.path,
             index_col="Date",
         )
         _temp.index = pd.to_datetime(_temp.index)
         return (stock, _temp)
-    
-    @staticmethod
-    def readCSVFiles(path, file):
+
+class CSVFilesReader(BaseReader):
+    def get_keys(self):
+        assert os.path.isdir(self.path), "You need to specify a folder or the path doesnt exist."
+        return os.listdir(self.path)
+
+    def read_data(self, file):
         _fileName = file.split(".csv")[0]
-        file_path = os.path.join(path, file)
+        file_path = os.path.join(self.path, file)
         _temp = pd.read_csv(
             file_path, index_col="Date")
         _temp.index.name = "Date"
         _temp.index = pd.to_datetime(_temp.index)
         return (_fileName, _temp)
 
-    # def readDB(self, con, meta, index_col):
-    #     """
-    #     Reads tables from database that start with data_.
-    #     If index_col is not provided, default name "Date" is used for index.
-    #     Index is converted to pd.to_datetime(), so it's important to provide one.
-    #     """
-    #     con, meta = db.connect(config.user, config.password, config.db)
-    #     meta.reflect(bind=con)
+class ATReader(BaseReader):
+    def __init__(self, data):
+        self.data = data
+        super().__init__(path=None)
 
-    #     for table in meta.tables.keys():
-    #         if table.startswith("data_"):
-    #             _temp = pd.read_sql_table(table, con, index_col=index_col)
-    #             _temp.index.name = "Date"
-    #             _temp.index = pd.to_datetime(_temp.index)
-    #             self.data[table] = _temp
+    def get_keys(self):
+        return self.data.keys()
 
-    #     # con.close()
-    # # add conditional decorator
-    # def establish_con(func):
-    #     if Settings.read_from.lower()=="db":
-    #         con, meta = db.connect(config.user, config.password, config.db)
-    #         meta.reflect(bind=con)
+    def read_data(self, stock):
+        return (stock, self.data[stock])
 
-    #         # @wraps(func)
-    #         def inner(self, *args, **kwargs):
-    #             return func(self, con, *args, **kwargs)
+class ReaderFactory:
+    def __init__(self, file_type, path_or_data):
+        self.reader = self._get_reader(file_type, path_or_data)
+        self.keys = self.reader.keys
 
-    #         # con.close() # engine closes connection automatically?
-    #         return inner
-    
-    # @establish_con
-    # def execQuery(self, con, query):
-    #     result = pd.read_sql(query, con)
-    #     return result
+    def _get_reader(self, file_type, path_or_data):
+        file_type = file_type.lower()
+        if file_type == "hdf":
+            return HDFReader(path_or_data)
+        elif file_type == "csv":
+            return CSVReader(path_or_data)
+        elif file_type == "csv_files":
+            return CSVFilesReader(path_or_data)
+        elif file_type == "at":
+            return ATReader(path_or_data)
+        else:
+            raise ValueError(f"Unsupported file_type: {file_type}")
 
-    # def read_hdf_pd(self, path):
-    #     import h5py
-    #     data = h5py.File(path, "r")
-    #     stocks = list(data.keys())
-    #     for stock in stocks:
-    #         self.data[stock] = pd.read_hdf(path, stock)
-
-    @staticmethod
-    def read_hdf(path, stock):
-        return (stock, pd.read_hdf(path, stock))
-
-
-if __name__ == "__main__":
-    test = DataReader()
-    df = test.execQuery("Select * from backtests limit 10")
-    print(df)
+    def read_data(self, key):
+        return self.reader.read_data(key)
