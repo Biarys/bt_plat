@@ -11,7 +11,7 @@ sys.path.append(sys.path[0] + "/..")
 import Backtest.platform_core as bt
 import Backtest.Settings as Settings
 from Backtest.indicators import SMA
-from Backtest.data_reader import DataReader
+from Backtest.data_reader import ReaderFactory
 
 class TestStocks(unittest.TestCase):
     
@@ -39,8 +39,7 @@ class TestSMA(TestStocks):
             Settings.read_from_csv_path = os.path.join(path, r"stock_data/{name}.csv".format(name=name))
             Settings.read_from = "csvFile"
             
-            data = DataReader("csv", Settings.read_from_csv_path)
-            # data.readCSV(Settings.read_from_csv_path)
+            data = ReaderFactory("csv", Settings.read_from_csv_path)
 
             s = StrategySMALong("Test_SMA")
             s.run(data)
@@ -92,7 +91,7 @@ class TestSMA(TestStocks):
                 name=name)
             
             
-            data = DataReader("csv", Settings.read_from_csv_path)
+            data = ReaderFactory("csv", Settings.read_from_csv_path)
             # data.readCSV(Settings.read_from_csv_path)
 
             s = StrategySMAShort("Test_SMA")
@@ -143,7 +142,7 @@ class TestSMA(TestStocks):
         baseline["Ex. date"] = baseline["Ex. date"].astype(str)
         Settings.read_from_csv_path = os.path.join(path, "stock_data")
         
-        data = DataReader("csv_files", Settings.read_from_csv_path)
+        data = ReaderFactory("csv_files", Settings.read_from_csv_path)
         # data.read_hdf_pd(Settings.read_from_csv_path)
 
         s = StrategySMALong("Test_SMA")
@@ -202,7 +201,7 @@ class TestSMA(TestStocks):
         Settings.read_from_csv_path = os.path.join(path, "stock_data")
         
 
-        data = DataReader("csv_files", Settings.read_from_csv_path)
+        data = ReaderFactory("csv_files", Settings.read_from_csv_path)
         # data.readCSVFiles(Settings.read_from_csv_path)
 # 
         s = StrategySMAShort("Test_SMA")
