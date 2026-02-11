@@ -15,7 +15,7 @@ def setup_log(name, level=logging.INFO):
     handler_console.setLevel(level)
     handler_console.setFormatter(formatter)
 
-    handler_file = logging.FileHandler(settings.log_folder + r"/" + dt.now().strftime("%d_%b_%Y_asof_%H_%M_%S.log"), mode="w")
+    handler_file = logging.FileHandler(settings.log_folder + "/" + dt.now().strftime("%d_%b_%Y_asof_%H_%M_%S.log"), mode="w")
     handler_file.setLevel(level)
     handler_file.setFormatter(formatter)
     

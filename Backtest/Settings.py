@@ -39,6 +39,7 @@ round_to_decimals = 0
 # min_position_value = 0
 # max_shares = 0
 # max_position_value = 0
+position_size_type = "pct"
 
 generate_ranks = False
 rank_file_name = "rank.csv"

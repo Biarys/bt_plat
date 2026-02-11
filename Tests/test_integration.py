@@ -33,10 +33,10 @@ class TestSMA(TestStocks):
         path = os.getcwd()
         for name in self.stock_list:
             print(f"RUNNING TEST FOR {name}")
-            baseline = pd.read_excel(path + r'\Tests\Long\baseline_sma_5_25_{name}.xlsx'.format(name=name), sheet_name="Tests")
+            file_path = os.path.join(path, r'Tests/Long/baseline_sma_5_25_{name}.xlsx'.format(name=name))
+            baseline = pd.read_excel(file_path, sheet_name="Tests")
             baseline["Ex. date"] = baseline["Ex. date"].astype(str)
-            Settings.read_from_csv_path = path + r"\stock_data\{name}.csv".format(
-                name=name)
+            Settings.read_from_csv_path = os.path.join(path, r"stock_data/{name}.csv".format(name=name))
             Settings.read_from = "csvFile"
             
             data = DataReader("csv", Settings.read_from_csv_path)
@@ -78,7 +78,7 @@ class TestSMA(TestStocks):
             s.trade_list[["% chg", "% Profit"]] = s.trade_list[["% chg", "% Profit"]].round(4)
             # s.trade_list["Ex. date"] = pd.to_datetime(s.trade_list["Ex. date"], errors="coerce")
             s.trade_list["Ex. date"] = s.trade_list["Ex. date"].astype(str)
-            s.trade_list.to_csv(r"D:\results_{}.csv".format(name)) 
+            s.trade_list.to_csv(r"results_{}.csv".format(name)) 
 
             self.compare_dfs(baseline, s.trade_list)
 
@@ -131,18 +131,18 @@ class TestSMA(TestStocks):
             s.trade_list[["% chg", "% Profit"]] = s.trade_list[["% chg", "% Profit"]].round(4)
             # s.trade_list["Ex. date"] = pd.to_datetime(s.trade_list["Ex. date"], errors="coerce")
             s.trade_list["Ex. date"] = s.trade_list["Ex. date"].astype(str)
-            s.trade_list.to_csv(r"D:\results_short_{}.csv".format(name)) 
-
+            s.trade_list.to_csv(os.path.join(path, "results_short_{}.csv".format(name)))
+    
             self.compare_dfs(baseline, s.trade_list)
 
     def test_portfolio_long(self):
         print("RUNNING PORTFOLIO TEST - LONG")
         path = os.getcwd()
-        baseline = pd.read_excel(path + r'\Tests\Long\baseline_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
+        file_path = os.path.join(path, 'Tests/Long/baseline_sma_5_25_portfolio_excl_XOM.xlsx') 
+        baseline = pd.read_excel(file_path, sheet_name="Tests")
         baseline["Ex. date"] = baseline["Ex. date"].astype(str)
-        Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data"
+        Settings.read_from_csv_path = os.path.join(path, "stock_data")
         
-
         data = DataReader("csv_files", Settings.read_from_csv_path)
         # data.read_hdf_pd(Settings.read_from_csv_path)
 
@@ -183,18 +183,23 @@ class TestSMA(TestStocks):
         # s.trade_list["Ex. date"] = pd.to_datetime(s.trade_list["Ex. date"], errors="coerce")
         s.trade_list["Ex. date"] = s.trade_list["Ex. date"].astype(str)
         s.trade_list["Symbol"] = s.trade_list["Symbol"].str.replace(".csv", "")
-
+        s.trade_list['Shares'] = s.trade_list['Shares'].astype(int)
         # s.trade_list.sort_values(by="Ex. date", inplace=True)
-        s.trade_list.to_csv(r"D:\results_portfolio.csv")
-
+        s.trade_list['Ex. date'] = pd.to_datetime(s.trade_list['Ex. date'], errors='coerce').dt.date.fillna("Open").values
+        
+        # need these 2 lines to compare the results, else fails
+        baseline['Ex. date'] = pd.to_datetime(baseline['Ex. date'], errors='coerce').dt.date.fillna("Open").values
+        s.trade_list.to_csv(os.path.join(path, "results_portfolio.csv"))
+        
         self.compare_dfs(baseline, s.trade_list)
 
     def test_portfolio_short(self):
         print("RUNNING PORTFOLIO TEST - SHORT")
         path = os.getcwd()
-        baseline = pd.read_excel(path + r'\Tests\Short\baseline_short_sma_5_25_portfolio_excl_XOM.xlsx', sheet_name="Tests")
+        file_path = os.path.join(path, 'Tests/Short/baseline_short_sma_5_25_portfolio_excl_XOM.xlsx')
+        baseline = pd.read_excel(file_path, sheet_name="Tests")
         baseline["Ex. date"] = baseline["Ex. date"].astype(str)
-        Settings.read_from_csv_path = r"E:\Windows\Documents\bt_plat\stock_data"
+        Settings.read_from_csv_path = os.path.join(path, "stock_data")
         
 
         data = DataReader("csv_files", Settings.read_from_csv_path)
@@ -245,6 +250,10 @@ class TestSMA(TestStocks):
             
 
 class StrategySMALong(bt.Backtest):
+        def __init__(self, name):
+            super().__init__(name)
+            self.stop_length = pd.DataFrame()
+
         def logic(self, current_asset, name):
             
             sma5 = SMA(current_asset, "Close", 5)

@@ -68,8 +68,9 @@ class DataReader:
     @staticmethod
     def readCSVFiles(path, file):
         _fileName = file.split(".csv")[0]
+        file_path = os.path.join(path, file)
         _temp = pd.read_csv(
-            path + "\\" + file, index_col="Date")
+            file_path, index_col="Date")
         _temp.index.name = "Date"
         _temp.index = pd.to_datetime(_temp.index)
         return (_fileName, _temp)

@@ -189,7 +189,7 @@ class Backtest():
                 else:
                     self.preprocessing(_current_asset_tuple)
                 
-
+            # ? can implement caching. why same data is read twice?
             for name in data.keys:    
                 _current_asset_tuple = data.read_data(name)
                 self._prepricing_pd(_current_asset_tuple)
@@ -269,11 +269,11 @@ class Backtest():
         self.agg_trades.priceFluctuation_dollar.iloc[0] = 0
 
         # prepare value, avail amount, invested
-        self.port.value = np.array([0]*len(self.idx), dtype=np.float)
+        self.port.value = np.array([0]*len(self.idx), dtype=float)
         self.port.value[0] = Settings.start_amount
 
         # copy index and set column name for avail amount
-        self.port.avail_amount = np.array([0]*len(self.idx), dtype=np.float)
+        self.port.avail_amount = np.array([0]*len(self.idx), dtype=float)
         self.port.avail_amount[0] = Settings.start_amount
 
         self.agg_trades.in_trade_price_fluc = np.zeros((len(self.idx), num_of_cols)) # float by default
@@ -281,6 +281,7 @@ class Backtest():
         # run portfolio level
         # allocate weights
         for current_bar in self.idx:
+            # self.log.info(f"Processing {current_bar} - {self.idx.get_loc(current_bar)+1}/{len(self.idx)}")
             prev_bar = self.idx.get_loc(current_bar) - 1
             current_bar_int = prev_bar + 1
 
@@ -551,17 +552,17 @@ class Backtest():
     def _generate_trade_list(self):
         self.trade_list = self.agg_trades.trades.copy()
         self.trade_list["Date_exit"] = self.trade_list["Date_exit"].astype(str)
-        self.trade_list.sort_values(by=["Date_exit", "Date_entry", "Symbol"], inplace=True)
+        self.trade_list = self.trade_list.sort_values(by=["Date_exit", "Date_entry", "Symbol"])
         self.trade_list.reset_index(drop=True, inplace=True)
         
         # ! a work around failing dates, when buy and sell occur on the same candle -> an null row appears for entry stats
-        self.trade_list.dropna(inplace=True)
+        # self.trade_list.dropna(inplace=True)
         # assign weights
-        self.trade_list["Weight"] = np.NAN
+        self.trade_list["Weight"] = np.nan
         weight_list = self.trade_list.Symbol.unique()
 
         # ! temp putting stop loss value here
-        self.trade_list["stop_loss"] = np.NAN
+        self.trade_list["stop_loss"] = np.nan
 
         for asset in weight_list:
             # find all entry dates for an asset
@@ -579,7 +580,7 @@ class Backtest():
             self.trade_list.loc[idx, "Weight"] = weights
 
             # ! temp putting stop loss value here
-            self.trade_list.loc[idx, "stop_loss"] = self.agg_stop_length.loc[dates, asset].values
+            # self.trade_list.loc[idx, "stop_loss"] = self.agg_stop_length.loc[dates, asset].values
 
         # change values to display positive for short trades (instead of negative shares)
         self.trade_list["Weight"] = np.where(self.trade_list.Direction=="Long", 
@@ -613,7 +614,7 @@ class Backtest():
         # number of bars held
         temp = pd.to_datetime(self.trade_list["Date_exit"], errors="coerce")
         self.trade_list["Trade_duration"] = temp - self.trade_list["Date_entry"]
-        self.trade_list["Trade_duration"].fillna("Open", inplace=True)
+        self.trade_list["Trade_duration"] = self.trade_list["Trade_duration"].fillna("Open")
 
         
 
@@ -726,9 +727,9 @@ class TradeSignal:
     def _merge_signals(cond, out, rep, entry, col_name):        
         temp = entry.dropna()
         if not temp.empty:
-            df = np.select(cond, out, default=0)
+            df = np.select(cond, out, default="")
             df = pd.DataFrame(df, index=rep.data.index, columns=[col_name])
-            df = df.replace("0", np.NAN)
+            df = df.replace("", np.nan)
 
             # find where first buy occured
             first_entry = temp.index[0]
@@ -834,12 +835,14 @@ class Trades:
 
         self.trades = pd.concat([long, short])
         # NAs should only be last values that are still open
-        self.trades["Date_exit"].fillna("Open", inplace=True)
+        # ! commenting out for now since I dont want to change series type from dates to object
+        self.trades["Date_exit"] = self.trades["Date_exit"].astype(str)
+        self.trades["Date_exit"] = self.trades["Date_exit"].fillna("Open")
 
         # hardcoded Close cuz if still in trade, needs latest quote
-        self.trades[trans_prices.sellPrice.name + "_exit"].fillna(
-            rep.data.iloc[-1]["Close"], inplace=True)
-
+        self.trades[trans_prices.sellPrice.name + "_exit"] = self.trades[trans_prices.sellPrice.name + "_exit"].fillna(
+            rep.data.iloc[-1]["Close"])
+ 
         # alternative way
         # u = self.trades.select_dtypes(exclude=['datetime'])
         # self.trades[u.columns] = u.fillna(4)
@@ -910,9 +913,12 @@ class Cond:
         self.all = pd.DataFrame()
 
     def _combine(self):
-        for df in [self.buy, self.sell, self.short, self.cover]:
-            self.all = self.all.append(df)
-        self.all = self.all.T
+        if not self.buy.empty:
+            self.all[self.buy.name] = self.buy
+            self.all[self.sell.name] = self.sell
+        if not self.short.empty:
+            self.all[self.short.name] = self.short
+            self.all[self.cover.name] = self.cover
 
         for df in [self.buy, self.sell, self.short, self.cover]:
             if df.name not in self.all.columns:
@@ -935,7 +941,9 @@ def _remove_dups(data):
     return data
 
 def _find_signals(df):
-    return df.where(df != df.shift(1).fillna(df[0]))
+    # replacing df[0] with False
+    # return df.
+    return df.where(df != df.shift(1).fillna(df.iloc[0]))
 
 def _find_affected_assets(df, current_bar):
     return df.loc[current_bar].notna().values
