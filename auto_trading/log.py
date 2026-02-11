@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime as dt
-from Backtest import Settings as settings
+from Backtest.Settings import Settings as settings
 
 def setup_log(name, level=logging.INFO):
     _create_folders()
