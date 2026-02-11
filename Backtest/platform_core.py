@@ -9,15 +9,18 @@ from datetime import datetime as dt
 
 # own files
 from Backtest.indicators import SMA
-from Backtest.data_reader import DataReader
+from Backtest.data_reader import ReaderFactory
 from auto_trading.log import setup_log
-from Backtest import Settings
+from Backtest.Settings import Settings
+from Backtest.utils import _aggregate, _prep_and_agg_custom_stops, _find_df, _find_signals, _remove_dups
+from Backtest.portfolio import Portfolio
+from Backtest.engines import PandasEngine, SparkEngine
 
-if Settings.backtest_engine.lower() == "spark":
-    import pyspark
-    import pyspark.sql.functions as pySqlFunc
-    from pyspark.sql.functions import col
-    from pyspark.sql.window import Window
+# if Settings.backtest_engine.lower() == "spark":
+#     import pyspark
+#     import pyspark.sql.functions as pySqlFunc
+#     from pyspark.sql.functions import col
+#     from pyspark.sql.window import Window
     
 
 setup_log("Backtester")
@@ -30,18 +33,20 @@ class Backtest():
         self.name = name
         self.data = {}
         self.runs_at = dt.now() # for logging and data prep purposes. Gets updated when self.run() is called
-        self.port = Portfolio()
         self.agg_trans_prices = Agg_TransPrice()
         self.agg_trades = Agg_Trades()
         self.agg_custom_stop = pd.DataFrame()
         self.agg_stop_length = pd.DataFrame()
         self.custom_stop_size = None
         self.trade_list = None
-        # self.in_trade = {"long":0, "short":0}
         self.universe_ranking = pd.DataFrame()
         self.real_time = real_time
-        self.keys = None        
+        self.keys = None
         self.log = logging.getLogger("Backtester")
+        if Settings.backtest_engine.lower() == "pandas":
+            self.engine = PandasEngine(self)
+        elif Settings.backtest_engine.lower() == "spark":
+            self.engine = SparkEngine(self)
         
 
     def preprocessing(self, data):
@@ -255,299 +260,18 @@ class Backtest():
         # prepare data for portfolio 
         self.idx = self.agg_trades.priceFluctuation_dollar.index
         self.idx = pd.Index(self.idx, dtype=object)
-        
         self.keys = [name.split(".csv")[0] for name in data.keys]
         # check to assure order of columns is the same among all dataframes. Otherwise results will be wrong
         assert all(self.keys == self.agg_trans_prices.buyPrice.columns), "self.keys are not identical among dataframes"
-        num_of_cols = len(self.keys)
         
-        # prepare portfolio level
-        self.port.weights = np.zeros((len(self.idx), num_of_cols))
-
         # nan in the beg cuz of .shift while finding priceFluctuation
         # to avoid nan in the beg
         self.agg_trades.priceFluctuation_dollar.iloc[0] = 0
 
-        # prepare value, avail amount, invested
-        self.port.value = np.array([0]*len(self.idx), dtype=float)
-        self.port.value[0] = Settings.start_amount
-
-        # copy index and set column name for avail amount
-        self.port.avail_amount = np.array([0]*len(self.idx), dtype=float)
-        self.port.avail_amount[0] = Settings.start_amount
-
-        self.agg_trades.in_trade_price_fluc = np.zeros((len(self.idx), num_of_cols)) # float by default
-
-        # run portfolio level
-        # allocate weights
-        for current_bar in self.idx:
-            # self.log.info(f"Processing {current_bar} - {self.idx.get_loc(current_bar)+1}/{len(self.idx)}")
-            prev_bar = self.idx.get_loc(current_bar) - 1
-            current_bar_int = prev_bar + 1
-
-            # not -1 cuz it will replace last value
-            if prev_bar != -1:
-                # update avail amount (roll)
-                _roll_prev_value_np(self.port.avail_amount, current_bar_int, prev_bar)
-
-                # update port value (roll)
-                _roll_prev_value_np(self.port.value, current_bar_int, prev_bar)
-
-                # update weight anyway cuz if buy, the wont roll for other stocks (roll)
-                _roll_prev_value_np(self.port.weights, current_bar_int, prev_bar)
-
-            # if there was an entry on that date
-            # allocate weight
-            # update avail amount (subtract)
-            self._execute_trades(current_bar, current_bar_int)            
-
-            # POST STEPS
-            # record unrealized gains/losses
-            self.agg_trades.in_trade_price_fluc[current_bar_int] = (self.agg_trades.priceFluctuation_dollar.iloc[
-                current_bar_int] * self.port.weights[current_bar_int]).values
-
-            # update avail amount for bar's gain/loss            
-            self._update_for_fluct_np(self.port.avail_amount, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar, current_bar_int)
-            self._update_for_fluct_np(self.port.value, self.agg_trades.in_trade_price_fluc, current_bar, prev_bar, current_bar_int)
-
-        self._generate_equity_curve()
+        self.portfolio = Portfolio(self.agg_trades.priceFluctuation_dollar, self.idx, self.keys)
+        self.portfolio.run_portfolio(self.agg_trans_prices, self.agg_custom_stop)
+        
         self._generate_trade_list()
-
-    def _execute_buy(self, current_bar, current_bar_int):
-        # # self.in_trade["long"] = 1
-        # # find amount to be invested
-        # to_invest = self.port.value[current_bar_int] * Settings.pct_invest
-
-        # # find assets that need allocation
-        # # those that dont have buyPrice for that day wil have NaN
-        # # drop them, keep those that have values
-        # affected_assets = _find_affected_assets(self.agg_trans_prices.buyPrice, current_bar)
-
-        # # find current bar, affected assets
-        # # allocate shares to all assets = invested amount/buy price
-        # rounded_weights = to_invest / self.agg_trans_prices.buyPrice.loc[
-        #     current_bar, affected_assets]
-        # rounded_weights = rounded_weights.mul(
-        #     10**Settings.round_to_decimals).apply(np.floor).div(
-        #         10**Settings.round_to_decimals)
-        if self.real_time:
-            to_invest = Settings.start_amount
-        else:
-            to_invest = self.port.value[current_bar_int]
-
-        rounded_weights, affected_assets = self._position_sizer(to_invest, self.agg_trans_prices.buyPrice, current_bar)
-
-        self.port.weights[current_bar_int][affected_assets] = rounded_weights        
-
-        # find actualy amount invested
-        # TODO: adjust amount invested. Right now assumes all intended amount is allocated.
-        actually_invested = self.port.weights[current_bar_int][affected_assets] * self.agg_trans_prices.buyPrice.loc[
-                current_bar, affected_assets]
-
-        self.port.avail_amount[current_bar_int] -= actually_invested.sum()
-
-    def _execute_sell(self, current_bar, current_bar_int):
-        """
-        if there was an exit on that date
-        set weight to 0
-        update avail amount
-        """
-        # self.in_trade["long"] = 0
-        #? prob need to change this part for scaling implementation
-
-        # find assets that need allocation
-        # those that dont have sellPrice for that day wil have NaN
-        # drop them, keep those that have values
-        affected_assets = _find_affected_assets(self.agg_trans_prices.sellPrice, current_bar)
-        self.port.avail_amount[current_bar_int] += (self.port.weights[current_bar_int][
-            affected_assets] * self.agg_trans_prices.sellPrice.loc[
-                current_bar, affected_assets]).sum()
-
-        # set weight to 0
-        self.port.weights[current_bar_int][affected_assets] = 0
-
-    def _execute_short(self, current_bar, current_bar_int):
-        # self.in_trade["short"] = 1
-        # find amount to be invested
-        if self.real_time:
-            to_invest = Settings.start_amount
-        else:
-            to_invest = self.port.value[current_bar_int]
-
-        # # find assets that need allocation
-        # # those that dont have shortPrice for that day wil have NaN
-        # # drop them, keep those that have values
-        # affected_assets = _find_affected_assets(self.agg_trans_prices.shortPrice, current_bar)
-
-        # # find current bar, affected assets
-        # # allocate shares to all assets = invested amount/buy price
-        # rounded_weights = to_invest / self.agg_trans_prices.shortPrice.loc[
-        #     current_bar, affected_assets]
-        # rounded_weights = rounded_weights.mul(
-        #     10**Settings.round_to_decimals).apply(np.floor).div(
-        #         10**Settings.round_to_decimals)
-        rounded_weights, affected_assets = self._position_sizer(to_invest, self.agg_trans_prices.shortPrice, current_bar)
-
-        self.port.weights[current_bar_int][affected_assets] = -rounded_weights
-
-        # find actualy amount invested
-        # TODO: adjust amount invested. Right now assumes all intended amount is allocated.
-        actually_invested = self.port.weights[current_bar_int][affected_assets] * self.agg_trans_prices.shortPrice.loc[
-                current_bar, affected_assets]
-
-        self.port.avail_amount[current_bar_int] += actually_invested.sum()
-
-    def _execute_cover(self, current_bar, current_bar_int):
-        """
-        if there was an exit on that date
-        set weight to 0
-        update avail amount
-        """
-        # self.in_trade["short"] = 0
-        #? prob need to change this part for scaling implementation
-
-        # find assets that need allocation
-        # those that dont have coverPrice for that day will have NaN
-        # drop them, keep those that have values
-        affected_assets = _find_affected_assets(self.agg_trans_prices.coverPrice, current_bar)
-        self.port.avail_amount[current_bar_int] += (self.port.weights[current_bar_int][
-            affected_assets] * self.agg_trans_prices.coverPrice.loc[
-                current_bar, affected_assets]).sum()
-
-        # set weight to 0
-        self.port.weights[current_bar_int][affected_assets] = 0
-
-    def _execute_trades(self, current_bar, current_bar_int):
-        if (current_bar in self.agg_trans_prices.buyPrice.index):# and (self.in_trade["long"]==0):
-            self._execute_buy(current_bar, current_bar_int)            
-
-        if (current_bar in self.agg_trans_prices.sellPrice.index):# and (self.in_trade["long"]==1):
-            self._execute_sell(current_bar, current_bar_int)
-
-        if (current_bar in self.agg_trans_prices.shortPrice.index):# and (self.in_trade["short"]==0):
-            self._execute_short(current_bar, current_bar_int)
-
-        if (current_bar in self.agg_trans_prices.coverPrice.index):# and (self.in_trade["short"]==1):
-            self._execute_cover(current_bar, current_bar_int)
-
-    def _position_sizer(self, port_value, trans_prices, current_bar):
-        if Settings.position_size_type == "pct":
-            # $ amount
-            to_invest = port_value * Settings.pct_invest
-
-            affected_assets = _find_affected_assets(trans_prices, current_bar)
-
-            # find current bar, affected assets
-            # allocate shares to all assets = invested amount/buy price
-            rounded_weights = to_invest / trans_prices.loc[
-                current_bar, affected_assets]
-            rounded_weights = rounded_weights.mul(
-                10**Settings.round_to_decimals).apply(np.floor).div(
-                    10**Settings.round_to_decimals)
-
-            # actually_invested = rounded_weights * trans_prices.loc[current_bar, affected_assets]
-
-            return rounded_weights, affected_assets
-
-        elif Settings.position_size_type == "share":
-            # # of shares
-            affected_assets = _find_affected_assets(trans_prices, current_bar)
-
-            # actually_invested = Settings.position_size_value * trans_prices.loc[
-            #         current_bar, affected_assets]
-
-            return Settings.position_size_value, affected_assets
-
-        elif Settings.position_size_type == "amount":
-            # $ amount
-            to_invest = Settings.position_size_value
-
-            affected_assets = _find_affected_assets(trans_prices, current_bar)
-
-            # find current bar, affected assets
-            # allocate shares to all assets = invested amount/buy price
-            rounded_weights = to_invest / trans_prices.loc[
-                current_bar, affected_assets]
-            rounded_weights = rounded_weights.mul(
-                10**Settings.round_to_decimals).apply(np.floor).div(
-                    10**Settings.round_to_decimals)
-
-            # actually_invested = rounded_weights * trans_prices.loc[current_bar, affected_assets]
-
-            return rounded_weights, affected_assets
-
-        elif Settings.position_size_type == "custom":
-            # ! not finished.
-            # Naan == True
-            affected_assets = _find_affected_assets(trans_prices, current_bar)
-            to_invest = self.agg_custom_stop.loc[current_bar, affected_assets] * port_value
-            # affected_assets_tp = trans_prices.loc[current_bar, affected_assets]
-            # find current bar, affected assets
-            # allocate shares to all assets = invested amount/buy price
-            # 0.03 * 18 / 2 = 0.27 or 27%
-            # pct_equity_to_invest = (Settings.position_size_value * affected_assets_tp) / atr
-            # 0.27 * 90,000 = trade size of 24,300 / share price = #number of share
-            rounded_weights = to_invest / trans_prices.loc[current_bar, affected_assets]
-            rounded_weights = rounded_weights.mul(
-                10**Settings.round_to_decimals).apply(np.floor).div(
-                    10**Settings.round_to_decimals)
-
-            # actually_invested = rounded_weights * affected_assets
-            
-            return rounded_weights, affected_assets
-
-    def _check_trade_list(self):
-        pass
-
-    def _update_for_fluct_np(self, df, in_trade_adjust, current_bar, prev_bar, current_bar_int):
-        """
-        Update for today's gains and losses
-        """        
-        # By default does not record daily's P&L when stock position is closed that day
-        # This happens because sell/cover execution comes before _update_for_fluct
-        # Hence in_trade_adjust.loc[current_bar].sum() == 0 for the stocks that were closed
-        # because of this we need to manually adj P&L for that day
-        df[current_bar_int] += np.nansum(in_trade_adjust[current_bar_int])
-
-        if current_bar in self.agg_trans_prices.buyPrice.index:
-            # if buy_on close, then should not record today's gains/losses
-            if Settings.buy_on.capitalize()=="Close":            
-                # find assets that were entered today
-                affected_assets = _find_affected_assets(self.agg_trans_prices.buyPrice, current_bar)
-                
-                # deduct the amount for that asset
-                df[current_bar_int] -= np.nansum(in_trade_adjust[current_bar_int, affected_assets])
-
-        if current_bar in self.agg_trans_prices.shortPrice.index:
-            # if short_on close, then should not record today's gains/losses
-            if Settings.short_on.capitalize()=="Close":
-                # find assets that were entered today
-                affected_assets = _find_affected_assets(self.agg_trans_prices.shortPrice, current_bar)
-
-                # deduct the amount for that asset
-                df[current_bar_int] -= np.nansum(in_trade_adjust[current_bar_int][affected_assets])
-
-        # for position close (sell/cover) we add daily_adj instead of subtracting because of signs of the values 
-        # that we get needs is different from what is stored in in_trade_adjust.loc[current_bar, affected_assets]
-        if current_bar in self.agg_trans_prices.sellPrice.index:
-            # if sell_on close, then should record today's gains/losses
-            if Settings.sell_on.capitalize()=="Close":
-                # find assets that were entered today
-                affected_assets = _find_affected_assets(self.agg_trans_prices.sellPrice, current_bar)
-                # deduct the amount for that asset
-                daily_adj = (self.port.weights[prev_bar][affected_assets] * 
-                                self.agg_trades.priceFluctuation_dollar.iloc[current_bar_int][affected_assets]).sum()
-                df[current_bar_int] += daily_adj
-
-        if current_bar in self.agg_trans_prices.coverPrice.index:            
-            # if cover_on close, then should record today's gains/losses
-            if Settings.cover_on.capitalize()=="Close": 
-                # find assets that were entered today
-                affected_assets = _find_affected_assets(self.agg_trans_prices.coverPrice, current_bar)
-                # deduct the amount for that asset
-                daily_adj = (self.port.weights[prev_bar][affected_assets] * 
-                                self.agg_trades.priceFluctuation_dollar.iloc[current_bar_int][affected_assets]).sum()
-                df[current_bar_int] += daily_adj
 
     def _generate_trade_list(self):
         self.trade_list = self.agg_trades.trades.copy()
@@ -575,7 +299,7 @@ class Backtest():
             dates_locs = np.searchsorted(self.idx, dates)
             asset_loc = self.keys.index(asset)
             # ? might have probems with scaling (probably will)
-            weights = self.port.weights[dates_locs, asset_loc]
+            weights = self.portfolio.weights[dates_locs, asset_loc]
 
             self.trade_list.loc[idx, "Weight"] = weights
 
@@ -617,24 +341,6 @@ class Backtest():
         self.trade_list["Trade_duration"] = self.trade_list["Trade_duration"].fillna("Open")
 
         
-
-    def _generate_equity_curve(self):
-        # Fillna cuz
-        self.agg_trades.priceFluctuation_dollar.fillna(0, inplace=True)
-
-        # find daily fluc per asset
-        self.port.profit_daily_fluc_per_asset = self.port.weights * \
-            self.agg_trades.priceFluctuation_dollar
-
-        # find daily fluc for that day for all assets (sum of fluc for that day)
-        self.port.equity_curve = self.port.profit_daily_fluc_per_asset.sum(1)
-
-        # set starting amount
-        self.port.equity_curve.iloc[0] = Settings.start_amount
-
-        # apply fluctuation to equity curve
-        self.port.equity_curve = self.port.equity_curve.cumsum()
-        self.port.equity_curve.name = "Equity"
 
     def apply_stop(self, buy_or_short, current_asset, stop_length, trail="false"):
         if buy_or_short == "buy":
@@ -878,23 +584,6 @@ class Agg_Trades:
         self.priceFluctuation_dollar = pd.DataFrame()
         self.in_trade_price_fluc = pd.DataFrame()
 
-class Portfolio:
-    """
-    Initial settings and what to calculate
-    """
-    def __init__(self):
-        self.weights = pd.DataFrame()
-        self.value = pd.DataFrame()
-        self.profit = pd.DataFrame()
-        self.invested = pd.DataFrame()
-        self.fees = pd.DataFrame()
-        self.ror = pd.DataFrame()
-        self.capUsed = pd.DataFrame()
-        self.equity_curve = pd.DataFrame()
-        self.start_amount = Settings.start_amount
-        self.avail_amount = self.start_amount
-
-
 class Repeater:
     """
     Common class to avoid repetition
@@ -924,49 +613,6 @@ class Cond:
             if df.name not in self.all.columns:
                 self.all[df.name] = False
 
-# ? ##################
-# ? Helper functions #
-# ? ##################
-def _roll_prev_value(df, current_bar, prev_bar):
-    # might wanna return, just to be sure?
-    df.loc[current_bar] = df.iloc[prev_bar]
-    
-def _roll_prev_value_np(df, current_bar, prev_bar):
-    # might wanna return, just to be sure?
-    df[current_bar] = df[prev_bar]
-
-def _remove_dups(data):
-    data = data.ffill()
-    data = data.where(data != data.shift(1))
-    return data
-
-def _find_signals(df):
-    # replacing df[0] with False
-    # return df.
-    return df.where(df != df.shift(1).fillna(df.iloc[0]))
-
-def _find_affected_assets(df, current_bar):
-    return df.loc[current_bar].notna().values
-
-def _aggregate(agg_df, df, ax=1):
-    return pd.concat([agg_df, df], axis=ax)  
-
-def _prep_and_agg_custom_stops(agg_df, df, name, ax=1):
-    df.name = name
-    # replace pos and neg inf that might result if C==L, in which case we dont want to allocate anything
-    df.replace(np.Inf, 0, inplace=True)
-    df.replace(-np.Inf, 0, inplace=True)
-    
-    df2 = _aggregate(agg_df, df, ax)
-    return df2
-
-def _find_df(df, name):
-    for i in range(len(df)):
-        if name == df[i][0]:
-            return df[i][1]
-
-
-
 if __name__ == "__main__":
     print("=======================")
     print("Run from main.py file!")
@@ -991,8 +637,7 @@ if __name__ == "__main__":
             return buyCond, sellCond, shortCond, coverCond
     
     s = Strategy("name")
-    data = DataReader()
-    data.readCSV(Settings.read_from_csv_path)
+    data = ReaderFactory(Settings.read_from, Settings.read_from_csv_path)
     s.run(data.data)
     # s.trade_list.to_csv("test.csv")
     # print(s.trade_list)
