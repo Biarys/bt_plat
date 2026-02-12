@@ -15,6 +15,8 @@ from Backtest.Settings import Settings
 from Backtest.utils import _aggregate, _prep_and_agg_custom_stops, _find_df, _find_signals, _remove_dups
 from Backtest.portfolio import Portfolio
 from Backtest.engines import PandasEngine, SparkEngine
+from Backtest import constants as C
+from Backtest.processing import Agg_Trades, Agg_TransPrice, Cond, Repeater, TradeSignal, TransPrice, Trades
 
 # if Settings.backtest_engine.lower() == "spark":
 #     import pyspark
@@ -89,15 +91,15 @@ class Backtest():
         # for name in data:
         temp = pd.DataFrame(columns=data[name].columns)
         temp.index.name = "Date"
-        temp["Open"] = data[name]["Open"].groupby("Date").nth(0)
-        temp["High"] = data[name]["High"].groupby("Date").max()
-        temp["Low"] = data[name]["Low"].groupby("Date").min()
-        temp["Close"] = data[name]["Close"].groupby("Date").nth(-1)
+        temp[C.OPEN] = data[name][C.OPEN].groupby(C.DATE).nth(0)
+        temp[C.HIGH] = data[name][C.HIGH].groupby(C.DATE).max()
+        temp[C.LOW] = data[name][C.LOW].groupby(C.DATE).min()
+        temp[C.CLOSE] = data[name][C.CLOSE].groupby(C.DATE).nth(-1)
 
         # TODO:
         # volume need to be change for forex, etc cuz gives volume of -1
         # because of that, summing volume will produce wrong result
-        temp["Volume"] = data[name]["Volume"].groupby("Date").sum()
+        temp[C.VOLUME] = data[name][C.VOLUME].groupby(C.DATE).sum()
 
         if Settings.use_complete_candles_only:
             # getting all but last candle. This is done to avoid incomplete bars at runtime
@@ -123,7 +125,7 @@ class Backtest():
             self.cond = Cond()
             self.logic(current_asset, name)
             self.postprocessing(current_asset)
-            self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
+            self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
             self.cond._combine() # combine all conds into all
             ################################
             
@@ -134,7 +136,7 @@ class Backtest():
             trans_prices = TransPrice(rep, trade_signals)
             trades_current_asset = Trades(rep, trade_signals, trans_prices)
             
-            return ("buy_price", trans_prices.buyPrice), ("sell_price",trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
+            return (C.ENTRY_PRICE, trans_prices.buyPrice), (C.EXIT_PRICE,trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
                     ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
         except Exception as e:
             print(f"Failed for {name}")
@@ -155,7 +157,7 @@ class Backtest():
         # strategy logic
         self.logic(current_asset, name)
         self.postprocessing(current_asset)
-        self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = ["Buy", "Sell", "Short", "Cover"]
+        self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
         self.cond._combine() # combine all conds into all
         ################################
 
@@ -185,79 +187,9 @@ class Backtest():
         Calculate profit and loss for the strategy
         """
         self.log.info("Backtester started!")
-        if Settings.backtest_engine.lower() == "pandas":
-            # ! add break condition before loop so dont waste time reading data
-            for name in data.keys:
-                _current_asset_tuple = data.read_data(name)
-                if self.preprocessing(_current_asset_tuple) == "break": # in case prepricessing is just pass
-                    break
-                else:
-                    self.preprocessing(_current_asset_tuple)
-                
-            # ? can implement caching. why same data is read twice?
-            for name in data.keys:    
-                _current_asset_tuple = data.read_data(name)
-                self._prepricing_pd(_current_asset_tuple)
-
-        elif Settings.backtest_engine.lower() == "spark":
-            # initialize spark
-            sc = pyspark.SparkContext('local[*]')
-            spark = pyspark.sql.SparkSession(sc)
-            sqlContext = pyspark.sql.SQLContext(sc)
-
-            # read data
-            rdd = sc.parallelize(data.keys).map(data.read_data) # change to Flume (kafka not supported in python)/something more flexible
-
-            # run self.preprocessing. use collect to force action to save files
-            if self.preprocessing != "break":
-                rdd.map(self.preprocessing).collect()
-
-            # TODO: replace with a function
-            if Settings.generate_ranks:
-                rdd_p = sqlContext.read.parquet(Settings.save_temp_parquet + r"\value_*.parquet")
-                result = (rdd_p
-                            .select(
-                                'DateTime',
-                                'Symbol',
-                                pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('Close')).alias('rank')
-                            ))
-                if Settings.order_ranks_desc:
-                    result_desc = (result
-                                    .select(
-                                        'DateTime',
-                                        'Symbol',
-                                        pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('rank')).alias('rank_desc')
-                                    ))
-                    result_final = (result_desc
-                                    .groupby('DateTime')
-                                    .pivot('Symbol')
-                                    .agg(pySqlFunc.first('rank_desc'))
-                                    .orderBy(pySqlFunc.col('DateTime').asc())
-                                    )
-                else:
-                    result_final = (result
-                                    .groupby('DateTime')
-                                    .pivot('Symbol')
-                                    .agg(pySqlFunc.first('rank_desc'))
-                                    .orderBy(pySqlFunc.col('DateTime').asc())
-                                    )
-                
-                result_final.toPandas().to_csv(Settings.save_temp_parquet + "\\" + Settings.rank_file_name)
-            
-            # df = spark.createDataFrame(rdd)
-            # preproc_results = rdd.flatMap(self.preprocessing)
-            # preproc_results
-            res = rdd.flatMap(self._prepricing_spark)
-            res_reduced = res.reduceByKey(_aggregate).collect()
-
-            self.agg_trans_prices.buyPrice = _find_df(res_reduced, "buy_price")
-            self.agg_trans_prices.sellPrice = _find_df(res_reduced, "sell_price")
-            self.agg_trans_prices.shortPrice = _find_df(res_reduced, "short_price")
-            self.agg_trans_prices.coverPrice = _find_df(res_reduced, "cover_price")
-            self.agg_trades.priceFluctuation_dollar = _find_df(res_reduced, "price_fluc_dollar")
-            self.agg_trades.trades = _find_df(res_reduced, "trades").T # need to transpose the result
+        self.engine.run(data)
         
-        # prepare data for portfolio 
+        # prepare data for portfolio
         self.idx = self.agg_trades.priceFluctuation_dollar.index
         self.idx = pd.Index(self.idx, dtype=object)
         self.keys = [name.split(".csv")[0] for name in data.keys]
@@ -275,79 +207,79 @@ class Backtest():
 
     def _generate_trade_list(self):
         self.trade_list = self.agg_trades.trades.copy()
-        self.trade_list["Date_exit"] = self.trade_list["Date_exit"].astype(str)
-        self.trade_list = self.trade_list.sort_values(by=["Date_exit", "Date_entry", "Symbol"])
+        self.trade_list[C.DATE_EXIT] = self.trade_list[C.DATE_EXIT].astype(str)
+        self.trade_list = self.trade_list.sort_values(by=[C.DATE_EXIT, C.DATE_ENTRY, C.SYMBOL])
         self.trade_list.reset_index(drop=True, inplace=True)
         
         # ! a work around failing dates, when buy and sell occur on the same candle -> an null row appears for entry stats
         # self.trade_list.dropna(inplace=True)
         # assign weights
-        self.trade_list["Weight"] = np.nan
+        self.trade_list[C.WEIGHT] = np.nan
         weight_list = self.trade_list.Symbol.unique()
 
         # ! temp putting stop loss value here
-        self.trade_list["stop_loss"] = np.nan
+        self.trade_list[C.STOP_LOSS] = np.nan
 
         for asset in weight_list:
             # find all entry dates for an asset
-            dates = self.trade_list[self.trade_list["Symbol"] ==
-                                    asset]["Date_entry"]
+            dates = self.trade_list[self.trade_list[C.SYMBOL] ==
+                                    asset][C.DATE_ENTRY]
             # save index of the dates in trade_list for further concat
-            idx = self.trade_list[self.trade_list["Symbol"] ==
-                                asset]["Date_entry"].index
+            idx = self.trade_list[self.trade_list[C.SYMBOL] ==
+                                asset][C.DATE_ENTRY].index
             # grab all weights for the asset on entry date
             dates_locs = np.searchsorted(self.idx, dates)
             asset_loc = self.keys.index(asset)
             # ? might have probems with scaling (probably will)
             weights = self.portfolio.weights[dates_locs, asset_loc]
 
-            self.trade_list.loc[idx, "Weight"] = weights
+            self.trade_list.loc[idx, C.WEIGHT] = weights
 
             # ! temp putting stop loss value here
             # self.trade_list.loc[idx, "stop_loss"] = self.agg_stop_length.loc[dates, asset].values
 
         # change values to display positive for short trades (instead of negative shares)
-        self.trade_list["Weight"] = np.where(self.trade_list.Direction=="Long", 
-                                    self.trade_list["Weight"], -self.trade_list["Weight"])
+        self.trade_list[C.WEIGHT] = np.where(self.trade_list.Direction==C.LONG,
+                                    self.trade_list[C.WEIGHT], -self.trade_list[C.WEIGHT])
 
         # $ change
-        self.trade_list["Dollar_change"] = self.trade_list["Exit_price"] - self.trade_list["Entry_price"]
+        self.trade_list[C.DOLLAR_CHANGE] = self.trade_list[C.EXIT_PRICE] - self.trade_list[C.ENTRY_PRICE]
 
         # % change
-        self.trade_list["Pct_change"] = (self.trade_list["Exit_price"] -
-                                        self.trade_list["Entry_price"]) / self.trade_list["Entry_price"]
+        self.trade_list[C.PCT_CHANGE] = (self.trade_list[C.EXIT_PRICE] -
+                                        self.trade_list[C.ENTRY_PRICE]) / self.trade_list[C.ENTRY_PRICE]
 
         # $ profit
-        self.trade_list["Dollar_profit"] = self.trade_list["Weight"] * self.trade_list["Dollar_change"]
-        self.trade_list["Dollar_profit"] = np.where(self.trade_list.Direction=="Long", 
-                                        self.trade_list["Dollar_profit"], -self.trade_list["Dollar_profit"])
+        self.trade_list[C.DOLLAR_PROFIT] = self.trade_list[C.WEIGHT] * self.trade_list[C.DOLLAR_CHANGE]
+        self.trade_list[C.DOLLAR_PROFIT] = np.where(self.trade_list.Direction==C.LONG,
+                                        self.trade_list[C.DOLLAR_PROFIT], -self.trade_list[C.DOLLAR_PROFIT])
         
         # % profit
-        self.trade_list["Pct_profit"] = np.where(self.trade_list.Direction=="Long", 
-                                        self.trade_list["Pct_change"], -self.trade_list["Pct_change"])
+        self.trade_list[C.PCT_PROFIT] = np.where(self.trade_list.Direction==C.LONG,
+                                        self.trade_list[C.PCT_CHANGE], -self.trade_list[C.PCT_CHANGE])
         # cum profit
-        self.trade_list["Cum_profit"] = self.trade_list["Dollar_profit"].cumsum()
+        self.trade_list[C.CUM_PROFIT] = self.trade_list[C.DOLLAR_PROFIT].cumsum()
 
         # Port value
-        self.trade_list["Portfolio_value"] = self.trade_list["Dollar_profit"].cumsum()
-        self.trade_list["Portfolio_value"] += Settings.start_amount
+        self.trade_list[C.PORTFOLIO_VALUE] = self.trade_list[C.DOLLAR_PROFIT].cumsum()
+        self.trade_list[C.PORTFOLIO_VALUE] += Settings.start_amount
 
         # Position value
-        self.trade_list["Position_value"] = self.trade_list["Weight"] * self.trade_list["Entry_price"]
+        self.trade_list[C.POSITION_VALUE] = self.trade_list[C.WEIGHT] * self.trade_list[C.ENTRY_PRICE]
 
         # number of bars held
-        temp = pd.to_datetime(self.trade_list["Date_exit"], errors="coerce")
-        self.trade_list["Trade_duration"] = temp - self.trade_list["Date_entry"]
-        self.trade_list["Trade_duration"] = self.trade_list["Trade_duration"].fillna("Open")
+        temp = pd.to_datetime(self.trade_list[C.DATE_EXIT], errors="coerce")
+        self.trade_list[C.TRADE_DURATION] = temp - self.trade_list[C.DATE_ENTRY]
+        self.trade_list[C.TRADE_DURATION] = self.trade_list[C.TRADE_DURATION].fillna("Open")
 
         
 
     def apply_stop(self, buy_or_short, current_asset, stop_length, trail="false"):
         if buy_or_short == "buy":
-            temp_ind = current_asset["Close"] - stop_length 
+            temp_ind = current_asset[C.CLOSE] - stop_length
             temp = temp_ind[self.cond.buy==1]
-        elif buy_or_short == "short":
-            temp_ind = current_asset["Close"] + stop_length 
+        elif buy_or_short == C.SHORT:
+            temp_ind = current_asset[C.CLOSE] + stop_length
             temp = temp_ind[self.cond.short==1]
 
         stops = pd.DataFrame(index=current_asset.index)
@@ -359,259 +291,12 @@ class Backtest():
 
         # update sell/cover cond
         if buy_or_short == "buy":
-            temp_cond = current_asset["Low"] < stops
+            temp_cond = current_asset[C.LOW] < stops
             self.cond.sell = temp_cond | self.cond.sell
-        elif buy_or_short == "short":
-            temp_cond = current_asset["High"] > stops
+        elif buy_or_short == C.SHORT:
+            temp_cond = current_asset[C.HIGH] > stops
             self.cond.cover = temp_cond | self.cond.cover
 
-class TradeSignal:
-    """
-    Find trade signals for current asset
-    For now, long only. 1 where buy, 0 where sell
-    Possibly add signal shift - added for now to match excel results
-
-    Inputs:
-        - buyCond (from repeater): raw, contains all signals
-        - sellCond (from repeater): raw, contains all signals
-    Output:
-        - buyCond: buy results where signals switch from 1 to 0, 0 to 1, etc
-        - sellCond: sell results where signals switch from 1 to 0, 0 to 1, etc
-        - all: all results with Buy and Sell
-    """
-    def __init__(self, rep):
-        # ? Can probably be optimized by smashing everything onto 1 series -> ffill() -> remove dups
-        # buy/sell/short/cover/all signals
-        self.buyCond = _find_signals(rep.allCond["Buy"])
-        self.shortCond = _find_signals(rep.allCond["Short"])
-
-        # keeping it here for now
-        # TODO: move it somewhere else (postprocess/logic)
-        # from Backtest.indicators import ATR
-        # atr = ATR(rep.data, 14)
-
-        # _apply_stop("buy", self.buyCond, rep, atr()*2)
-        # _apply_stop("short", self.shortCond, rep, atr()*2)
-
-        self.sellCond = _find_signals(rep.allCond["Sell"])
-        self.coverCond = _find_signals(rep.allCond["Cover"])
-
-        # delay implementation
-        self._buy_shift = self.buyCond.shift(Settings.buy_delay)
-        self._sell_shift = self.sellCond.shift(Settings.sell_delay)
-        self._short_shift = self.shortCond.shift(Settings.short_delay)
-        self._cover_shift = self.coverCond.shift(Settings.cover_delay)
-
-        self.all = pd.concat([self._buy_shift, self._sell_shift, self._short_shift, 
-                            self._cover_shift], axis=1)
-        self.all.index.name = "Date"
-        # might be a better solution cuz might not create copy - need to test it
-        # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
-        # self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
-        # self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
-        # ! In case of buy and sell signal occuring on the same candle, Sell/Cover signal is prefered over Buy/Short
-        # ! might create signal problems in the future
-        cond = [(self._sell_shift == 1), (self._buy_shift == 1)]
-        out = ["Sell", "Buy"]
-        self.long = self._merge_signals(cond, out, rep, self._buy_shift, "Long")
-
-        cond = [(self._cover_shift == 1), (self._short_shift == 1)]
-        out = ["Cover", "Short"]
-        self.short = self._merge_signals(cond, out, rep, self._short_shift, "Short")
-
-        self.all_merged = pd.concat([self.long, self.short], axis=1)
-        self.all_merged.index.name = "Date"
-    
-        # remove all extra signals
-        # https://stackoverflow.com/questions/19463985/pandas-drop-consecutive-duplicates
-        # alternative, possibly faster solution ^
-        # or using pd.ne()
-        # or self.all = self.all[self.all != self.all.shift()]
-        # self.all = _remove_dups(self.all)
-        
-    @staticmethod
-    def _merge_signals(cond, out, rep, entry, col_name):        
-        temp = entry.dropna()
-        if not temp.empty:
-            df = np.select(cond, out, default="")
-            df = pd.DataFrame(df, index=rep.data.index, columns=[col_name])
-            df = df.replace("", np.nan)
-
-            # find where first buy occured
-            first_entry = temp.index[0]
-
-            df = df[first_entry:]
-            df = _remove_dups(df)
-        # if there are no position entries, return empty dataframe
-        else:
-            df = pd.DataFrame([], index=rep.data.index, columns=[col_name])
-
-        return df
-            
-
-
-class Agg_TradeSingal:
-    """
-    Aggregate version of TradeSignal that keeps trade signals for all stocks
-    """
-    def __init__(self):
-        self.buys = pd.DataFrame()
-        self.sells = pd.DataFrame()
-        self.shorts = pd.DataFrame()
-        self.covers = pd.DataFrame()
-        self.all = pd.DataFrame()
-
-
-class TransPrice:
-    """
-    Looks up transaction price for current asset
-
-    Inputs:
-        - time series (from repeater)
-        - trade_singals: DataFrame containing all buys and sells
-        - buyOn (optional): column that should be looked up when buy occurs
-        - sellOn (optional): column that should be looked up when sell occurs
-
-    Output:
-        - buyPrice: used in Trades to generate trade list
-        - sellPrice: used in Trades to generate trade list 
-        - buyIndex: dates of buyPrice
-        - sellIndex: dates of sellPrice
-    """
-    def __init__(self, rep, trade_signals):
-        self.all = trade_signals.all_merged
-
-        self.buyIndex = self.all[self.all["Long"]=="Buy"].index
-        self.sellIndex = self.all[self.all["Long"]=="Sell"].index
-        self.shortIndex = self.all[self.all["Short"]=="Short"].index
-        self.coverIndex = self.all[self.all["Short"]=="Cover"].index
-
-        self.buyPrice = rep.data[Settings.buy_on][self.buyIndex]
-        self.sellPrice = rep.data[Settings.sell_on][self.sellIndex]
-        self.shortPrice = rep.data[Settings.short_on][self.shortIndex]
-        self.coverPrice = rep.data[Settings.cover_on][self.coverIndex]
-
-        self.buyPrice.name = rep.name
-        self.sellPrice.name = rep.name
-        self.shortPrice.name = rep.name
-        self.coverPrice.name = rep.name
-
-
-class Agg_TransPrice:
-    """
-    Aggregate version of TransPrice that keeps transaction price for all stocks
-    """
-    def __init__(self):
-        self.buyPrice = pd.DataFrame()
-        self.sellPrice = pd.DataFrame()
-        self.shortPrice = pd.DataFrame()
-        self.coverPrice = pd.DataFrame()
-
-class Trades:
-    """
-    Generates DataFrame with trade entries, exits, and transaction prices
-
-    Inputs:
-        - trade_signals: Raw buys and sells to find trade duration
-        - trans_prices: Transaction prices that need to be matched
-    Outputs:
-        - trades: DataFrame with trade entry, exits, and transaction prices
-        - inTrade: DataFrame that shows time spent in trade for current asset
-        - inTradePrice: Close price for the time while inTrade
-    """
-    def __init__(self, rep, trade_signals, trans_prices):
-        self.trades = pd.DataFrame()
-        self.inTrade = pd.DataFrame()
-        self.inTradePrice = pd.DataFrame()
-
-        self.inTrade = trade_signals.all_merged #long, short
-        self.inTrade = self.inTrade.ffill()
-        self.inTrade = self.inTrade[(self.inTrade["Long"] == "Buy") | (self.inTrade["Short"] == "Short")]
-
-        long = trans_prices.buyPrice.reset_index()
-        sell = trans_prices.sellPrice.reset_index()
-        short = trans_prices.shortPrice.reset_index()
-        cover = trans_prices.coverPrice.reset_index()
-
-        long["Direction"] = "Long"
-        short["Direction"] = "Short"
-
-        long = long.join(sell, how="outer", lsuffix="_entry", rsuffix="_exit")
-        short = short.join(cover, how="outer", lsuffix="_entry", rsuffix="_exit")
-
-        self.trades = pd.concat([long, short])
-        # NAs should only be last values that are still open
-        # ! commenting out for now since I dont want to change series type from dates to object
-        self.trades["Date_exit"] = self.trades["Date_exit"].astype(str)
-        self.trades["Date_exit"] = self.trades["Date_exit"].fillna("Open")
-
-        # hardcoded Close cuz if still in trade, needs latest quote
-        self.trades[trans_prices.sellPrice.name + "_exit"] = self.trades[trans_prices.sellPrice.name + "_exit"].fillna(
-            rep.data.iloc[-1]["Close"])
- 
-        # alternative way
-        # u = self.trades.select_dtypes(exclude=['datetime'])
-        # self.trades[u.columns] = u.fillna(4)
-        # u = self.trades.select_dtypes(include=['datetime'])
-        # self.trades[u.columns] = u.fillna(5)
-
-        self.trades["Symbol"] = rep.name
-
-        # changing column names so it's easier to concat in self.agg_trades
-        self.trades.rename(
-            columns={
-                rep.name + "_entry": "Entry_price",
-                rep.name + "_exit": "Exit_price",
-            },
-            inplace=True)
-
-        self.inTradePrice = rep.data["Close"].loc[self.inTrade.index]
-        self.inTradePrice.name = rep.name
-
-        # finding dollar price change
-        # ? use inTradePrice - inTradePrice.shift(1) ?
-        self.priceFluctuation_dollar = rep.data["Close"] - rep.data["Close"].shift()
-        self.priceFluctuation_dollar.name = rep.name
-
-
-class Agg_Trades:
-    """
-    Aggregate version of Trades. Contains trades, weights, inTradePrice, priceFluctuation in dollars
-    """
-    def __init__(self):
-        self.trades = pd.DataFrame()
-        self.weights = pd.DataFrame()
-        self.priceFluctuation_dollar = pd.DataFrame()
-        self.in_trade_price_fluc = pd.DataFrame()
-
-class Repeater:
-    """
-    Common class to avoid repetition
-    """
-    def __init__(self, data, name, allCond):
-        self.data = data
-        self.name = name
-        self.allCond = allCond
-
-class Cond:
-    def __init__(self):
-        self.buy = pd.DataFrame()
-        self.sell = pd.DataFrame()
-        self.short = pd.DataFrame()
-        self.cover = pd.DataFrame()
-        self.all = pd.DataFrame()
-
-    def _combine(self):
-        if not self.buy.empty:
-            self.all[self.buy.name] = self.buy
-            self.all[self.sell.name] = self.sell
-        if not self.short.empty:
-            self.all[self.short.name] = self.short
-            self.all[self.cover.name] = self.cover
-
-        for df in [self.buy, self.sell, self.short, self.cover]:
-            if df.name not in self.all.columns:
-                self.all[df.name] = False
 
 if __name__ == "__main__":
     print("=======================")
@@ -625,8 +310,8 @@ if __name__ == "__main__":
     class Strategy(Backtest):
         def logic(self, current_asset):
             
-            sma5 = SMA(current_asset, ["Close"], 5)
-            sma25 = SMA(current_asset, ["Close"], 25)
+            sma5 = SMA(current_asset, [C.CLOSE], 5)
+            sma25 = SMA(current_asset, [C.CLOSE], 25)
 
             buyCond = sma5() > sma25()
             sellCond = sma5() < sma25()
