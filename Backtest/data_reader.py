@@ -71,7 +71,7 @@ class ReaderFactory:
         file_type = file_type.lower()
         if file_type == "hdf":
             return HDFReader(path_or_data)
-        elif file_type == "csv":
+        elif file_type == "csv_file":
             return CSVReader(path_or_data)
         elif file_type == "csv_files":
             return CSVFilesReader(path_or_data)
