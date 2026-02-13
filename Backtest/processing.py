@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from Backtest import constants as C
-from Backtest.Settings import Settings
+from Backtest.settings import Settings
 from Backtest.utils import _find_signals, _remove_dups
 
 class TradeSignal:

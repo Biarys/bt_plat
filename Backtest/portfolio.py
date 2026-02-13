@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from Backtest.Settings import Settings
+from Backtest.settings import Settings
 from Backtest.utils import _find_affected_assets, _roll_prev_value_np
 
 class Portfolio:
