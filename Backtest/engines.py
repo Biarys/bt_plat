@@ -6,7 +6,9 @@ import pandas as pd
 # import pyspark.sql.functions as pySqlFunc
 
 from Backtest.Settings import Settings
-from Backtest.utils import _aggregate, _find_df
+from Backtest.processing import Repeater, TradeSignal, Trades, TransPrice, TransPrice, TradeSignal, Cond
+from Backtest.utils import _aggregate, _find_df, _prep_and_agg_custom_stops
+from Backtest import constants as C
 
 class Engine(ABC):
     def __init__(self, backtest_instance):
@@ -29,7 +31,48 @@ class PandasEngine(Engine):
         # ? can implement caching. why same data is read twice?
         for name in data.keys:    
             _current_asset_tuple = data.read_data(name)
-            self.bt._prepricing_pd(_current_asset_tuple)
+            self._prepricing(_current_asset_tuple)
+
+    def _prepricing(self, data):
+        """
+        Loop through files
+        Generate signals
+        Find transaction prices
+        Match buys and sells
+        Save them into common classes agg_*
+        """                                                
+        name = data[0]
+        current_asset = data[1]
+        
+        self.bt.cond = Cond()
+        # strategy logic
+        self.bt.logic(current_asset, name)
+        self.bt.postprocessing(current_asset)
+        self.bt.cond.buy.name, self.bt.cond.sell.name, self.bt.cond.short.name, self.bt.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
+        self.bt.cond._combine() # combine all conds into all
+        ################################
+
+        rep = Repeater(current_asset, name, self.bt.cond.all)
+
+        # find trade_signals and trans_prices for an asset
+        trade_signals = TradeSignal(rep)
+        trans_prices = TransPrice(rep, trade_signals)
+        trades_current_asset = Trades(rep, trade_signals, trans_prices)
+
+        # save trans_prices for portfolio level
+        self.bt.agg_trans_prices.buyPrice = _aggregate(self.bt.agg_trans_prices.buyPrice, trans_prices.buyPrice)
+        self.bt.agg_trans_prices.sellPrice = _aggregate(self.bt.agg_trans_prices.sellPrice, trans_prices.sellPrice)
+        self.bt.agg_trans_prices.shortPrice = _aggregate(self.bt.agg_trans_prices.shortPrice, trans_prices.shortPrice)
+        self.bt.agg_trans_prices.coverPrice = _aggregate(self.bt.agg_trans_prices.coverPrice, trans_prices.coverPrice)
+        self.bt.agg_trades.priceFluctuation_dollar = _aggregate(self.bt.agg_trades.priceFluctuation_dollar,
+                                                                trades_current_asset.priceFluctuation_dollar)
+        self.bt.agg_trades.trades = _aggregate(self.bt.agg_trades.trades, trades_current_asset.trades, ax=0)
+        self.bt.agg_stop_length = _aggregate(self.bt.agg_stop_length, self.bt.stop_length)
+
+        # save custom stops
+        if Settings.position_size_type == "custom":
+            self.bt.agg_custom_stop =  _prep_and_agg_custom_stops(self.bt.agg_custom_stop, self.bt.custom_stop_size, name)
+
 
 class SparkEngine(Engine):
     def run(self, data):
@@ -77,7 +120,7 @@ class SparkEngine(Engine):
             
             result_final.toPandas().to_csv(Settings.save_temp_parquet + "\\" + Settings.rank_file_name)
         
-        res = rdd.flatMap(self.bt._prepricing_spark)
+        res = rdd.flatMap(self._prepricing)
         res_reduced = res.reduceByKey(_aggregate).collect()
 
         self.bt.agg_trans_prices.buyPrice = _find_df(res_reduced, "buy_price")
@@ -86,3 +129,35 @@ class SparkEngine(Engine):
         self.bt.agg_trans_prices.coverPrice = _find_df(res_reduced, "cover_price")
         self.bt.agg_trades.priceFluctuation_dollar = _find_df(res_reduced, "price_fluc_dollar")
         self.bt.agg_trades.trades = _find_df(res_reduced, "trades").T # need to transpose the result
+
+    def _prepricing(self, data):
+        """
+        Loop through files
+        Generate signals
+        Find transaction prices
+        Match buys and sells
+        Save them into common classes agg_*
+        """
+        name = data[0]
+        current_asset = data[1]
+        try:
+            # strategy logic
+            self.cond = Cond()
+            self.logic(current_asset, name)
+            self.postprocessing(current_asset)
+            self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
+            self.cond._combine() # combine all conds into all
+            ################################
+            
+            rep = Repeater(current_asset, name, self.cond.all)
+
+            # find trade_signals and trans_prices for an asset
+            trade_signals = TradeSignal(rep)
+            trans_prices = TransPrice(rep, trade_signals)
+            trades_current_asset = Trades(rep, trade_signals, trans_prices)
+            
+            return (C.ENTRY_PRICE, trans_prices.buyPrice), (C.EXIT_PRICE,trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
+                    ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
+        except Exception as e:
+            print(f"Failed for {name}")
+            print(e)

@@ -109,79 +109,6 @@ class Backtest():
             # data[name] = temp
         return temp 
             
-
-    def _prepricing_spark(self, data):
-        """
-        Loop through files
-        Generate signals
-        Find transaction prices
-        Match buys and sells
-        Save them into common classes agg_*
-        """
-        name = data[0]
-        current_asset = data[1]
-        try:
-            # strategy logic
-            self.cond = Cond()
-            self.logic(current_asset, name)
-            self.postprocessing(current_asset)
-            self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
-            self.cond._combine() # combine all conds into all
-            ################################
-            
-            rep = Repeater(current_asset, name, self.cond.all)
-
-            # find trade_signals and trans_prices for an asset
-            trade_signals = TradeSignal(rep)
-            trans_prices = TransPrice(rep, trade_signals)
-            trades_current_asset = Trades(rep, trade_signals, trans_prices)
-            
-            return (C.ENTRY_PRICE, trans_prices.buyPrice), (C.EXIT_PRICE,trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
-                    ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
-        except Exception as e:
-            print(f"Failed for {name}")
-            print(e)
-
-    def _prepricing_pd(self, data):
-        """
-        Loop through files
-        Generate signals
-        Find transaction prices
-        Match buys and sells
-        Save them into common classes agg_*
-        """                                                
-        name = data[0]
-        current_asset = data[1]
-        
-        self.cond = Cond()
-        # strategy logic
-        self.logic(current_asset, name)
-        self.postprocessing(current_asset)
-        self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
-        self.cond._combine() # combine all conds into all
-        ################################
-
-        rep = Repeater(current_asset, name, self.cond.all)
-
-        # find trade_signals and trans_prices for an asset
-        trade_signals = TradeSignal(rep)
-        trans_prices = TransPrice(rep, trade_signals)
-        trades_current_asset = Trades(rep, trade_signals, trans_prices)
-
-        # save trans_prices for portfolio level
-        self.agg_trans_prices.buyPrice = _aggregate(self.agg_trans_prices.buyPrice, trans_prices.buyPrice)
-        self.agg_trans_prices.sellPrice = _aggregate(self.agg_trans_prices.sellPrice, trans_prices.sellPrice)
-        self.agg_trans_prices.shortPrice = _aggregate(self.agg_trans_prices.shortPrice, trans_prices.shortPrice)
-        self.agg_trans_prices.coverPrice = _aggregate(self.agg_trans_prices.coverPrice, trans_prices.coverPrice)
-        self.agg_trades.priceFluctuation_dollar = _aggregate(self.agg_trades.priceFluctuation_dollar,
-                                                                trades_current_asset.priceFluctuation_dollar)
-        self.agg_trades.trades = _aggregate(self.agg_trades.trades, trades_current_asset.trades, ax=0)
-        self.agg_stop_length = _aggregate(self.agg_stop_length, self.stop_length)
-
-        # save custom stops
-        if Settings.position_size_type == "custom":
-            self.agg_custom_stop =  _prep_and_agg_custom_stops(self.agg_custom_stop, self.custom_stop_size, name)
-
     def _run_portfolio(self, data):
         """
         Calculate profit and loss for the strategy
@@ -194,6 +121,7 @@ class Backtest():
         self.idx = pd.Index(self.idx, dtype=object)
         self.keys = [name.split(".csv")[0] for name in data.keys]
         # check to assure order of columns is the same among all dataframes. Otherwise results will be wrong
+        # ! needs to be change from hardcoded buyPrice cuz can be empty
         assert all(self.keys == self.agg_trans_prices.buyPrice.columns), "self.keys are not identical among dataframes"
         
         # nan in the beg cuz of .shift while finding priceFluctuation
