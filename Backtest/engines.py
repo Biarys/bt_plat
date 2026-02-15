@@ -66,9 +66,12 @@ class PandasEngine(Engine):
             rep = Repeater(current_asset, name, self.bt.cond.all)
 
             # find trade_signals and trans_prices for an asset
-            trade_signals = TradeSignal(rep)
-            trans_prices = TransPrice(rep, trade_signals)
-            trades_current_asset = Trades(rep, trade_signals, trans_prices)
+            trade_signals = TradeSignal()
+            trade_signals.run(rep)
+            trans_prices = TransPrice()
+            trans_prices.run(rep, trade_signals)
+            trades_current_asset = Trades()
+            trades_current_asset.run(rep, trade_signals, trans_prices)
 
             # save trans_prices for portfolio level
             self.bt.agg_trans_prices.buyPrice = _aggregate(self.bt.agg_trans_prices.buyPrice, trans_prices.buyPrice)

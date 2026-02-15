@@ -18,7 +18,21 @@ class TradeSignal:
         - sellCond: sell results where signals switch from 1 to 0, 0 to 1, etc
         - all: all results with Buy and Sell
     """
-    def __init__(self, rep):
+    def __init__(self):
+        self.buyCond = pd.DataFrame()
+        self.sellCond = pd.DataFrame()
+        self.shortCond = pd.DataFrame()
+        self.coverCond = pd.DataFrame()
+        self.all = pd.DataFrame()
+        self._buy_shift = pd.DataFrame()
+        self._sell_shift = pd.DataFrame()
+        self._short_shift = pd.DataFrame()
+        self._cover_shift = pd.DataFrame()
+        self.long = pd.DataFrame()
+        self.short = pd.DataFrame()
+        self.all_merged = pd.DataFrame()
+
+    def run(self, rep):
         # ? Can probably be optimized by smashing everything onto 1 series -> ffill() -> remove dups
         # buy/sell/short/cover/all signals
         self.buyCond = _find_signals(rep.allCond[C.BUY])
@@ -67,7 +81,7 @@ class TradeSignal:
         # or using pd.ne()
         # or self.all = self.all[self.all != self.all.shift()]
         # self.all = _remove_dups(self.all)
-        
+
     @staticmethod
     def _merge_signals(cond, out, rep, entry, col_name):        
         temp = entry.dropna()
@@ -117,7 +131,18 @@ class TransPrice:
         - buyIndex: dates of buyPrice
         - sellIndex: dates of sellPrice
     """
-    def __init__(self, rep, trade_signals):
+    def __init__(self):
+        self.all = pd.DataFrame()
+        self.buyIndex = pd.DataFrame()
+        self.sellIndex = pd.DataFrame()
+        self.shortIndex = pd.DataFrame()
+        self.coverIndex = pd.DataFrame()
+        self.buyPrice = pd.DataFrame()
+        self.sellPrice = pd.DataFrame()
+        self.shortPrice = pd.DataFrame()
+        self.coverPrice = pd.DataFrame()
+    
+    def run(self, rep, trade_signals):
         self.all = trade_signals.all_merged
 
         self.buyIndex = self.all[self.all[C.LONG]==C.BUY].index
@@ -158,7 +183,13 @@ class Trades:
         - inTrade: DataFrame that shows time spent in trade for current asset
         - inTradePrice: Close price for the time while inTrade
     """
-    def __init__(self, rep, trade_signals, trans_prices):
+    def __init__(self):
+        self.trades = pd.DataFrame()
+        self.inTrade = pd.DataFrame()
+        self.inTradePrice = pd.DataFrame()
+        self.priceFluctuation_dollar = pd.DataFrame()
+       
+    def run(self, rep, trade_signals, trans_prices):
         self.trades = pd.DataFrame()
         self.inTrade = pd.DataFrame()
         self.inTradePrice = pd.DataFrame()
