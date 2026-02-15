@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
-import os
-import abc
 import logging
-# import traceback
 # for testing
 from datetime import datetime as dt
 
@@ -18,11 +15,6 @@ from Backtest.engines import PandasEngine, SparkEngine
 from Backtest import constants as C
 from Backtest.processing import Agg_Trades, Agg_TransPrice, Cond, Repeater, TradeSignal, TransPrice, Trades
 
-# if Settings.backtest_engine.lower() == "spark":
-#     import pyspark
-#     import pyspark.sql.functions as pySqlFunc
-#     from pyspark.sql.functions import col
-#     from pyspark.sql.window import Window
 logger = logging.getLogger(__name__)
 
 setup_log()
@@ -30,7 +22,6 @@ setup_log()
 # Core starts
 #############################################
 class Backtest():
-
     def __init__(self, name="Test", real_time=False):
         self.name = name
         self.data = {}
@@ -49,7 +40,6 @@ class Backtest():
         elif Settings.backtest_engine.lower() == "spark":
             self.engine = SparkEngine(self)
         
-
     def preprocessing(self, data):
         """
         Called once before running through the data.
