@@ -21,8 +21,9 @@ LOGGING_CONFIG = {
             "class": "logging.FileHandler",
             "formatter": "default",
             "level": "DEBUG",
-            "filename": settings.log_folder + "/" + dt.now().strftime("%d_%b_%Y_asof_%H_%M_%S.log"),
-            "mode": "w",
+            # TODO: will need to change this later on, so its not just one file probablt?
+            "filename": settings.log_folder + "/file.log", # + dt.now().strftime("%d_%b_%Y_asof_%H_%M_%S.log"),
+            "mode": "w"
         }
     },
     "root": {"level": "INFO", "handlers": ["console", "file"]},
