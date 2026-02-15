@@ -1,11 +1,15 @@
 from abc import ABC, abstractmethod
+import logging
 import os
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 class BaseReader(ABC):
     def __init__(self, path):
         self.path = path
         self.keys = self.get_keys()
+        logger.info(f"Initialized {self.__class__.__name__} with path: {self.path}")
 
     @abstractmethod
     def get_keys(self):

@@ -1,30 +1,43 @@
 import logging
+import logging.config
 import os
 from datetime import datetime as dt
 from Backtest.settings import Settings as settings
 
-def setup_log(name, level=logging.INFO):
-    _create_folders()
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {"format": "%(levelname)s - %(asctime)s - %(name)s - %(message)s"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "level": "INFO",
+            "stream": "ext://sys.stdout",
+        },
+        "file": {
+            "class": "logging.FileHandler",
+            "formatter": "default",
+            "level": "DEBUG",
+            "filename": settings.log_folder + "/" + dt.now().strftime("%d_%b_%Y_asof_%H_%M_%S.log"),
+            "mode": "w",
+        }
+    },
+    "root": {"level": "INFO", "handlers": ["console", "file"]},
+}
 
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    # formatter = logging.Formatter("%(levelname)s - %(asctime)s - %(name)s - %(threadName)s - %(message)s")
-    formatter = logging.Formatter("%(levelname)s - %(asctime)s - %(name)s - %(message)s")
 
-    handler_console = logging.StreamHandler()
-    handler_console.setLevel(level)
-    handler_console.setFormatter(formatter)
+logger = logging.getLogger(__name__)
 
-    handler_file = logging.FileHandler(settings.log_folder + "/" + dt.now().strftime("%d_%b_%Y_asof_%H_%M_%S.log"), mode="w")
-    handler_file.setLevel(level)
-    handler_file.setFormatter(formatter)
-    
-    logger.addHandler(handler_console)
-    logger.addHandler(handler_file)
+def setup_log():
+    _create_log_folders()
 
-    logger.info(f"{name} started")
+    logging.config.dictConfig(LOGGING_CONFIG)
+    logger.info("Logging is set up.")
 
-def _create_folders():
+def _create_log_folders():
     for path in ["/", "/INFO", "/ERRORS", "/DEBUG"]:
         if not os.path.exists(settings.log_folder+path):
             try:

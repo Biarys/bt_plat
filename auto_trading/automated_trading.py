@@ -16,7 +16,7 @@ from ibapi.order import Order
 from ibapi.scanner import ScannerSubscription
 
 from auto_trading.other import send_email
-from auto_trading import log
+from Backtest import log
 from Backtest import settings as settings
 import Backtest.config as config
 

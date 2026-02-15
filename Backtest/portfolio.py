@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
+import logging
 from Backtest.settings import Settings
 from Backtest.utils import _find_affected_assets, _roll_prev_value_np
+
+logger = logging.getLogger(__name__)
 
 class Portfolio:
     """

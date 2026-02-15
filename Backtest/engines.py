@@ -1,18 +1,22 @@
 from abc import ABC, abstractmethod
+import logging
 import pandas as pd
 # import pyspark
 # from pyspark.sql import SparkSession, SQLContext
 # from pyspark.sql.window import Window
 # import pyspark.sql.functions as pySqlFunc
 
-from Backtest.Settings import Settings
+from Backtest.settings import Settings
 from Backtest.processing import Repeater, TradeSignal, Trades, TransPrice, TransPrice, TradeSignal, Cond
 from Backtest.utils import _aggregate, _find_df, _prep_and_agg_custom_stops
 from Backtest import constants as C
 
+logger = logging.getLogger(__name__)
+
 class Engine(ABC):
     def __init__(self, backtest_instance):
         self.bt = backtest_instance
+        logger.info(f"{self.__class__.__name__} initialized from engine.")
 
     @abstractmethod
     def run(self, data):
@@ -29,7 +33,8 @@ class PandasEngine(Engine):
                 self.bt.preprocessing(_current_asset_tuple)
             
         # ? can implement caching. why same data is read twice?
-        for name in data.keys:    
+        for name in data.keys:
+            logger.info(f"Processing {name} with PandasEngine.")
             _current_asset_tuple = data.read_data(name)
             self._prepricing(_current_asset_tuple)
 
@@ -43,6 +48,7 @@ class PandasEngine(Engine):
         """                                                
         name = data[0]
         current_asset = data[1]
+        logger.debug(f"Generating signals for {name}.")
         
         self.bt.cond = Cond()
         # strategy logic
@@ -140,10 +146,11 @@ class SparkEngine(Engine):
         """
         name = data[0]
         current_asset = data[1]
+        logger.debug(f"Generating signals for {name}.")
         try:
             # strategy logic
             self.cond = Cond()
-            self.logic(current_asset, name)
+            self.bt.logic(current_asset, name)
             self.postprocessing(current_asset)
             self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
             self.cond._combine() # combine all conds into all
@@ -159,5 +166,4 @@ class SparkEngine(Engine):
             return (C.ENTRY_PRICE, trans_prices.buyPrice), (C.EXIT_PRICE,trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
                     ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
         except Exception as e:
-            print(f"Failed for {name}")
-            print(e)
+            logger.error(f"Failed for {name}", exc_info=True)

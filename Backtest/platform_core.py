@@ -10,8 +10,8 @@ from datetime import datetime as dt
 # own files
 from Backtest.indicators import SMA
 from Backtest.data_reader import ReaderFactory
-from auto_trading.log import setup_log
-from Backtest.Settings import Settings
+from Backtest.log import setup_log
+from Backtest.settings import Settings
 from Backtest.utils import _aggregate, _prep_and_agg_custom_stops, _find_df, _find_signals, _remove_dups
 from Backtest.portfolio import Portfolio
 from Backtest.engines import PandasEngine, SparkEngine
@@ -23,9 +23,9 @@ from Backtest.processing import Agg_Trades, Agg_TransPrice, Cond, Repeater, Trad
 #     import pyspark.sql.functions as pySqlFunc
 #     from pyspark.sql.functions import col
 #     from pyspark.sql.window import Window
-    
+logger = logging.getLogger(__name__)
 
-setup_log("Backtester")
+setup_log()
 #############################################
 # Core starts
 #############################################
@@ -44,7 +44,6 @@ class Backtest():
         self.universe_ranking = pd.DataFrame()
         self.real_time = real_time
         self.keys = None
-        self.log = logging.getLogger("Backtester")
         if Settings.backtest_engine.lower() == "pandas":
             self.engine = PandasEngine(self)
         elif Settings.backtest_engine.lower() == "spark":
@@ -59,6 +58,7 @@ class Backtest():
 
         Inputs: self + all data that will be used for the backtest
         """
+        logger.info("Preprocessing started.")
         return "break"
 
     def postprocessing(self, data):
@@ -68,26 +68,30 @@ class Backtest():
 
         Inputs: self + all data that will be used for the backtest
         """
+        logger.info("Postprocessing started.")
         pass
 
     def run(self, data):
-        try:   
+        logger.info(f"Running backtest '{self.name}'.")
+        try:
             self.runs_at = dt.now()
             if self.real_time:
                 for name in data.data:
                     data.data[name] = self._prepare_data(data.data, name)
 
             self._run_portfolio(data)
+            logger.info(f"Backtest '{self.name}' finished.")
         except Exception as e:
             # print(e)
             # traceback.print_exc()
-            self.log.error(e, stack_info=True)
+            logger.error(e, stack_info=True)
             
     def logic(self, current_asset, name=None):
+        logger.debug(f"Running logic for {name}.")
         pass
 
     def _prepare_data(self, data, name):
-        self.log.info(f"Preparing data for {name} - {self.runs_at}")
+        logger.info(f"Preparing data for {name} - {self.runs_at}")
         # for name in data:
         temp = pd.DataFrame(columns=data[name].columns)
         temp.index.name = "Date"
@@ -105,7 +109,7 @@ class Backtest():
             # getting all but last candle. This is done to avoid incomplete bars at runtime
             if pd.Timestamp(self.runs_at.replace(second=0, microsecond=0)) == temp.iloc[-1].name:
                 temp = temp.loc[:self.runs_at].iloc[:-1]
-                self.log.warning(f"Last bars for {name} {self.runs_at} were cut during data prep")
+                logger.warning(f"Last bars for {name} {self.runs_at} were cut during data prep")
             # data[name] = temp
         return temp 
             
@@ -113,7 +117,7 @@ class Backtest():
         """
         Calculate profit and loss for the strategy
         """
-        self.log.info("Backtester started!")
+        logger.info("Backtester started!")
         self.engine.run(data)
         
         # prepare data for portfolio
@@ -134,6 +138,7 @@ class Backtest():
         self._generate_trade_list()
 
     def _generate_trade_list(self):
+        logger.info("Generating trade list.")
         self.trade_list = self.agg_trades.trades.copy()
         self.trade_list[C.DATE_EXIT] = self.trade_list[C.DATE_EXIT].astype(str)
         self.trade_list = self.trade_list.sort_values(by=[C.DATE_EXIT, C.DATE_ENTRY, C.SYMBOL])
@@ -203,6 +208,7 @@ class Backtest():
         
 
     def apply_stop(self, buy_or_short, current_asset, stop_length, trail="false"):
+        logger.info(f"Applying stop for {buy_or_short}.")
         if buy_or_short == "buy":
             temp_ind = current_asset[C.CLOSE] - stop_length
             temp = temp_ind[self.cond.buy==1]
