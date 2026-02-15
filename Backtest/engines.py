@@ -24,19 +24,23 @@ class Engine(ABC):
 
 class PandasEngine(Engine):
     def run(self, data):
+        try:
+            logger.info("Running backtest with PandasEngine.")
         # ! add break condition before loop so dont waste time reading data
-        for name in data.keys:
-            _current_asset_tuple = data.read_data(name)
-            if self.bt.preprocessing(_current_asset_tuple) == "break": # in case prepricessing is just pass
-                break
-            else:
-                self.bt.preprocessing(_current_asset_tuple)
-            
-        # ? can implement caching. why same data is read twice?
-        for name in data.keys:
-            logger.info(f"Processing {name} with PandasEngine.")
-            _current_asset_tuple = data.read_data(name)
-            self._prepricing(_current_asset_tuple)
+            for name in data.keys:
+                _current_asset_tuple = data.read_data(name)
+                if self.bt.preprocessing(_current_asset_tuple) == "break": # in case prepricessing is just pass
+                    break
+                else:
+                    self.bt.preprocessing(_current_asset_tuple)
+                
+            # ? can implement caching. why same data is read twice?
+            for name in data.keys:
+                logger.info(f"Processing {name} with PandasEngine.")
+                _current_asset_tuple = data.read_data(name)
+                self._prepricing(_current_asset_tuple)
+        except Exception as e:
+            logger.exception(f"Error in PandasEngine run: {e}")
 
     def _prepricing(self, data):
         """
@@ -45,40 +49,42 @@ class PandasEngine(Engine):
         Find transaction prices
         Match buys and sells
         Save them into common classes agg_*
-        """                                                
-        name = data[0]
-        current_asset = data[1]
-        logger.debug(f"Generating signals for {name}.")
-        
-        self.bt.cond = Cond()
-        # strategy logic
-        self.bt.logic(current_asset, name)
-        self.bt.postprocessing(current_asset)
-        self.bt.cond.buy.name, self.bt.cond.sell.name, self.bt.cond.short.name, self.bt.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
-        self.bt.cond._combine() # combine all conds into all
-        ################################
+        """    
+        try:                                            
+            name = data[0]
+            current_asset = data[1]
+            logger.debug(f"Generating signals for {name}.")
+            
+            self.bt.cond = Cond()
+            # strategy logic
+            self.bt.logic(current_asset, name)
+            self.bt.postprocessing(current_asset)
+            self.bt.cond.buy.name, self.bt.cond.sell.name, self.bt.cond.short.name, self.bt.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
+            self.bt.cond._combine() # combine all conds into all
+            ################################
 
-        rep = Repeater(current_asset, name, self.bt.cond.all)
+            rep = Repeater(current_asset, name, self.bt.cond.all)
 
-        # find trade_signals and trans_prices for an asset
-        trade_signals = TradeSignal(rep)
-        trans_prices = TransPrice(rep, trade_signals)
-        trades_current_asset = Trades(rep, trade_signals, trans_prices)
+            # find trade_signals and trans_prices for an asset
+            trade_signals = TradeSignal(rep)
+            trans_prices = TransPrice(rep, trade_signals)
+            trades_current_asset = Trades(rep, trade_signals, trans_prices)
 
-        # save trans_prices for portfolio level
-        self.bt.agg_trans_prices.buyPrice = _aggregate(self.bt.agg_trans_prices.buyPrice, trans_prices.buyPrice)
-        self.bt.agg_trans_prices.sellPrice = _aggregate(self.bt.agg_trans_prices.sellPrice, trans_prices.sellPrice)
-        self.bt.agg_trans_prices.shortPrice = _aggregate(self.bt.agg_trans_prices.shortPrice, trans_prices.shortPrice)
-        self.bt.agg_trans_prices.coverPrice = _aggregate(self.bt.agg_trans_prices.coverPrice, trans_prices.coverPrice)
-        self.bt.agg_trades.priceFluctuation_dollar = _aggregate(self.bt.agg_trades.priceFluctuation_dollar,
-                                                                trades_current_asset.priceFluctuation_dollar)
-        self.bt.agg_trades.trades = _aggregate(self.bt.agg_trades.trades, trades_current_asset.trades, ax=0)
-        self.bt.agg_stop_length = _aggregate(self.bt.agg_stop_length, self.bt.stop_length)
+            # save trans_prices for portfolio level
+            self.bt.agg_trans_prices.buyPrice = _aggregate(self.bt.agg_trans_prices.buyPrice, trans_prices.buyPrice)
+            self.bt.agg_trans_prices.sellPrice = _aggregate(self.bt.agg_trans_prices.sellPrice, trans_prices.sellPrice)
+            self.bt.agg_trans_prices.shortPrice = _aggregate(self.bt.agg_trans_prices.shortPrice, trans_prices.shortPrice)
+            self.bt.agg_trans_prices.coverPrice = _aggregate(self.bt.agg_trans_prices.coverPrice, trans_prices.coverPrice)
+            self.bt.agg_trades.priceFluctuation_dollar = _aggregate(self.bt.agg_trades.priceFluctuation_dollar,
+                                                                    trades_current_asset.priceFluctuation_dollar)
+            self.bt.agg_trades.trades = _aggregate(self.bt.agg_trades.trades, trades_current_asset.trades, ax=0)
+            self.bt.agg_stop_length = _aggregate(self.bt.agg_stop_length, self.bt.stop_length)
 
-        # save custom stops
-        if Settings.position_size_type == "custom":
-            self.bt.agg_custom_stop =  _prep_and_agg_custom_stops(self.bt.agg_custom_stop, self.bt.custom_stop_size, name)
-
+            # save custom stops
+            if Settings.position_size_type == "custom":
+                self.bt.agg_custom_stop =  _prep_and_agg_custom_stops(self.bt.agg_custom_stop, self.bt.custom_stop_size, name)
+        except Exception as e:
+            logger.exception(f"Error in PandasEngine _prepricing for {name}: {e}")
 
 class SparkEngine(Engine):
     def run(self, data):

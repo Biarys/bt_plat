@@ -82,9 +82,7 @@ class Backtest():
             self._run_portfolio(data)
             logger.info(f"Backtest '{self.name}' finished.")
         except Exception as e:
-            # print(e)
-            # traceback.print_exc()
-            logger.error(e, stack_info=True)
+            logger.exception(e)
             
     def logic(self, current_asset, name=None):
         logger.debug(f"Running logic for {name}.")
@@ -92,7 +90,7 @@ class Backtest():
 
     def _prepare_data(self, data, name):
         logger.info(f"Preparing data for {name} - {self.runs_at}")
-        # for name in data:
+
         temp = pd.DataFrame(columns=data[name].columns)
         temp.index.name = "Date"
         temp[C.OPEN] = data[name][C.OPEN].groupby(C.DATE).nth(0)
@@ -117,95 +115,100 @@ class Backtest():
         """
         Calculate profit and loss for the strategy
         """
-        logger.info("Backtester started!")
-        self.engine.run(data)
-        
-        # prepare data for portfolio
-        self.idx = self.agg_trades.priceFluctuation_dollar.index
-        self.idx = pd.Index(self.idx, dtype=object)
-        self.keys = [name.split(".csv")[0] for name in data.keys]
-        # check to assure order of columns is the same among all dataframes. Otherwise results will be wrong
-        # ! needs to be change from hardcoded buyPrice cuz can be empty
-        assert all(self.keys == self.agg_trans_prices.buyPrice.columns), "self.keys are not identical among dataframes"
-        
-        # nan in the beg cuz of .shift while finding priceFluctuation
-        # to avoid nan in the beg
-        self.agg_trades.priceFluctuation_dollar.iloc[0] = 0
+        try:
+            logger.info("Backtester started!")
+            self.engine.run(data)
+            
+            # prepare data for portfolio
+            self.idx = self.agg_trades.priceFluctuation_dollar.index
+            self.idx = pd.Index(self.idx, dtype=object)
+            self.keys = [name.split(".csv")[0] for name in data.keys]
+            # check to assure order of columns is the same among all dataframes. Otherwise results will be wrong
+            # ! needs to be change from hardcoded buyPrice cuz can be empty
+            assert all(self.keys == self.agg_trans_prices.buyPrice.columns), "self.keys are not identical among dataframes"
+            
+            # nan in the beg cuz of .shift while finding priceFluctuation
+            # to avoid nan in the beg
+            self.agg_trades.priceFluctuation_dollar.iloc[0] = 0
 
-        self.portfolio = Portfolio(self.agg_trades.priceFluctuation_dollar, self.idx, self.keys)
-        self.portfolio.run_portfolio(self.agg_trans_prices, self.agg_custom_stop)
-        
-        self._generate_trade_list()
+            self.portfolio = Portfolio(self.agg_trades.priceFluctuation_dollar, self.idx, self.keys)
+            self.portfolio.run_portfolio(self.agg_trans_prices, self.agg_custom_stop)
+            
+            self._generate_trade_list()
+        except Exception as e:
+            logger.exception(e)
 
     def _generate_trade_list(self):
-        logger.info("Generating trade list.")
-        self.trade_list = self.agg_trades.trades.copy()
-        self.trade_list[C.DATE_EXIT] = self.trade_list[C.DATE_EXIT].astype(str)
-        self.trade_list = self.trade_list.sort_values(by=[C.DATE_EXIT, C.DATE_ENTRY, C.SYMBOL])
-        self.trade_list.reset_index(drop=True, inplace=True)
-        
-        # ! a work around failing dates, when buy and sell occur on the same candle -> an null row appears for entry stats
-        # self.trade_list.dropna(inplace=True)
-        # assign weights
-        self.trade_list[C.WEIGHT] = np.nan
-        weight_list = self.trade_list.Symbol.unique()
-
-        # ! temp putting stop loss value here
-        self.trade_list[C.STOP_LOSS] = np.nan
-
-        for asset in weight_list:
-            # find all entry dates for an asset
-            dates = self.trade_list[self.trade_list[C.SYMBOL] ==
-                                    asset][C.DATE_ENTRY]
-            # save index of the dates in trade_list for further concat
-            idx = self.trade_list[self.trade_list[C.SYMBOL] ==
-                                asset][C.DATE_ENTRY].index
-            # grab all weights for the asset on entry date
-            dates_locs = np.searchsorted(self.idx, dates)
-            asset_loc = self.keys.index(asset)
-            # ? might have probems with scaling (probably will)
-            weights = self.portfolio.weights[dates_locs, asset_loc]
-
-            self.trade_list.loc[idx, C.WEIGHT] = weights
+        try:
+            logger.info("Generating trade list.")
+            self.trade_list = self.agg_trades.trades.copy()
+            self.trade_list[C.DATE_EXIT] = self.trade_list[C.DATE_EXIT].astype(str)
+            self.trade_list = self.trade_list.sort_values(by=[C.DATE_EXIT, C.DATE_ENTRY, C.SYMBOL])
+            self.trade_list.reset_index(drop=True, inplace=True)
+       
+            # ! a work around failing dates, when buy and sell occur on the same candle -> an null row appears for entry stats
+            # self.trade_list.dropna(inplace=True)
+            # assign weights
+            self.trade_list[C.WEIGHT] = np.nan
+            weight_list = self.trade_list.Symbol.unique()
 
             # ! temp putting stop loss value here
-            # self.trade_list.loc[idx, "stop_loss"] = self.agg_stop_length.loc[dates, asset].values
+            self.trade_list[C.STOP_LOSS] = np.nan
 
-        # change values to display positive for short trades (instead of negative shares)
-        self.trade_list[C.WEIGHT] = np.where(self.trade_list.Direction==C.LONG,
-                                    self.trade_list[C.WEIGHT], -self.trade_list[C.WEIGHT])
+            for asset in weight_list:
+                # find all entry dates for an asset
+                dates = self.trade_list[self.trade_list[C.SYMBOL] ==
+                                        asset][C.DATE_ENTRY]
+                # save index of the dates in trade_list for further concat
+                idx = self.trade_list[self.trade_list[C.SYMBOL] ==
+                                    asset][C.DATE_ENTRY].index
+                # grab all weights for the asset on entry date
+                dates_locs = np.searchsorted(self.idx, dates)
+                asset_loc = self.keys.index(asset)
+                # ? might have probems with scaling (probably will)
+                weights = self.portfolio.weights[dates_locs, asset_loc]
 
-        # $ change
-        self.trade_list[C.DOLLAR_CHANGE] = self.trade_list[C.EXIT_PRICE] - self.trade_list[C.ENTRY_PRICE]
+                self.trade_list.loc[idx, C.WEIGHT] = weights
 
-        # % change
-        self.trade_list[C.PCT_CHANGE] = (self.trade_list[C.EXIT_PRICE] -
-                                        self.trade_list[C.ENTRY_PRICE]) / self.trade_list[C.ENTRY_PRICE]
+                # ! temp putting stop loss value here
+                # self.trade_list.loc[idx, "stop_loss"] = self.agg_stop_length.loc[dates, asset].values
 
-        # $ profit
-        self.trade_list[C.DOLLAR_PROFIT] = self.trade_list[C.WEIGHT] * self.trade_list[C.DOLLAR_CHANGE]
-        self.trade_list[C.DOLLAR_PROFIT] = np.where(self.trade_list.Direction==C.LONG,
-                                        self.trade_list[C.DOLLAR_PROFIT], -self.trade_list[C.DOLLAR_PROFIT])
-        
-        # % profit
-        self.trade_list[C.PCT_PROFIT] = np.where(self.trade_list.Direction==C.LONG,
-                                        self.trade_list[C.PCT_CHANGE], -self.trade_list[C.PCT_CHANGE])
-        # cum profit
-        self.trade_list[C.CUM_PROFIT] = self.trade_list[C.DOLLAR_PROFIT].cumsum()
+            # change values to display positive for short trades (instead of negative shares)
+            self.trade_list[C.WEIGHT] = np.where(self.trade_list.Direction==C.LONG,
+                                        self.trade_list[C.WEIGHT], -self.trade_list[C.WEIGHT])
 
-        # Port value
-        self.trade_list[C.PORTFOLIO_VALUE] = self.trade_list[C.DOLLAR_PROFIT].cumsum()
-        self.trade_list[C.PORTFOLIO_VALUE] += Settings.start_amount
+            # $ change
+            self.trade_list[C.DOLLAR_CHANGE] = self.trade_list[C.EXIT_PRICE] - self.trade_list[C.ENTRY_PRICE]
 
-        # Position value
-        self.trade_list[C.POSITION_VALUE] = self.trade_list[C.WEIGHT] * self.trade_list[C.ENTRY_PRICE]
+            # % change
+            self.trade_list[C.PCT_CHANGE] = (self.trade_list[C.EXIT_PRICE] -
+                                            self.trade_list[C.ENTRY_PRICE]) / self.trade_list[C.ENTRY_PRICE]
 
-        # number of bars held
-        temp = pd.to_datetime(self.trade_list[C.DATE_EXIT], errors="coerce")
-        self.trade_list[C.TRADE_DURATION] = temp - self.trade_list[C.DATE_ENTRY]
-        self.trade_list[C.TRADE_DURATION] = self.trade_list[C.TRADE_DURATION].fillna("Open")
+            # $ profit
+            self.trade_list[C.DOLLAR_PROFIT] = self.trade_list[C.WEIGHT] * self.trade_list[C.DOLLAR_CHANGE]
+            self.trade_list[C.DOLLAR_PROFIT] = np.where(self.trade_list.Direction==C.LONG,
+                                            self.trade_list[C.DOLLAR_PROFIT], -self.trade_list[C.DOLLAR_PROFIT])
+            
+            # % profit
+            self.trade_list[C.PCT_PROFIT] = np.where(self.trade_list.Direction==C.LONG,
+                                            self.trade_list[C.PCT_CHANGE], -self.trade_list[C.PCT_CHANGE])
+            # cum profit
+            self.trade_list[C.CUM_PROFIT] = self.trade_list[C.DOLLAR_PROFIT].cumsum()
 
-        
+            # Port value
+            self.trade_list[C.PORTFOLIO_VALUE] = self.trade_list[C.DOLLAR_PROFIT].cumsum()
+            self.trade_list[C.PORTFOLIO_VALUE] += Settings.start_amount
+
+            # Position value
+            self.trade_list[C.POSITION_VALUE] = self.trade_list[C.WEIGHT] * self.trade_list[C.ENTRY_PRICE]
+
+            # number of bars held
+            temp = pd.to_datetime(self.trade_list[C.DATE_EXIT], errors="coerce")
+            self.trade_list[C.TRADE_DURATION] = temp - self.trade_list[C.DATE_ENTRY]
+            self.trade_list[C.TRADE_DURATION] = self.trade_list[C.TRADE_DURATION].fillna("Open")
+
+        except Exception as e:
+            logger.exception(e)
 
     def apply_stop(self, buy_or_short, current_asset, stop_length, trail="false"):
         logger.info(f"Applying stop for {buy_or_short}.")
