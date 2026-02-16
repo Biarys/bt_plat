@@ -26,7 +26,7 @@ class PandasEngine(Engine):
     def run(self, data):
         try:
             logger.info("Running backtest with PandasEngine.")
-        # ! add break condition before loop so dont waste time reading data
+            # ! add break condition before loop so dont waste time reading data
             for name in data.keys:
                 _current_asset_tuple = data.read_data(name)
                 if self.bt.preprocessing(_current_asset_tuple) == "break": # in case prepricessing is just pass
@@ -38,11 +38,11 @@ class PandasEngine(Engine):
             for name in data.keys:
                 logger.info(f"Processing {name} with PandasEngine.")
                 _current_asset_tuple = data.read_data(name)
-                self._prepricing(_current_asset_tuple)
+                self._processing(_current_asset_tuple)
         except Exception as e:
             logger.exception(f"Error in PandasEngine run: {e}")
 
-    def _prepricing(self, data):
+    def _processing(self, data):
         """
         Loop through files
         Generate signals
@@ -57,13 +57,13 @@ class PandasEngine(Engine):
             
             self.bt.cond = Cond()
             # strategy logic
-            self.bt.logic(current_asset, name)
+            self.bt.logic(current_asset, name) # just sets buy and sell conds
             self.bt.postprocessing(current_asset)
             self.bt.cond.buy.name, self.bt.cond.sell.name, self.bt.cond.short.name, self.bt.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
             self.bt.cond._combine() # combine all conds into all
             ################################
 
-            rep = Repeater(current_asset, name, self.bt.cond.all)
+            rep = Repeater(current_asset, name, self.bt.cond.all_)
 
             # find trade_signals and trans_prices for an asset
             trade_signals = TradeSignal()
@@ -87,7 +87,7 @@ class PandasEngine(Engine):
             if Settings.position_size_type == "custom":
                 self.bt.agg_custom_stop =  _prep_and_agg_custom_stops(self.bt.agg_custom_stop, self.bt.custom_stop_size, name)
         except Exception as e:
-            logger.exception(f"Error in PandasEngine _prepricing for {name}: {e}")
+            logger.exception(f"Error in PandasEngine _processing for {name}: {e}")
 
 class SparkEngine(Engine):
     def run(self, data):
