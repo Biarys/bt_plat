@@ -9,11 +9,10 @@ from Backtest.indicators import SMA
 from Backtest.data_reader import ReaderFactory
 from Backtest.log import setup_log
 from Backtest.settings import Settings
-from Backtest.utils import _aggregate, _prep_and_agg_custom_stops, _find_df, _find_signals, _remove_dups
 from Backtest.portfolio import Portfolio
 from Backtest.engines import PandasEngine, SparkEngine
 from Backtest import constants as C
-from Backtest.processing import Agg_Trades, Agg_TransPrice, Cond, Repeater, TradeSignal, TransPrice, Trades
+from Backtest.processing import Agg_Trades, Agg_TransPrice
 
 logger = logging.getLogger(__name__)
 
