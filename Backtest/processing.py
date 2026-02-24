@@ -267,6 +267,25 @@ class Cond:
     cover: pd.DataFrame = field(default_factory=pd.DataFrame)
     all_: pd.DataFrame = field(default_factory=pd.DataFrame)
 
+    def apply_stop(self, buy_or_short, current_asset, stop_length, trail="false"):
+        if buy_or_short == C.BUY:
+            temp_ind = current_asset[C.CLOSE] - stop_length
+            temp = temp_ind[self.buy == 1]
+        elif buy_or_short == C.SHORT:
+            temp_ind = current_asset[C.CLOSE] + stop_length
+            temp = temp_ind[self.short == 1]
+
+        stops = pd.DataFrame(index=current_asset.index)
+        temp.name = "stop"
+        stops = stops.join(temp)
+        stops = stops.ffill()
+        stops = stops["stop"]
+
+        if buy_or_short == C.BUY:
+            self.sell = (current_asset[C.LOW] < stops) | self.sell
+        elif buy_or_short == C.SHORT:
+            self.cover = (current_asset[C.HIGH] > stops) | self.cover
+
     def _combine(self):
         if not self.buy.empty:
             self.all_[self.buy.name] = self.buy

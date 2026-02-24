@@ -111,31 +111,6 @@ class Backtest():
         except Exception as e:
             logger.exception(e)
 
-    def apply_stop(self, buy_or_short, current_asset, stop_length, trail="false"):
-        logger.info(f"Applying stop for {buy_or_short}.")
-        if buy_or_short == "buy":
-            temp_ind = current_asset[C.CLOSE] - stop_length
-            temp = temp_ind[self.cond.buy==1]
-        elif buy_or_short == C.SHORT:
-            temp_ind = current_asset[C.CLOSE] + stop_length
-            temp = temp_ind[self.cond.short==1]
-
-        stops = pd.DataFrame(index=current_asset.index)
-        # temp = temp_ind[cond==1]
-        temp.name = "stop"
-        stops = stops.join(temp)
-        stops = stops.ffill()
-        stops = stops["stop"]
-
-        # update sell/cover cond
-        if buy_or_short == "buy":
-            temp_cond = current_asset[C.LOW] < stops
-            self.cond.sell = temp_cond | self.cond.sell
-        elif buy_or_short == C.SHORT:
-            temp_cond = current_asset[C.HIGH] > stops
-            self.cond.cover = temp_cond | self.cond.cover
-
-
 if __name__ == "__main__":
     print("=======================")
     print("Run from main.py file!")
