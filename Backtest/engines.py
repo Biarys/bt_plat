@@ -31,10 +31,9 @@ class PandasEngine(Engine):
             # ! add break condition before loop so dont waste time reading data
             for name in data.keys:
                 _current_asset_tuple = data.read_data(name)
-                if self.bt.preprocessing(_current_asset_tuple) == "break": # in case prepricessing is just pass
+                if self.bt.preprocessing(_current_asset_tuple) == "break": # in case preprocessing is just pass
                     break
-                else:
-                    self.bt.preprocessing(_current_asset_tuple)
+                self.bt.preprocessing(_current_asset_tuple)
                 
             # ? can implement caching. why same data is read twice?
             for name in data.keys:
