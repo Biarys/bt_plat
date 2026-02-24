@@ -19,7 +19,6 @@ class Portfolio:
         self.profit = pd.DataFrame()
         self.invested = pd.DataFrame()
         self.fees = pd.DataFrame()
-        self.ror = pd.DataFrame()
         self.capUsed = pd.DataFrame()
         self.equity_curve = pd.DataFrame()
         self.start_amount = Settings.start_amount

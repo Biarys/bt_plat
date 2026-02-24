@@ -63,6 +63,7 @@ class Backtest():
     def run(self, data):
         logger.info(f"Running backtest '{self.name}'.")
         try:
+            # possibly move to some sort of DataHandler. Only used in real time trading
             self.runs_at = dt.now()
             if self.real_time:
                 for name in data.data:
@@ -73,8 +74,7 @@ class Backtest():
         except Exception as e:
             logger.exception(e)
             
-    def logic(self, current_asset, name=None):
-        logger.debug(f"Running logic for {name}.")
+    def logic(self, data):
         pass
 
     def _prepare_data(self, data, name):
@@ -106,7 +106,7 @@ class Backtest():
         """
         try:
             logger.info("Backtester started!")
-            self.engine.run(data)
+            self.engine.run(data) # get data for single assets
             
             # prepare data for portfolio
             self.idx = self.agg_trades.priceFluctuation_dollar.index
@@ -114,6 +114,7 @@ class Backtest():
             self.keys = [name.split(".csv")[0] for name in data.keys]
             # check to assure order of columns is the same among all dataframes. Otherwise results will be wrong
             # ! needs to be change from hardcoded buyPrice cuz can be empty
+            # TODO: change this to be more dynamic and check all columns / something better
             assert all(self.keys == self.agg_trans_prices.buyPrice.columns), "self.keys are not identical among dataframes"
             
             # nan in the beg cuz of .shift while finding priceFluctuation
@@ -234,10 +235,10 @@ if __name__ == "__main__":
     Settings.sell_delay = 0
 
     class Strategy(Backtest):
-        def logic(self, current_asset):
+        def logic(self, data):
             
-            sma5 = SMA(current_asset, [C.CLOSE], 5)
-            sma25 = SMA(current_asset, [C.CLOSE], 25)
+            sma5 = SMA(data, [C.CLOSE], 5)
+            sma25 = SMA(data, [C.CLOSE], 25)
 
             buyCond = sma5() > sma25()
             sellCond = sma5() < sma25()

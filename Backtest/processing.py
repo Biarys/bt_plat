@@ -101,18 +101,6 @@ class TradeSignal:
             df = pd.DataFrame([], index=rep.data.index, columns=[col_name])
 
         return df
-            
-
-# class Agg_TradeSingal:
-#     """
-#     Aggregate version of TradeSignal that keeps trade signals for all stocks
-#     """
-#     def __init__(self):
-#         self.buys = pd.DataFrame()
-#         self.sells = pd.DataFrame()
-#         self.shorts = pd.DataFrame()
-#         self.covers = pd.DataFrame()
-#         self.all = pd.DataFrame()
 
 @dataclass
 class Agg_TradeSignal:

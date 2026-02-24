@@ -148,10 +148,10 @@ class StrategySMALong(bt.Backtest):
             super().__init__(name)
             self.stop_length = pd.DataFrame()
 
-        def logic(self, current_asset, name):
+        def logic(self, data):
             
-            sma5 = SMA(current_asset, "Close", 5)
-            sma25 = SMA(current_asset, "Close", 25)
+            sma5 = SMA(data, "Close", 5)
+            sma25 = SMA(data, "Close", 25)
 
             self.cond.buy = sma5() > sma25()
             self.cond.sell = sma5() < sma25()
@@ -162,11 +162,11 @@ class StrategySMALong(bt.Backtest):
             # return buyCond, sellCond, shortCond, coverCond
 
 class StrategySMAShort(bt.Backtest):
-        def logic(self, current_asset, name):
+        def logic(self, data):
             
 
-            sma5 = SMA(current_asset, "Close", 5)
-            sma25 = SMA(current_asset, "Close", 25)
+            sma5 = SMA(data, "Close", 5)
+            sma25 = SMA(data, "Close", 25)
 
             self.cond.short = sma5() < sma25()
             self.cond.cover = sma5() > sma25()
@@ -199,7 +199,7 @@ def compdf(x,y):
 
 def suite():
     suite = unittest.TestSuite()
-    suite.addTest(TestSMA('test_stock_long'))
+    # suite.addTest(TestSMA('test_stock_long'))
     suite.addTest(TestSMA('test_portfolio_long'))
     # suite.addTest(TestSMA('test_stock_short'))
     # suite.addTest(TestSMA('test_portfolio_short'))

@@ -1,19 +1,21 @@
 from abc import ABC, abstractmethod
 import logging
 import pandas as pd
-# import pyspark
-# from pyspark.sql import SparkSession, SQLContext
-# from pyspark.sql.window import Window
-# import pyspark.sql.functions as pySqlFunc
 
 from Backtest.settings import Settings
 from Backtest.processing import Repeater, TradeSignal, Trades, TransPrice, TransPrice, TradeSignal, Cond
 from Backtest.utils import _aggregate, _find_df, _prep_and_agg_custom_stops
 from Backtest import constants as C
 
+# import pyspark.pandas as ps
+
+
 logger = logging.getLogger(__name__)
 
 class Engine(ABC):
+    """
+    Result of run is to process data for individual assets and save them into common aggregate classes
+    """
     def __init__(self, backtest_instance):
         self.bt = backtest_instance
         logger.info(f"{self.__class__.__name__} initialized from engine.")
@@ -23,7 +25,7 @@ class Engine(ABC):
         pass
 
 class PandasEngine(Engine):
-    def run(self, data):
+    def run(self, data): # results needs to be aggregated
         try:
             logger.info("Running backtest with PandasEngine.")
             # ! add break condition before loop so dont waste time reading data
@@ -42,7 +44,7 @@ class PandasEngine(Engine):
         except Exception as e:
             logger.exception(f"Error in PandasEngine run: {e}")
 
-    def _processing(self, data):
+    def _processing(self, data): #for single asset
         """
         Loop through files
         Generate signals
@@ -57,7 +59,7 @@ class PandasEngine(Engine):
             
             self.bt.cond = Cond()
             # strategy logic
-            self.bt.logic(current_asset, name) # just sets buy and sell conds
+            self.bt.logic(current_asset) # just sets buy and sell conds
             self.bt.postprocessing(current_asset)
             self.bt.cond.buy.name, self.bt.cond.sell.name, self.bt.cond.short.name, self.bt.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
             self.bt.cond._combine() # combine all conds into all
@@ -92,50 +94,19 @@ class PandasEngine(Engine):
 class SparkEngine(Engine):
     def run(self, data):
         # initialize spark
-        sc = pyspark.SparkContext('local[*]')
-        spark = SparkSession(sc)
-        sqlContext = SQLContext(sc)
+        # sc = pyspark.SparkContext('local[*]')
+        # spark = SparkSession(sc)
+        # sqlContext = SQLContext(sc)
 
         # read data
-        rdd = sc.parallelize(data.keys).map(data.read_data) # change to Flume (kafka not supported in python)/something more flexible
+        # rdd = sc.parallelize(data.keys).map(data.read_data) # change to Flume (kafka not supported in python)/something more flexible
+        psdf = ps.read_csv(Settings.read_from_csv_path)
 
         # run self.preprocessing. use collect to force action to save files
         if self.bt.preprocessing != "break":
             rdd.map(self.bt.preprocessing).collect()
 
-        # TODO: replace with a function
-        if Settings.generate_ranks:
-            rdd_p = sqlContext.read.parquet(Settings.save_temp_parquet + r"\value_*.parquet")
-            result = (rdd_p
-                        .select(
-                            'DateTime',
-                            'Symbol',
-                            pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('Close')).alias('rank')
-                        ))
-            if Settings.order_ranks_desc:
-                result_desc = (result
-                                .select(
-                                    'DateTime',
-                                    'Symbol',
-                                    pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('rank')).alias('rank_desc')
-                                ))
-                result_final = (result_desc
-                                .groupby('DateTime')
-                                .pivot('Symbol')
-                                .agg(pySqlFunc.first('rank_desc'))
-                                .orderBy(pySqlFunc.col('DateTime').asc())
-                                )
-            else:
-                result_final = (result
-                                .groupby('DateTime')
-                                .pivot('Symbol')
-                                .agg(pySqlFunc.first('rank_desc'))
-                                .orderBy(pySqlFunc.col('DateTime').asc())
-                                )
-            
-            result_final.toPandas().to_csv(Settings.save_temp_parquet + "\\" + Settings.rank_file_name)
-        
-        res = rdd.flatMap(self._prepricing)
+        res = rdd.flatMap(self._processing)
         res_reduced = res.reduceByKey(_aggregate).collect()
 
         self.bt.agg_trans_prices.buyPrice = _find_df(res_reduced, "buy_price")
@@ -145,7 +116,7 @@ class SparkEngine(Engine):
         self.bt.agg_trades.priceFluctuation_dollar = _find_df(res_reduced, "price_fluc_dollar")
         self.bt.agg_trades.trades = _find_df(res_reduced, "trades").T # need to transpose the result
 
-    def _prepricing(self, data):
+    def _processing(self, data):
         """
         Loop through files
         Generate signals
@@ -159,7 +130,7 @@ class SparkEngine(Engine):
         try:
             # strategy logic
             self.cond = Cond()
-            self.bt.logic(current_asset, name)
+            self.bt.logic(current_asset)
             self.postprocessing(current_asset)
             self.cond.buy.name, self.cond.sell.name, self.cond.short.name, self.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
             self.cond._combine() # combine all conds into all
@@ -176,3 +147,36 @@ class SparkEngine(Engine):
                     ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
         except Exception as e:
             logger.error(f"Failed for {name}", exc_info=True)
+
+
+# # TODO: replace with a function
+# if Settings.generate_ranks:
+#     rdd_p = sqlContext.read.parquet(Settings.save_temp_parquet + r"\value_*.parquet")
+#     result = (rdd_p
+#                 .select(
+#                     'DateTime',
+#                     'Symbol',
+#                     pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('Close')).alias('rank')
+#                 ))
+#     if Settings.order_ranks_desc:
+#         result_desc = (result
+#                         .select(
+#                             'DateTime',
+#                             'Symbol',
+#                             pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('rank')).alias('rank_desc')
+#                         ))
+#         result_final = (result_desc
+#                         .groupby('DateTime')
+#                         .pivot('Symbol')
+#                         .agg(pySqlFunc.first('rank_desc'))
+#                         .orderBy(pySqlFunc.col('DateTime').asc())
+#                         )
+#     else:
+#         result_final = (result
+#                         .groupby('DateTime')
+#                         .pivot('Symbol')
+#                         .agg(pySqlFunc.first('rank_desc'))
+#                         .orderBy(pySqlFunc.col('DateTime').asc())
+#                         )
+    
+#     result_final.toPandas().to_csv(Settings.save_temp_parquet + "\\" + Settings.rank_file_name)
