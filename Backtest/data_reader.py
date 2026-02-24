@@ -3,7 +3,44 @@ import logging
 import os
 import pandas as pd
 
+from Backtest import constants as C
+from Backtest.settings import Settings
+
 logger = logging.getLogger(__name__)
+
+
+def prepare_data(data, name, runs_at):
+    """
+    Aggregates intraday bars into daily OHLCV candles.
+    Only used in real-time trading mode.
+
+    Parameters:
+        data:     dict of DataFrames keyed by asset name
+        name:     key of the asset to prepare
+        runs_at:  datetime the backtest was triggered (used to trim incomplete bars)
+
+    Returns:
+        DataFrame of daily OHLCV bars
+    """
+    logger.info(f"Preparing data for {name} - {runs_at}")
+
+    temp = pd.DataFrame(columns=data[name].columns)
+    temp.index.name = C.DATE
+    temp[C.OPEN] = data[name][C.OPEN].groupby(C.DATE).nth(0)
+    temp[C.HIGH] = data[name][C.HIGH].groupby(C.DATE).max()
+    temp[C.LOW] = data[name][C.LOW].groupby(C.DATE).min()
+    temp[C.CLOSE] = data[name][C.CLOSE].groupby(C.DATE).nth(-1)
+
+    # TODO: volume needs to change for forex etc (volume of -1 makes sum wrong)
+    temp[C.VOLUME] = data[name][C.VOLUME].groupby(C.DATE).sum()
+
+    if Settings.use_complete_candles_only:
+        # drop the last (incomplete) bar if it matches the current run time
+        if pd.Timestamp(runs_at.replace(second=0, microsecond=0)) == temp.iloc[-1].name:
+            temp = temp.loc[:runs_at].iloc[:-1]
+            logger.warning(f"Last bar for {name} at {runs_at} was cut (incomplete candle)")
+
+    return temp
 
 class BaseReader(ABC):
     def __init__(self, path):

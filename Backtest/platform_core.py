@@ -6,7 +6,7 @@ from datetime import datetime as dt
 
 # own files
 from Backtest.indicators import SMA
-from Backtest.data_reader import ReaderFactory
+from Backtest.data_reader import ReaderFactory, prepare_data
 from Backtest.log import setup_log
 from Backtest.settings import Settings
 from Backtest.portfolio import Portfolio
@@ -64,11 +64,10 @@ class Backtest():
     def run(self, data):
         logger.info(f"Running backtest '{self.name}'.")
         try:
-            # possibly move to some sort of DataHandler. Only used in real time trading
             self.runs_at = dt.now()
             if self.real_time:
                 for name in data.data:
-                    data.data[name] = self._prepare_data(data.data, name)
+                    data.data[name] = prepare_data(data.data, name, self.runs_at)
 
             self._run_portfolio(data)
             logger.info(f"Backtest '{self.name}' finished.")
@@ -78,29 +77,6 @@ class Backtest():
     def logic(self, data):
         pass
 
-    def _prepare_data(self, data, name):
-        logger.info(f"Preparing data for {name} - {self.runs_at}")
-
-        temp = pd.DataFrame(columns=data[name].columns)
-        temp.index.name = "Date"
-        temp[C.OPEN] = data[name][C.OPEN].groupby(C.DATE).nth(0)
-        temp[C.HIGH] = data[name][C.HIGH].groupby(C.DATE).max()
-        temp[C.LOW] = data[name][C.LOW].groupby(C.DATE).min()
-        temp[C.CLOSE] = data[name][C.CLOSE].groupby(C.DATE).nth(-1)
-
-        # TODO:
-        # volume need to be change for forex, etc cuz gives volume of -1
-        # because of that, summing volume will produce wrong result
-        temp[C.VOLUME] = data[name][C.VOLUME].groupby(C.DATE).sum()
-
-        if Settings.use_complete_candles_only:
-            # getting all but last candle. This is done to avoid incomplete bars at runtime
-            if pd.Timestamp(self.runs_at.replace(second=0, microsecond=0)) == temp.iloc[-1].name:
-                temp = temp.loc[:self.runs_at].iloc[:-1]
-                logger.warning(f"Last bars for {name} {self.runs_at} were cut during data prep")
-            # data[name] = temp
-        return temp 
-            
     def _run_portfolio(self, data):
         """
         Calculate profit and loss for the strategy
