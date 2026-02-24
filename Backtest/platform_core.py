@@ -13,6 +13,7 @@ from Backtest.portfolio import Portfolio
 from Backtest.engines import PandasEngine, SparkEngine
 from Backtest import constants as C
 from Backtest.processing import Agg_Trades, Agg_TransPrice
+from Backtest.results import build_trade_list
 
 logger = logging.getLogger(__name__)
 
@@ -123,80 +124,14 @@ class Backtest():
 
             self.portfolio = Portfolio(self.agg_trades.priceFluctuation_dollar, self.idx, self.keys)
             self.portfolio.run_portfolio(self.agg_trans_prices, self.agg_custom_stop)
-            
-            self._generate_trade_list()
-        except Exception as e:
-            logger.exception(e)
 
-    def _generate_trade_list(self):
-        try:
-            logger.info("Generating trade list.")
-            self.trade_list = self.agg_trades.trades.copy()
-            self.trade_list[C.DATE_EXIT] = self.trade_list[C.DATE_EXIT].astype(str)
-            self.trade_list = self.trade_list.sort_values(by=[C.DATE_EXIT, C.DATE_ENTRY, C.SYMBOL])
-            self.trade_list.reset_index(drop=True, inplace=True)
-       
-            # ! a work around failing dates, when buy and sell occur on the same candle -> an null row appears for entry stats
-            # self.trade_list.dropna(inplace=True)
-            # assign weights
-            self.trade_list[C.WEIGHT] = np.nan
-            weight_list = self.trade_list.Symbol.unique()
-
-            # ! temp putting stop loss value here
-            self.trade_list[C.STOP_LOSS] = np.nan
-
-            for asset in weight_list:
-                # find all entry dates for an asset
-                dates = self.trade_list[self.trade_list[C.SYMBOL] ==
-                                        asset][C.DATE_ENTRY]
-                # save index of the dates in trade_list for further concat
-                idx = self.trade_list[self.trade_list[C.SYMBOL] ==
-                                    asset][C.DATE_ENTRY].index
-                # grab all weights for the asset on entry date
-                dates_locs = np.searchsorted(self.idx, dates)
-                asset_loc = self.keys.index(asset)
-                # ? might have probems with scaling (probably will)
-                weights = self.portfolio.weights[dates_locs, asset_loc]
-
-                self.trade_list.loc[idx, C.WEIGHT] = weights
-
-                # ! temp putting stop loss value here
-                # self.trade_list.loc[idx, "stop_loss"] = self.agg_stop_length.loc[dates, asset].values
-
-            # change values to display positive for short trades (instead of negative shares)
-            self.trade_list[C.WEIGHT] = np.where(self.trade_list.Direction==C.LONG,
-                                        self.trade_list[C.WEIGHT], -self.trade_list[C.WEIGHT])
-
-            # $ change
-            self.trade_list[C.DOLLAR_CHANGE] = self.trade_list[C.EXIT_PRICE] - self.trade_list[C.ENTRY_PRICE]
-
-            # % change
-            self.trade_list[C.PCT_CHANGE] = (self.trade_list[C.EXIT_PRICE] -
-                                            self.trade_list[C.ENTRY_PRICE]) / self.trade_list[C.ENTRY_PRICE]
-
-            # $ profit
-            self.trade_list[C.DOLLAR_PROFIT] = self.trade_list[C.WEIGHT] * self.trade_list[C.DOLLAR_CHANGE]
-            self.trade_list[C.DOLLAR_PROFIT] = np.where(self.trade_list.Direction==C.LONG,
-                                            self.trade_list[C.DOLLAR_PROFIT], -self.trade_list[C.DOLLAR_PROFIT])
-            
-            # % profit
-            self.trade_list[C.PCT_PROFIT] = np.where(self.trade_list.Direction==C.LONG,
-                                            self.trade_list[C.PCT_CHANGE], -self.trade_list[C.PCT_CHANGE])
-            # cum profit
-            self.trade_list[C.CUM_PROFIT] = self.trade_list[C.DOLLAR_PROFIT].cumsum()
-
-            # Port value
-            self.trade_list[C.PORTFOLIO_VALUE] = self.trade_list[C.DOLLAR_PROFIT].cumsum()
-            self.trade_list[C.PORTFOLIO_VALUE] += Settings.start_amount
-
-            # Position value
-            self.trade_list[C.POSITION_VALUE] = self.trade_list[C.WEIGHT] * self.trade_list[C.ENTRY_PRICE]
-
-            # number of bars held
-            temp = pd.to_datetime(self.trade_list[C.DATE_EXIT], errors="coerce")
-            self.trade_list[C.TRADE_DURATION] = temp - self.trade_list[C.DATE_ENTRY]
-            self.trade_list[C.TRADE_DURATION] = self.trade_list[C.TRADE_DURATION].fillna("Open")
-
+            self.trade_list = build_trade_list(
+                self.agg_trades.trades,
+                self.idx,
+                self.keys,
+                self.portfolio.weights,
+                Settings.start_amount,
+            )
         except Exception as e:
             logger.exception(e)
 
