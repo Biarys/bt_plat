@@ -75,12 +75,12 @@ class PandasEngine(Engine):
             trades_current_asset.run(rep, trade_signals, trans_prices)
 
             # save trans_prices for portfolio level
-            self.bt.agg_trans_prices.buyPrice = _aggregate(self.bt.agg_trans_prices.buyPrice, trans_prices.buyPrice)
-            self.bt.agg_trans_prices.sellPrice = _aggregate(self.bt.agg_trans_prices.sellPrice, trans_prices.sellPrice)
-            self.bt.agg_trans_prices.shortPrice = _aggregate(self.bt.agg_trans_prices.shortPrice, trans_prices.shortPrice)
-            self.bt.agg_trans_prices.coverPrice = _aggregate(self.bt.agg_trans_prices.coverPrice, trans_prices.coverPrice)
-            self.bt.agg_trades.priceFluctuation_dollar = _aggregate(self.bt.agg_trades.priceFluctuation_dollar,
-                                                                    trades_current_asset.priceFluctuation_dollar)
+            self.bt.agg_trans_prices.buy_price = _aggregate(self.bt.agg_trans_prices.buy_price, trans_prices.buy_price)
+            self.bt.agg_trans_prices.sell_price = _aggregate(self.bt.agg_trans_prices.sell_price, trans_prices.sell_price)
+            self.bt.agg_trans_prices.short_price = _aggregate(self.bt.agg_trans_prices.short_price, trans_prices.short_price)
+            self.bt.agg_trans_prices.cover_price = _aggregate(self.bt.agg_trans_prices.cover_price, trans_prices.cover_price)
+            self.bt.agg_trades.price_fluctuation_dollar = _aggregate(self.bt.agg_trades.price_fluctuation_dollar,
+                                                                    trades_current_asset.price_fluctuation_dollar)
             self.bt.agg_trades.trades = _aggregate(self.bt.agg_trades.trades, trades_current_asset.trades, ax=0)
             self.bt.agg_stop_length = _aggregate(self.bt.agg_stop_length, self.bt.stop_length)
 
@@ -108,11 +108,11 @@ class SparkEngine(Engine):
         res = rdd.flatMap(self._processing)
         res_reduced = res.reduceByKey(_aggregate).collect()
 
-        self.bt.agg_trans_prices.buyPrice = _find_df(res_reduced, "buy_price")
-        self.bt.agg_trans_prices.sellPrice = _find_df(res_reduced, "sell_price")
-        self.bt.agg_trans_prices.shortPrice = _find_df(res_reduced, "short_price")
-        self.bt.agg_trans_prices.coverPrice = _find_df(res_reduced, "cover_price")
-        self.bt.agg_trades.priceFluctuation_dollar = _find_df(res_reduced, "price_fluc_dollar")
+        self.bt.agg_trans_prices.buy_price = _find_df(res_reduced, "buy_price")
+        self.bt.agg_trans_prices.sell_price = _find_df(res_reduced, "sell_price")
+        self.bt.agg_trans_prices.short_price = _find_df(res_reduced, "short_price")
+        self.bt.agg_trans_prices.cover_price = _find_df(res_reduced, "cover_price")
+        self.bt.agg_trades.price_fluctuation_dollar = _find_df(res_reduced, "price_fluc_dollar")
         self.bt.agg_trades.trades = _find_df(res_reduced, "trades").T # need to transpose the result
 
     def _processing(self, data):
@@ -142,8 +142,8 @@ class SparkEngine(Engine):
             trans_prices = TransPrice(rep, trade_signals)
             trades_current_asset = Trades(rep, trade_signals, trans_prices)
             
-            return (C.ENTRY_PRICE, trans_prices.buyPrice), (C.EXIT_PRICE,trans_prices.sellPrice), ("short_price", trans_prices.shortPrice), ("cover_price", trans_prices.coverPrice), \
-                    ("price_fluc_dollar", trades_current_asset.priceFluctuation_dollar), ("trades", trades_current_asset.trades.T)
+            return (C.ENTRY_PRICE, trans_prices.buy_price), (C.EXIT_PRICE,trans_prices.sell_price), ("short_price", trans_prices.short_price), ("cover_price", trans_prices.cover_price), \
+                    ("price_fluc_dollar", trades_current_asset.price_fluctuation_dollar), ("trades", trades_current_asset.trades.T)
         except Exception as e:
             logger.error(f"Failed for {name}", exc_info=True)
 

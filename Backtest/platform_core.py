@@ -12,7 +12,7 @@ from Backtest.settings import Settings
 from Backtest.portfolio import Portfolio
 from Backtest.engines import PandasEngine, SparkEngine
 from Backtest import constants as C
-from Backtest.processing import Agg_Trades, Agg_TransPrice
+from Backtest.processing import AggTrades, AggTransPrice
 from Backtest.results import build_trade_list
 
 logger = logging.getLogger(__name__)
@@ -26,8 +26,8 @@ class Backtest():
         self.name = name
         self.data = {}
         self.runs_at = dt.now() # for logging and data prep purposes. Gets updated when self.run() is called
-        self.agg_trans_prices = Agg_TransPrice()
-        self.agg_trades = Agg_Trades()
+        self.agg_trans_prices = AggTransPrice()
+        self.agg_trades = AggTrades()
         self.agg_custom_stop = pd.DataFrame()
         self.agg_stop_length = pd.DataFrame()
         self.custom_stop_size = None
@@ -86,19 +86,19 @@ class Backtest():
             self.engine.run(data) # get data for single assets
             
             # prepare data for portfolio
-            self.idx = self.agg_trades.priceFluctuation_dollar.index
+            self.idx = self.agg_trades.price_fluctuation_dollar.index
             self.idx = pd.Index(self.idx, dtype=object)
             self.keys = [name.split(".csv")[0] for name in data.keys]
             # check to assure order of columns is the same among all dataframes. Otherwise results will be wrong
-            # ! needs to be change from hardcoded buyPrice cuz can be empty
+            # ! needs to be change from hardcoded buy_price cuz can be empty
             # TODO: change this to be more dynamic and check all columns / something better
-            assert all(self.keys == self.agg_trans_prices.buyPrice.columns), "self.keys are not identical among dataframes"
+            assert all(self.keys == self.agg_trans_prices.buy_price.columns), "self.keys are not identical among dataframes"
             
             # nan in the beg cuz of .shift while finding priceFluctuation
             # to avoid nan in the beg
-            self.agg_trades.priceFluctuation_dollar.iloc[0] = 0
+            self.agg_trades.price_fluctuation_dollar.iloc[0] = 0
 
-            self.portfolio = Portfolio(self.agg_trades.priceFluctuation_dollar, self.idx, self.keys)
+            self.portfolio = Portfolio(self.agg_trades.price_fluctuation_dollar, self.idx, self.keys)
             self.portfolio.run_portfolio(self.agg_trans_prices, self.agg_custom_stop)
 
             self.trade_list = build_trade_list(

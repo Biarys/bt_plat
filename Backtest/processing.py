@@ -13,17 +13,17 @@ class TradeSignal:
     Possibly add signal shift - added for now to match excel results
 
     Inputs:
-        - buyCond (from repeater): raw, contains all signals
-        - sellCond (from repeater): raw, contains all signals
+        - buy_cond (from repeater): raw, contains all signals
+        - sell_cond (from repeater): raw, contains all signals
     Output:
-        - buyCond: buy results where signals switch from 1 to 0, 0 to 1, etc
-        - sellCond: sell results where signals switch from 1 to 0, 0 to 1, etc
+        - buy_cond: buy results where signals switch from 1 to 0, 0 to 1, etc
+        - sell_cond: sell results where signals switch from 1 to 0, 0 to 1, etc
         - all: all results with Buy and Sell
     """
-    buyCond: pd.DataFrame = field(default_factory=pd.DataFrame)
-    sellCond: pd.DataFrame = field(default_factory=pd.DataFrame)
-    shortCond: pd.DataFrame = field(default_factory=pd.DataFrame)
-    coverCond: pd.DataFrame = field(default_factory=pd.DataFrame)
+    buy_cond: pd.DataFrame = field(default_factory=pd.DataFrame)
+    sell_cond: pd.DataFrame = field(default_factory=pd.DataFrame)
+    short_cond: pd.DataFrame = field(default_factory=pd.DataFrame)
+    cover_cond: pd.DataFrame = field(default_factory=pd.DataFrame)
     all_: pd.DataFrame = field(default_factory=pd.DataFrame)
     _buy_shift: pd.DataFrame = field(default_factory=pd.DataFrame)
     _sell_shift: pd.DataFrame = field(default_factory=pd.DataFrame)
@@ -36,33 +36,33 @@ class TradeSignal:
     def run(self, rep):
         # ? Can probably be optimized by smashing everything onto 1 series -> ffill() -> remove dups
         # buy/sell/short/cover/all signals
-        self.buyCond = _find_signals(rep.allCond[C.BUY])
-        self.shortCond = _find_signals(rep.allCond[C.SHORT])
+        self.buy_cond = _find_signals(rep.all_cond[C.BUY])
+        self.short_cond = _find_signals(rep.all_cond[C.SHORT])
 
         # keeping it here for now
         # TODO: move it somewhere else (postprocess/logic)
         # from Backtest.indicators import ATR
         # atr = ATR(rep.data, 14)
 
-        # _apply_stop("buy", self.buyCond, rep, atr()*2)
-        # _apply_stop("short", self.shortCond, rep, atr()*2)
+        # _apply_stop("buy", self.buy_cond, rep, atr()*2)
+        # _apply_stop("short", self.short_cond, rep, atr()*2)
 
-        self.sellCond = _find_signals(rep.allCond[C.SELL])
-        self.coverCond = _find_signals(rep.allCond[C.COVER])
+        self.sell_cond = _find_signals(rep.all_cond[C.SELL])
+        self.cover_cond = _find_signals(rep.all_cond[C.COVER])
 
         # delay implementation
-        self._buy_shift = self.buyCond.shift(Settings.buy_delay)
-        self._sell_shift = self.sellCond.shift(Settings.sell_delay)
-        self._short_shift = self.shortCond.shift(Settings.short_delay)
-        self._cover_shift = self.coverCond.shift(Settings.cover_delay)
+        self._buy_shift = self.buy_cond.shift(Settings.buy_delay)
+        self._sell_shift = self.sell_cond.shift(Settings.sell_delay)
+        self._short_shift = self.short_cond.shift(Settings.short_delay)
+        self._cover_shift = self.cover_cond.shift(Settings.cover_delay)
 
         self.all_ = pd.concat([self._buy_shift, self._sell_shift, self._short_shift, 
                             self._cover_shift], axis=1)
         self.all_.index.name = "Date"
         # might be a better solution cuz might not create copy - need to test it
         # taken from https://stackoverflow.com/questions/53608501/numpy-pandas-remove-sequential-duplicate-values-equivalent-of-bash-uniq-withou?noredirect=1&lq=1
-        # self.buyCond2 = rep.buyCond.where(rep.buyCond.ne(rep.buyCond.shift(1).fillna(rep.buyCond[0]))).shift(1)
-        # self.sellCond2 = rep.sellCond.where(rep.sellCond.ne(rep.sellCond.shift(1).fillna(rep.sellCond[0]))).shift(1)
+        # self.buy_cond2 = rep.buy_cond.where(rep.buy_cond.ne(rep.buy_cond.shift(1).fillna(rep.buy_cond[0]))).shift(1)
+        # self.sell_cond2 = rep.sell_cond.where(rep.sell_cond.ne(rep.sell_cond.shift(1).fillna(rep.sell_cond[0]))).shift(1)
         # ! In case of buy and sell signal occuring on the same candle, Sell/Cover signal is prefered over Buy/Short
         # ! might create signal problems in the future
         cond = [(self._sell_shift == 1), (self._buy_shift == 1)]
@@ -103,7 +103,7 @@ class TradeSignal:
         return df
 
 @dataclass
-class Agg_TradeSignal:
+class AggTradeSignal:
     """
     Aggregate version of TradeSignal that keeps trade signals for all stocks
     """
@@ -125,48 +125,48 @@ class TransPrice:
         - sellOn (optional): column that should be looked up when sell occurs
 
     Output:
-        - buyPrice: used in Trades to generate trade list
-        - sellPrice: used in Trades to generate trade list 
-        - buyIndex: dates of buyPrice
-        - sellIndex: dates of sellPrice
+        - buy_price: used in Trades to generate trade list
+        - sell_price: used in Trades to generate trade list 
+        - buy_index: dates of buy_price
+        - sell_index: dates of sell_price
     """
     all_: pd.DataFrame = field(default_factory=pd.DataFrame)
-    buyIndex: pd.DataFrame = field(default_factory=pd.DataFrame)
-    sellIndex: pd.DataFrame = field(default_factory=pd.DataFrame)
-    shortIndex: pd.DataFrame = field(default_factory=pd.DataFrame)
-    coverIndex: pd.DataFrame = field(default_factory=pd.DataFrame)
-    buyPrice: pd.DataFrame = field(default_factory=pd.DataFrame)
-    sellPrice: pd.DataFrame = field(default_factory=pd.DataFrame)
-    shortPrice: pd.DataFrame = field(default_factory=pd.DataFrame)
-    coverPrice: pd.DataFrame = field(default_factory=pd.DataFrame)
+    buy_index: pd.DataFrame = field(default_factory=pd.DataFrame)
+    sell_index: pd.DataFrame = field(default_factory=pd.DataFrame)
+    short_index: pd.DataFrame = field(default_factory=pd.DataFrame)
+    cover_index: pd.DataFrame = field(default_factory=pd.DataFrame)
+    buy_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    sell_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    short_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    cover_price: pd.DataFrame = field(default_factory=pd.DataFrame)
     
     def run(self, rep, trade_signals):
         self.all_ = trade_signals.all_merged
 
-        self.buyIndex = self.all_[self.all_[C.LONG]==C.BUY].index
-        self.sellIndex = self.all_[self.all_[C.LONG]==C.SELL].index
-        self.shortIndex = self.all_[self.all_[C.SHORT]==C.SHORT].index
-        self.coverIndex = self.all_[self.all_[C.SHORT]==C.COVER].index
+        self.buy_index = self.all_[self.all_[C.LONG]==C.BUY].index
+        self.sell_index = self.all_[self.all_[C.LONG]==C.SELL].index
+        self.short_index = self.all_[self.all_[C.SHORT]==C.SHORT].index
+        self.cover_index = self.all_[self.all_[C.SHORT]==C.COVER].index
 
-        self.buyPrice = rep.data[Settings.buy_on][self.buyIndex]
-        self.sellPrice = rep.data[Settings.sell_on][self.sellIndex]
-        self.shortPrice = rep.data[Settings.short_on][self.shortIndex]
-        self.coverPrice = rep.data[Settings.cover_on][self.coverIndex]
+        self.buy_price = rep.data[Settings.buy_on][self.buy_index]
+        self.sell_price = rep.data[Settings.sell_on][self.sell_index]
+        self.short_price = rep.data[Settings.short_on][self.short_index]
+        self.cover_price = rep.data[Settings.cover_on][self.cover_index]
 
-        self.buyPrice.name = rep.name
-        self.sellPrice.name = rep.name
-        self.shortPrice.name = rep.name
-        self.coverPrice.name = rep.name
+        self.buy_price.name = rep.name
+        self.sell_price.name = rep.name
+        self.short_price.name = rep.name
+        self.cover_price.name = rep.name
 
 @dataclass
-class Agg_TransPrice:
+class AggTransPrice:
     """
     Aggregate version of TransPrice that keeps transaction price for all stocks
     """
-    buyPrice: pd.DataFrame = field(default_factory=pd.DataFrame)
-    sellPrice: pd.DataFrame = field(default_factory=pd.DataFrame)
-    shortPrice: pd.DataFrame = field(default_factory=pd.DataFrame)
-    coverPrice: pd.DataFrame = field(default_factory=pd.DataFrame)
+    buy_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    sell_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    short_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    cover_price: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 @dataclass
 class Trades:
@@ -178,27 +178,27 @@ class Trades:
         - trans_prices: Transaction prices that need to be matched
     Outputs:
         - trades: DataFrame with trade entry, exits, and transaction prices
-        - inTrade: DataFrame that shows time spent in trade for current asset
-        - inTradePrice: Close price for the time while inTrade
+        - in_trade: DataFrame that shows time spent in trade for current asset
+        - in_trade_price: Close price for the time while in_trade
     """
     trades: pd.DataFrame = field(default_factory=pd.DataFrame)
-    inTrade: pd.DataFrame = field(default_factory=pd.DataFrame)
-    inTradePrice: pd.DataFrame = field(default_factory=pd.DataFrame)
-    priceFluctuation_dollar: pd.DataFrame = field(default_factory=pd.DataFrame)
+    in_trade: pd.DataFrame = field(default_factory=pd.DataFrame)
+    in_trade_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    price_fluctuation_dollar: pd.DataFrame = field(default_factory=pd.DataFrame)
        
     def run(self, rep, trade_signals, trans_prices):
         self.trades = pd.DataFrame()
-        self.inTrade = pd.DataFrame()
-        self.inTradePrice = pd.DataFrame()
+        self.in_trade = pd.DataFrame()
+        self.in_trade_price = pd.DataFrame()
 
-        self.inTrade = trade_signals.all_merged #long, short
-        self.inTrade = self.inTrade.ffill()
-        self.inTrade = self.inTrade[(self.inTrade[C.LONG] == C.BUY) | (self.inTrade[C.SHORT] == C.SHORT)]
+        self.in_trade = trade_signals.all_merged #long, short
+        self.in_trade = self.in_trade.ffill()
+        self.in_trade = self.in_trade[(self.in_trade[C.LONG] == C.BUY) | (self.in_trade[C.SHORT] == C.SHORT)]
 
-        long = trans_prices.buyPrice.reset_index()
-        sell = trans_prices.sellPrice.reset_index()
-        short = trans_prices.shortPrice.reset_index()
-        cover = trans_prices.coverPrice.reset_index()
+        long = trans_prices.buy_price.reset_index()
+        sell = trans_prices.sell_price.reset_index()
+        short = trans_prices.short_price.reset_index()
+        cover = trans_prices.cover_price.reset_index()
 
         long[C.DIRECTION] = C.LONG
         short[C.DIRECTION] = C.SHORT
@@ -213,7 +213,7 @@ class Trades:
         self.trades[C.DATE_EXIT] = self.trades[C.DATE_EXIT].fillna("Open")
 
         # hardcoded Close cuz if still in trade, needs latest quote
-        self.trades[trans_prices.sellPrice.name + "_exit"] = self.trades[trans_prices.sellPrice.name + "_exit"].fillna(
+        self.trades[trans_prices.sell_price.name + "_exit"] = self.trades[trans_prices.sell_price.name + "_exit"].fillna(
             rep.data.iloc[-1][C.CLOSE])
  
         # alternative way
@@ -232,22 +232,22 @@ class Trades:
             },
             inplace=True)
 
-        self.inTradePrice = rep.data[C.CLOSE].loc[self.inTrade.index]
-        self.inTradePrice.name = rep.name
+        self.in_trade_price = rep.data[C.CLOSE].loc[self.in_trade.index]
+        self.in_trade_price.name = rep.name
 
         # finding dollar price change
-        # ? use inTradePrice - inTradePrice.shift(1) ?
-        self.priceFluctuation_dollar = rep.data[C.CLOSE] - rep.data[C.CLOSE].shift()
-        self.priceFluctuation_dollar.name = rep.name
+        # ? use in_trade_price - in_trade_price.shift(1) ?
+        self.price_fluctuation_dollar = rep.data[C.CLOSE] - rep.data[C.CLOSE].shift()
+        self.price_fluctuation_dollar.name = rep.name
 
 @dataclass
-class Agg_Trades:
+class AggTrades:
     """
-    Aggregate version of Trades. Contains trades, weights, inTradePrice, priceFluctuation in dollars
+    Aggregate version of Trades. Contains trades, weights, in_trade_price, priceFluctuation in dollars
     """
     trades: pd.DataFrame = field(default_factory=pd.DataFrame)
     weights: pd.DataFrame = field(default_factory=pd.DataFrame)
-    priceFluctuation_dollar: pd.DataFrame = field(default_factory=pd.DataFrame)
+    price_fluctuation_dollar: pd.DataFrame = field(default_factory=pd.DataFrame)
     in_trade_price_fluc: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 @dataclass
@@ -257,7 +257,7 @@ class Repeater:
     """
     data: pd.DataFrame = field(default_factory=pd.DataFrame)
     name: str = ""
-    allCond: pd.DataFrame = field(default_factory=pd.DataFrame)
+    all_cond: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 @dataclass
 class Cond:

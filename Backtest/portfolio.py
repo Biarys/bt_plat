@@ -19,7 +19,7 @@ class Portfolio:
         self.profit = pd.DataFrame()
         self.invested = pd.DataFrame()
         self.fees = pd.DataFrame()
-        self.capUsed = pd.DataFrame()
+        self.cap_used = pd.DataFrame()
         self.equity_curve = pd.DataFrame()
         self.start_amount = Settings.start_amount
         self.price_fluctuation_dollar = price_fluctuation_dollar
@@ -67,16 +67,16 @@ class Portfolio:
     def _execute_trades(self, current_bar, current_bar_int, agg_trans_prices, agg_custom_stop):
         try:
             logger.debug(f"Executing trades for {current_bar}")
-            if (current_bar in agg_trans_prices.buyPrice.index):
+            if (current_bar in agg_trans_prices.buy_price.index):
                 self._execute_buy(current_bar, current_bar_int, agg_trans_prices, agg_custom_stop)
 
-            if (current_bar in agg_trans_prices.sellPrice.index):
+            if (current_bar in agg_trans_prices.sell_price.index):
                 self._execute_sell(current_bar, current_bar_int, agg_trans_prices)
 
-            if (current_bar in agg_trans_prices.shortPrice.index):
+            if (current_bar in agg_trans_prices.short_price.index):
                 self._execute_short(current_bar, current_bar_int, agg_trans_prices, agg_custom_stop)
 
-            if (current_bar in agg_trans_prices.coverPrice.index):
+            if (current_bar in agg_trans_prices.cover_price.index):
                 self._execute_cover(current_bar, current_bar_int, agg_trans_prices)
         except Exception as e:
             logger.exception(f"Error in _execute_trades for {current_bar}: {e}")
@@ -84,20 +84,20 @@ class Portfolio:
     def _execute_buy(self, current_bar, current_bar_int, agg_trans_prices, agg_custom_stop):
         to_invest = self.value[current_bar_int]
 
-        rounded_weights, affected_assets = self._position_sizer(to_invest, agg_trans_prices.buyPrice, current_bar, agg_custom_stop)
+        rounded_weights, affected_assets = self._position_sizer(to_invest, agg_trans_prices.buy_price, current_bar, agg_custom_stop)
 
         self.weights[current_bar_int][affected_assets] = rounded_weights
 
         # find actualy amount invested
-        actually_invested = self.weights[current_bar_int][affected_assets] * agg_trans_prices.buyPrice.loc[
+        actually_invested = self.weights[current_bar_int][affected_assets] * agg_trans_prices.buy_price.loc[
                 current_bar, affected_assets]
 
         self.avail_amount[current_bar_int] -= actually_invested.sum()
 
     def _execute_sell(self, current_bar, current_bar_int, agg_trans_prices):
-        affected_assets = _find_affected_assets(agg_trans_prices.sellPrice, current_bar)
+        affected_assets = _find_affected_assets(agg_trans_prices.sell_price, current_bar)
         self.avail_amount[current_bar_int] += (self.weights[current_bar_int][
-            affected_assets] * agg_trans_prices.sellPrice.loc[
+            affected_assets] * agg_trans_prices.sell_price.loc[
                 current_bar, affected_assets]).sum()
 
         # set weight to 0
@@ -106,20 +106,20 @@ class Portfolio:
     def _execute_short(self, current_bar, current_bar_int, agg_trans_prices, agg_custom_stop):
         to_invest = self.value[current_bar_int]
         
-        rounded_weights, affected_assets = self._position_sizer(to_invest, agg_trans_prices.shortPrice, current_bar, agg_custom_stop)
+        rounded_weights, affected_assets = self._position_sizer(to_invest, agg_trans_prices.short_price, current_bar, agg_custom_stop)
 
         self.weights[current_bar_int][affected_assets] = -rounded_weights
 
         # find actualy amount invested
-        actually_invested = self.weights[current_bar_int][affected_assets] * agg_trans_prices.shortPrice.loc[
+        actually_invested = self.weights[current_bar_int][affected_assets] * agg_trans_prices.short_price.loc[
                 current_bar, affected_assets]
 
         self.avail_amount[current_bar_int] += actually_invested.sum()
 
     def _execute_cover(self, current_bar, current_bar_int, agg_trans_prices):
-        affected_assets = _find_affected_assets(agg_trans_prices.coverPrice, current_bar)
+        affected_assets = _find_affected_assets(agg_trans_prices.cover_price, current_bar)
         self.avail_amount[current_bar_int] += (self.weights[current_bar_int][
-            affected_assets] * agg_trans_prices.coverPrice.loc[
+            affected_assets] * agg_trans_prices.cover_price.loc[
                 current_bar, affected_assets]).sum()
 
         # set weight to 0
@@ -168,26 +168,26 @@ class Portfolio:
     def _update_for_fluct_np(self, df, in_trade_adjust, current_bar, prev_bar, current_bar_int, agg_trans_prices):
         df[current_bar_int] += np.nansum(in_trade_adjust[current_bar_int])
 
-        if current_bar in agg_trans_prices.buyPrice.index:
+        if current_bar in agg_trans_prices.buy_price.index:
             if Settings.buy_on.capitalize()=="Close":            
-                affected_assets = _find_affected_assets(agg_trans_prices.buyPrice, current_bar)
+                affected_assets = _find_affected_assets(agg_trans_prices.buy_price, current_bar)
                 df[current_bar_int] -= np.nansum(in_trade_adjust[current_bar_int, affected_assets])
 
-        if current_bar in agg_trans_prices.shortPrice.index:
+        if current_bar in agg_trans_prices.short_price.index:
             if Settings.short_on.capitalize()=="Close":
-                affected_assets = _find_affected_assets(agg_trans_prices.shortPrice, current_bar)
+                affected_assets = _find_affected_assets(agg_trans_prices.short_price, current_bar)
                 df[current_bar_int] -= np.nansum(in_trade_adjust[current_bar_int][affected_assets])
 
-        if current_bar in agg_trans_prices.sellPrice.index:
+        if current_bar in agg_trans_prices.sell_price.index:
             if Settings.sell_on.capitalize()=="Close":
-                affected_assets = _find_affected_assets(agg_trans_prices.sellPrice, current_bar)
+                affected_assets = _find_affected_assets(agg_trans_prices.sell_price, current_bar)
                 daily_adj = (self.weights[prev_bar][affected_assets] * 
                                 self.price_fluctuation_dollar.iloc[current_bar_int][affected_assets]).sum()
                 df[current_bar_int] += daily_adj
 
-        if current_bar in agg_trans_prices.coverPrice.index:            
+        if current_bar in agg_trans_prices.cover_price.index:            
             if Settings.cover_on.capitalize()=="Close": 
-                affected_assets = _find_affected_assets(agg_trans_prices.coverPrice, current_bar)
+                affected_assets = _find_affected_assets(agg_trans_prices.cover_price, current_bar)
                 daily_adj = (self.weights[prev_bar][affected_assets] * 
                                 self.price_fluctuation_dollar.iloc[current_bar_int][affected_assets]).sum()
                 df[current_bar_int] += daily_adj
