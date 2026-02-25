@@ -30,6 +30,7 @@ class Backtest():
         self.agg_trades = AggTrades()
         self.agg_custom_stop = pd.DataFrame()
         self.agg_stop_length = pd.DataFrame()
+        self.stop_length = pd.DataFrame()
         self.custom_stop_size = None
         self.trade_list = None
         self.universe_ranking = pd.DataFrame()
