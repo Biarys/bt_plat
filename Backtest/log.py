@@ -39,11 +39,8 @@ def setup_log():
     logger.info("Logging is set up.")
 
 def _create_log_folders():
-    for path in ["/", "/INFO", "/ERRORS", "/DEBUG"]:
-        if not os.path.exists(settings.log_folder+path):
-            try:
-                logger.exception(f"Creating log folder in {settings.log_folder+path}")
-                os.mkdir(settings.log_folder+path)
-            except Exception as e:
-                logger.exception(f"Failed to create log folder in {settings.log_folder+path}")
-                logger.exception(f"An error occured {e}")
+    if not os.path.exists(settings.log_folder):
+        try:
+            os.mkdir(settings.log_folder)
+        except Exception as e:
+            logger.exception(f"Failed to create log folder in {settings.log_folder}: {e}")
