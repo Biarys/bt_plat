@@ -63,6 +63,7 @@ class Portfolio:
             self._generate_equity_curve()
         except Exception as e:
             logger.exception(f"Error in run_portfolio: {e}")
+            raise
 
     def _execute_trades(self, current_bar, current_bar_int, agg_trans_prices, agg_custom_stop):
         try:
@@ -80,6 +81,7 @@ class Portfolio:
                 self._execute_cover(current_bar, current_bar_int, agg_trans_prices)
         except Exception as e:
             logger.exception(f"Error in _execute_trades for {current_bar}: {e}")
+            raise
 
     def _execute_buy(self, current_bar, current_bar_int, agg_trans_prices, agg_custom_stop):
         to_invest = self.value[current_bar_int]
@@ -203,3 +205,4 @@ class Portfolio:
             self.equity_curve.name = "Equity"
         except Exception as e:
             logger.exception(f"Error in _generate_equity_curve: {e}")
+            raise

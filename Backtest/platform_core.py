@@ -17,7 +17,6 @@ from Backtest.results import build_trade_list
 
 logger = logging.getLogger(__name__)
 
-setup_log()
 #############################################
 # Core starts
 #############################################
@@ -40,6 +39,7 @@ class Backtest():
             self.engine = PandasEngine(self)
         elif Settings.backtest_engine.lower() == "spark":
             self.engine = SparkEngine(self)
+        setup_log()
         
     def preprocessing(self, data):
         """
@@ -74,6 +74,7 @@ class Backtest():
             logger.info(f"Backtest '{self.name}' finished.")
         except Exception as e:
             logger.exception(e)
+            raise
             
     def logic(self, data):
         pass
@@ -111,6 +112,7 @@ class Backtest():
             )
         except Exception as e:
             logger.exception(e)
+            raise
 
 if __name__ == "__main__":
     print("=======================")

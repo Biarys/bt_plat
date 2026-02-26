@@ -42,6 +42,7 @@ class PandasEngine(Engine):
                 self._processing(_current_asset_tuple)
         except Exception as e:
             logger.exception(f"Error in PandasEngine run: {e}")
+            raise
 
     def _processing(self, data): #for single asset
         """
@@ -89,6 +90,7 @@ class PandasEngine(Engine):
                 self.bt.agg_custom_stop =  _prep_and_agg_custom_stops(self.bt.agg_custom_stop, self.bt.custom_stop_size, name)
         except Exception as e:
             logger.exception(f"Error in PandasEngine _processing for {name}: {e}")
+            raise
 
 class SparkEngine(Engine):
     def run(self, data):
@@ -145,8 +147,8 @@ class SparkEngine(Engine):
             return (C.ENTRY_PRICE, trans_prices.buy_price), (C.EXIT_PRICE,trans_prices.sell_price), ("short_price", trans_prices.short_price), ("cover_price", trans_prices.cover_price), \
                     ("price_fluc_dollar", trades_current_asset.price_fluctuation_dollar), ("trades", trades_current_asset.trades.T)
         except Exception as e:
-            logger.error(f"Failed for {name}", exc_info=True)
-
+            logger.exception(f"Failed for {name}. Exception: {e}")
+            raise
 
 # # TODO: replace with a function
 # if Settings.generate_ranks:
