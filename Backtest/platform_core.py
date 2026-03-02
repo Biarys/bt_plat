@@ -85,7 +85,18 @@ class Backtest():
         """
         try:
             logger.info("Backtester started!")
-            self.engine.run(data) # get data for single assets
+            results = self.engine.run(data) # get data for single assets
+            
+            # assign returned results to self to maintain compatibility
+            self.agg_trans_prices.buy_price = results["buy_price"]
+            self.agg_trans_prices.sell_price = results["sell_price"]
+            self.agg_trans_prices.short_price = results["short_price"]
+            self.agg_trans_prices.cover_price = results["cover_price"]
+            self.agg_trades.price_fluctuation_dollar = results["price_fluctuation_dollar"]
+            self.agg_trades.trades = results["trades"]
+            self.agg_stop_length = results["stop_length"]
+            if "custom_stop" in results:
+                self.agg_custom_stop = results["custom_stop"]
             
             # prepare data for portfolio
             self.idx = self.agg_trades.price_fluctuation_dollar.index

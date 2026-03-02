@@ -251,6 +251,21 @@ class AggTrades:
     in_trade_price_fluc: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 @dataclass
+class SingleAssetResult:
+    """
+    Holds the processed results for a single asset.
+    """
+    name: str = ""
+    buy_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    sell_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    short_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    cover_price: pd.DataFrame = field(default_factory=pd.DataFrame)
+    price_fluctuation_dollar: pd.DataFrame = field(default_factory=pd.DataFrame)
+    trades: pd.DataFrame = field(default_factory=pd.DataFrame)
+    custom_stop: pd.DataFrame = field(default_factory=pd.DataFrame)
+    stop_length: pd.DataFrame = field(default_factory=pd.DataFrame)
+
+@dataclass
 class Repeater:
     """
     Common class to avoid repetition
