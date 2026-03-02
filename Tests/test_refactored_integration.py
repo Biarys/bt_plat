@@ -32,25 +32,46 @@ class StrategySMALong(bt.Backtest):
             super().__init__(name)
             self.stop_length = pd.DataFrame()
 
-        def logic(self, current_asset, name):
+        def logic(self, current_asset, name=None):
             
             sma5 = SMA(current_asset, "Close", 5)
             sma25 = SMA(current_asset, "Close", 25)
 
-            self.cond.buy = sma5() > sma25()
-            self.cond.sell = sma5() < sma25()
+            buy = sma5() > sma25()
+            sell = sma5() < sma25()
+            return (buy, sell, pd.DataFrame(), pd.DataFrame())
 
 class StrategySMAShort(bt.Backtest):
         def __init__(self, name):
             super().__init__(name)
             self.stop_length = pd.DataFrame()
-        def logic(self, current_asset, name):
+        def logic(self, current_asset, name=None):
             
             sma5 = SMA(current_asset, "Close", 5)
             sma25 = SMA(current_asset, "Close", 25)
 
-            self.cond.short = sma5() < sma25()
-            self.cond.cover = sma5() > sma25()
+            short = sma5() < sma25()
+            cover = sma5() > sma25()
+            return (pd.DataFrame(), pd.DataFrame(), short, cover)
+
+class StrategySMABoth(bt.Backtest):
+        def __init__(self, name):
+            super().__init__(name)
+            self.stop_length = pd.DataFrame()
+        def logic(self, current_asset, name=None):
+            
+            sma5 = SMA(current_asset, "Close", 5)
+            sma25 = SMA(current_asset, "Close", 25)
+
+            sma30 = SMA(current_asset, "Close", 30)
+            sma50 = SMA(current_asset, "Close", 50)
+
+            buy = sma5() > sma25()
+            sell = sma5() < sma25()
+
+            short = sma30() < sma50()
+            cover = sma30() > sma50()
+            return (buy, sell, short, cover)
 
 def format_trade_list(trade_list):
     trade_list = trade_list.rename(columns={

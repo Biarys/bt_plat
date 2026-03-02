@@ -92,23 +92,37 @@ class PandasEngine(Engine):
         current_asset = data[1]
         logger.debug(f"Generating signals for {name}.")
         try:
-            # We mock 'self' that the user's logic_func expects.
-            # In a true rewrite, logic_func wouldn't need 'self' to mutate cond.
-            class MockBT:
-                def __init__(self):
-                    self.cond = Cond()
+            # 1. Run pure strategy logic to get condition DataFrames
+            # Logic should return a tuple or dict. We support returning a tuple of 4: (buy, sell, short, cover)
+            # Support signature `logic(self, data, name=None)` by checking if name can be passed
+            try:
+                conditions = logic_func(current_asset, name=name)
+            except TypeError:
+                conditions = logic_func(current_asset)
+
+            if not isinstance(conditions, tuple) or len(conditions) != 4:
+                raise ValueError("Strategy logic must return a tuple of 4 conditions: (buy, sell, short, cover)")
+                
+            local_cond = Cond()
+            local_cond.buy, local_cond.sell, local_cond.short, local_cond.cover = conditions
             
-            mock_bt = MockBT()
+            # Allow postprocessing to modify these conditions if needed
+            # We pass the conditions to postprocessing so it can return updated them without relying on self state.
+            try:
+                post_result = postprocessing_func(current_asset, conditions, name=name)
+            except TypeError:
+                try:
+                    post_result = postprocessing_func(current_asset, conditions)
+                except TypeError:
+                    post_result = postprocessing_func(current_asset)
+            if post_result is not None:
+                local_cond.buy, local_cond.sell, local_cond.short, local_cond.cover = post_result
             
-            # strategy logic
-            logic_func.__get__(mock_bt)(current_asset)
-            postprocessing_func.__get__(mock_bt)(current_asset)
-            
-            mock_bt.cond.buy.name, mock_bt.cond.sell.name, mock_bt.cond.short.name, mock_bt.cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
-            mock_bt.cond._combine() # combine all conds into all
+            local_cond.buy.name, local_cond.sell.name, local_cond.short.name, local_cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
+            local_cond._combine() # combine all conds into all
             ################################
 
-            rep = Repeater(current_asset, name, mock_bt.cond.all_)
+            rep = Repeater(current_asset, name, local_cond.all_)
 
             # find trade_signals and trans_prices for an asset
             trade_signals = TradeSignal()
@@ -167,16 +181,21 @@ class SparkEngine(Engine):
             keys_rdd = sc.parallelize(data.keys)
             
             # Define a mapper function that encapsulates reading and processing
-            # note: this assumes `data` (ReaderFactory) is serializable or workers can read the paths directly
+            # Extract functions before mapping so worker doesn't try to serialize the whole `self.bt` object
+            logic_func = self.bt.logic
+            postprocessing_func = self.bt.postprocessing
+            custom_size = self.bt.custom_stop_size
+            stop_len = self.bt.stop_length
+
             def map_logic(name):
                 # We do the read locally on the worker
                 _current_asset_tuple = data.read_data(name)
                 return PandasEngine._processing(
                     _current_asset_tuple,
-                    self.bt.logic,
-                    self.bt.postprocessing,
-                    self.bt.custom_stop_size,
-                    self.bt.stop_length
+                    logic_func,
+                    postprocessing_func,
+                    custom_size,
+                    stop_len
                 )
             
             # Execute on cluster
