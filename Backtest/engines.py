@@ -32,12 +32,6 @@ class PandasEngine(Engine):
         """
         try:
             logger.info("Running backtest with PandasEngine.")
-            for name in data.keys:
-                _current_asset_tuple = data.read_data(name)
-                if self.bt.preprocessing(_current_asset_tuple) == "break":
-                    break
-                self.bt.preprocessing(_current_asset_tuple)
-                
             results = []
             for name in data.keys:
                 logger.info(f"Processing {name} with PandasEngine.")
@@ -168,13 +162,6 @@ class SparkEngine(Engine):
             sc = spark.sparkContext
             
             # Since preprocessing might need to break, execute it on driver
-            logger.info("Running preprocessing on driver.")
-            for name in data.keys:
-                _current_asset_tuple = data.read_data(name)
-                if self.bt.preprocessing(_current_asset_tuple) == "break":
-                    break
-                self.bt.preprocessing(_current_asset_tuple)
-            
             logger.info("Distributing Backtest task over Spark cluster.")
             
             # Distribute keys to cluster.
@@ -238,35 +225,3 @@ class SparkEngine(Engine):
         except Exception as e:
             logger.exception(f"Error in SparkEngine run: {e}")
             raise
-
-# # TODO: replace with a function
-# if Settings.generate_ranks:
-#     rdd_p = sqlContext.read.parquet(Settings.save_temp_parquet + r"\value_*.parquet")
-#     result = (rdd_p
-#                 .select(
-#                     'DateTime',
-#                     'Symbol',
-#                     pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('Close')).alias('rank')
-#                 ))
-#     if Settings.order_ranks_desc:
-#         result_desc = (result
-#                         .select(
-#                             'DateTime',
-#                             'Symbol',
-#                             pySqlFunc.rank().over(Window().partitionBy('DateTime').orderBy('rank')).alias('rank_desc')
-#                         ))
-#         result_final = (result_desc
-#                         .groupby('DateTime')
-#                         .pivot('Symbol')
-#                         .agg(pySqlFunc.first('rank_desc'))
-#                         .orderBy(pySqlFunc.col('DateTime').asc())
-#                         )
-#     else:
-#         result_final = (result
-#                         .groupby('DateTime')
-#                         .pivot('Symbol')
-#                         .agg(pySqlFunc.first('rank_desc'))
-#                         .orderBy(pySqlFunc.col('DateTime').asc())
-#                         )
-    
-#     result_final.toPandas().to_csv(Settings.save_temp_parquet + "\\" + Settings.rank_file_name)
