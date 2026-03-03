@@ -6,14 +6,10 @@ import unittest
 
 sys.path.append(sys.path[0] + "/..")
 import Backtest.platform_core as bt
-import Backtest.settings as settings
+from Backtest.settings import Settings as settings
 from Backtest.indicators import SMA
 from Backtest.data_reader import ReaderFactory
 
-import warnings
-# warnings.simplefilter("ignore", category=pd.errors.Pandas4Warning)
-warnings.simplefilter("ignore")
-warnings.filterwarnings("ignore")
 
 def compdf(x,y):
     if not x.eq(y).all().all(): # compares each element, column, df
@@ -32,46 +28,25 @@ class StrategySMALong(bt.Backtest):
             super().__init__(name)
             self.stop_length = pd.DataFrame()
 
-        def logic(self, current_asset, name=None):
+        def logic(self, current_asset, cond):
             
             sma5 = SMA(current_asset, "Close", 5)
             sma25 = SMA(current_asset, "Close", 25)
 
-            buy = sma5() > sma25()
-            sell = sma5() < sma25()
-            return (buy, sell, pd.DataFrame(), pd.DataFrame())
+            cond.buy = sma5() > sma25()
+            cond.sell = sma5() < sma25()
 
 class StrategySMAShort(bt.Backtest):
         def __init__(self, name):
             super().__init__(name)
             self.stop_length = pd.DataFrame()
-        def logic(self, current_asset, name=None):
+        def logic(self, current_asset, cond):
             
             sma5 = SMA(current_asset, "Close", 5)
             sma25 = SMA(current_asset, "Close", 25)
 
-            short = sma5() < sma25()
-            cover = sma5() > sma25()
-            return (pd.DataFrame(), pd.DataFrame(), short, cover)
-
-class StrategySMABoth(bt.Backtest):
-        def __init__(self, name):
-            super().__init__(name)
-            self.stop_length = pd.DataFrame()
-        def logic(self, current_asset, name=None):
-            
-            sma5 = SMA(current_asset, "Close", 5)
-            sma25 = SMA(current_asset, "Close", 25)
-
-            sma30 = SMA(current_asset, "Close", 30)
-            sma50 = SMA(current_asset, "Close", 50)
-
-            buy = sma5() > sma25()
-            sell = sma5() < sma25()
-
-            short = sma30() < sma50()
-            cover = sma30() > sma50()
-            return (buy, sell, short, cover)
+            cond.short = sma5() < sma25()
+            cond.cover = sma5() > sma25()
 
 def format_trade_list(trade_list):
     trade_list = trade_list.rename(columns={
@@ -179,7 +154,5 @@ class TestRefactoredSMA(unittest.TestCase):
 
 
 if __name__=="__main__":
-    settings.backtest_engine = "pandas"
-    with warnings.catch_warnings(action='ignore'):
-        # warnings.simplefilter("ignore")
-        unittest.main()
+    settings.backtest_engine = "spark"
+    unittest.main()
