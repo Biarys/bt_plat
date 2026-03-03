@@ -80,14 +80,12 @@ class Backtest():
             logger.exception(e)
             raise
             
-    def logic(self, data):
+    def logic(self, data, cond):
         """
         Calculates trade signals. Should be overridden by subclasses.
-
-        Returns:
-        tuple: (buy_condition, sell_condition, short_condition, cover_condition) DataFrames
+        Modifies the passed 'cond' object.
         """
-        return (pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
+        pass
 
     def _run_portfolio(self, data):
         """
@@ -145,18 +143,16 @@ if __name__ == "__main__":
     Settings.sell_delay = 0
 
     class Strategy(Backtest):
-        def logic(self, data):
+        def logic(self, data, cond):
             
             sma5 = SMA(data, [C.CLOSE], 5)
             sma25 = SMA(data, [C.CLOSE], 25)
 
-            buyCond = sma5() > sma25()
-            sellCond = sma5() < sma25()
+            cond.buy = sma5() > sma25()
+            cond.sell = sma5() < sma25()
             
-            shortCond = sma5() < sma25()
-            coverCond = sma5() > sma25()
-
-            return buyCond, sellCond, shortCond, coverCond
+            cond.short = sma5() < sma25()
+            cond.cover = sma5() > sma25()
     
     s = Strategy("name")
     data = ReaderFactory(Settings.read_from, Settings.read_from_csv_path)

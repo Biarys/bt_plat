@@ -86,31 +86,12 @@ class PandasEngine(Engine):
         current_asset = data[1]
         logger.debug(f"Generating signals for {name}.")
         try:
-            # 1. Run pure strategy logic to get condition DataFrames
-            # Logic should return a tuple or dict. We support returning a tuple of 4: (buy, sell, short, cover)
-            # Support signature `logic(self, data, name=None)` by checking if name can be passed
-            try:
-                conditions = logic_func(current_asset, name=name)
-            except TypeError:
-                conditions = logic_func(current_asset)
-
-            if not isinstance(conditions, tuple) or len(conditions) != 4:
-                raise ValueError("Strategy logic must return a tuple of 4 conditions: (buy, sell, short, cover)")
-                
+            # 1. Run pure strategy logic
             local_cond = Cond()
-            local_cond.buy, local_cond.sell, local_cond.short, local_cond.cover = conditions
-            
+            logic_func(current_asset, local_cond)
+
             # Allow postprocessing to modify these conditions if needed
-            # We pass the conditions to postprocessing so it can return updated them without relying on self state.
-            try:
-                post_result = postprocessing_func(current_asset, conditions, name=name)
-            except TypeError:
-                try:
-                    post_result = postprocessing_func(current_asset, conditions)
-                except TypeError:
-                    post_result = postprocessing_func(current_asset)
-            if post_result is not None:
-                local_cond.buy, local_cond.sell, local_cond.short, local_cond.cover = post_result
+            postprocessing_func(current_asset, local_cond)
             
             local_cond.buy.name, local_cond.sell.name, local_cond.short.name, local_cond.cover.name = [C.BUY, C.SELL, C.SHORT, C.COVER]
             local_cond._combine() # combine all conds into all
