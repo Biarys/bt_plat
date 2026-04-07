@@ -3,11 +3,9 @@ import logging
 import pandas as pd
 
 from Backtest.settings import Settings
-from Backtest.processing import Repeater, TradeSignal, Trades, TransPrice, Cond, SingleAssetResult
+from Backtest.processing import Repeater, Cond, SingleAssetResult, generate_trade_signals, match_trans_prices, generate_trades
 from Backtest.utils import _aggregate, _find_df, _prep_and_agg_custom_stops
 from Backtest import constants as C
-
-# import pyspark.pandas as ps
 
 
 logger = logging.getLogger(__name__)
@@ -100,21 +98,18 @@ class PandasEngine(Engine):
             rep = Repeater(current_asset, name, local_cond.all_)
 
             # find trade_signals and trans_prices for an asset
-            trade_signals = TradeSignal()
-            trade_signals.run(rep)
-            trans_prices = TransPrice()
-            trans_prices.run(rep, trade_signals)
-            trades_current_asset = Trades()
-            trades_current_asset.run(rep, trade_signals, trans_prices)
+            all_merged = generate_trade_signals(rep)
+            trans_prices_dict = match_trans_prices(rep, all_merged)
+            trades_dict = generate_trades(rep, all_merged, trans_prices_dict)
 
             res = SingleAssetResult(
                 name=name,
-                buy_price=trans_prices.buy_price,
-                sell_price=trans_prices.sell_price,
-                short_price=trans_prices.short_price,
-                cover_price=trans_prices.cover_price,
-                price_fluctuation_dollar=trades_current_asset.price_fluctuation_dollar,
-                trades=trades_current_asset.trades,
+                buy_price=trans_prices_dict["buy_price"],
+                sell_price=trans_prices_dict["sell_price"],
+                short_price=trans_prices_dict["short_price"],
+                cover_price=trans_prices_dict["cover_price"],
+                price_fluctuation_dollar=trades_dict["price_fluctuation_dollar"],
+                trades=trades_dict["trades"],
                 stop_length=stop_length
             )
 
@@ -137,7 +132,6 @@ class SparkEngine(Engine):
         try:
             logger.info("Initializing SparkSession.")
             spark = SparkSession.builder \
-                .master("local[*]") \
                 .appName(f"BacktestEngine_{self.bt.name}") \
                 .getOrCreate()
             sc = spark.sparkContext
